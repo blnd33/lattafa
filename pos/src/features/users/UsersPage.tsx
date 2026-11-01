@@ -4,20 +4,19 @@ import { useQuery } from '@tanstack/react-query'
 import { Lock, Monitor, Pencil, Plus, ShieldCheck } from 'lucide-react'
 import { Avatar, Badge, EmptyState, PageHeader, Spinner } from '@/components/ui/Controls'
 import { Button } from '@/components/ui/Button'
-import { Field, Input, SearchInput, Select } from '@/components/ui/Field'
+import { Field, Input, SearchInput } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/components/ui/cn'
 import { useT } from '@/i18n'
 import type { Role } from '@/data/types'
-import { fmtDate, fmtDateTime } from '@/lib/date'
+import { fmtDate } from '@/lib/date'
 import { hasPerm } from '@/lib/permissions'
-import { listAudit } from '@/services/audit'
 import { listDevices, setDeviceRevoked, updateDevice } from '@/services/devices'
 import type { PublicUser } from '@/services/users'
 import { useAction, useRoles, useUsers } from '@/hooks/queries'
 import { useActor, useCan } from '@/hooks/useAuth'
+import { ActivityLog } from './ActivityLog'
 import { RoleEditor } from './RoleEditor'
-import { AUDIT_GROUPS, auditDetails } from './auditText'
 import { UserEditor } from './UserEditor'
 
 /** Users & roles hub: accounts, roles/permissions, activity log, devices. */
@@ -42,7 +41,7 @@ export function UsersPage() {
       <Routes>
         <Route index element={<UsersTab />} />
         <Route path="roles" element={<RolesTab />} />
-        <Route path="audit" element={can('audit.view') ? <AuditTab /> : <Navigate to="/users" replace />} />
+        <Route path="audit" element={can('audit.view') ? <ActivityLog /> : <Navigate to="/users" replace />} />
         <Route path="devices" element={can('devices.manage') ? <DevicesTab /> : <Navigate to="/users" replace />} />
       </Routes>
     </div>
@@ -130,31 +129,6 @@ function RolesTab() {
         ))}
       </ul>
       <RoleEditor value={editing} roles={roles} onClose={() => setEditing(null)} />
-    </>
-  )
-}
-
-/* ───────── activity log ───────── */
-function AuditTab() {
-  const t = useT()
-  const [prefix, setPrefix] = useState('')
-  const { data, isLoading } = useQuery({ queryKey: ['audit', prefix], queryFn: () => listAudit({ action: prefix || undefined, limit: 300 }) })
-  const label = (action: string) => { const k = `act.${action}`; const s = t(k); return s === k ? action : s }
-  return (
-    <>
-      <div className="mb-4 max-w-xs"><Select value={prefix} onChange={(e) => setPrefix(e.target.value)} aria-label={t('users.audit_filter')}><option value="">{t('users.audit_all')}</option>{AUDIT_GROUPS.map((g) => <option key={g} value={g}>{t(`actg.${g}`)}</option>)}</Select></div>
-      {isLoading ? <Spinner /> : !data?.length ? <EmptyState title={t('users.audit_none')} /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-          {data.map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
-              <span className="num w-36 shrink-0 text-xs text-fg-2">{fmtDateTime(e.createdAt)}</span>
-              <span className="w-36 shrink-0 truncate font-medium">{e.userName}</span>
-              <span className="w-52 shrink-0 font-medium" title={e.action}>{label(e.action)}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-fg-2" title={auditDetails(e.meta)}>{auditDetails(e.meta)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </>
   )
 }

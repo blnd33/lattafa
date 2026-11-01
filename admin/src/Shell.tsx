@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BarChart3, BookOpen, Boxes, ClipboardList, FileSpreadsheet, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
+  BarChart3, BookOpen, Boxes, ClipboardList, FileSpreadsheet, History, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
   ShieldAlert, ShieldCheck, Sun, Truck, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Brand'
@@ -47,6 +47,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/customers', icon: Users, label: 'nav.customers', perms: ['customers.view'], section: 'people' },
   { to: '/delegates', icon: Truck, label: 'nav.delegates', perms: ['delegates.manage'], section: 'people' },
   { to: '/users', icon: ShieldCheck, label: 'nav.users', perms: ['users.view'], section: 'people' },
+  { to: '/activity', icon: History, label: 'ap.nav_activity', perms: ['audit.view'], section: 'system' },
   { to: '/settings', icon: Settings, label: 'nav.settings', perms: ['settings.view'], section: 'system' },
 ]
 const SECTIONS: Section[] = ['overview', 'catalogue', 'money', 'people', 'system']
@@ -54,7 +55,7 @@ const SECTIONS: Section[] = ['overview', 'catalogue', 'money', 'people', 'system
 /** Where someone lands: the dashboard, or the first screen they may open (a stock keeper has no dashboard). */
 export function adminHome(has: (perm: string) => boolean): string | null {
   // everyday screens first (a stock keeper starts on Products, not on Reports), then the sidebar's order
-  const first = ['/', '/products', '/inventory', '/purchasing', '/sales']
+  const first = ['/', '/products', '/inventory', '/purchasing', '/sales', '/activity']
   const open = ADMIN_NAV.filter((n) => n.perms.some(has))
   const preferred = first.map((to) => open.find((n) => n.to === to)).find(Boolean)
   return (preferred ?? open[0])?.to ?? null

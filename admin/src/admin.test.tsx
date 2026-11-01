@@ -29,15 +29,25 @@ const owner: Actor = {
   id: 'u-owner', name: 'Rand Owner', username: 'owner', roleId: 'role-sa', roleKey: 'super_admin', roleName: 'Super Admin', color: '#D4A548',
   permissions: ['*'], limits: { maxDiscountPct: 100, maxRefundIQD: 10_000_000 }, isSuperAdmin: true,
 }
+const watcher: Actor = {
+  id: 'u-watch', name: 'Quiet Watcher', username: 'watch', roleId: 'role-watch', roleKey: 'watcher', roleName: 'Activity only', color: '#8A9',
+  permissions: ['audit.view'], limits: { maxDiscountPct: 0, maxRefundIQD: 0 }, isSuperAdmin: false,
+}
+const audit = [
+  { id: 'a1', userId: owner.id, userName: 'Rand Owner', action: 'prices.bulk', entity: 'product', entityId: '*', meta: { from: 35000, to: 41000, products: 12 }, createdAt: now - 60_000 },
+  { id: 'a2', userId: 'u-ali', userName: 'Ali', action: 'device.register', entity: 'device', entityId: 'd1', meta: { name: 'Front desk', code: 'ST2' }, createdAt: now - 120_000 },
+]
 const role: Role = { id: 'role-sa', key: 'super_admin', name: 'Super Admin', description: '', permissions: ['*'], apps: ['pos', 'admin', 'delegate'], isSystem: true, createdAt: now, updatedAt: now }
+const watcherRole: Role = { id: 'role-watch', key: 'watcher', name: 'Activity only', description: '', permissions: ['audit.view'], apps: ['admin'], isSystem: false, createdAt: now, updatedAt: now }
 
 function pull(): PullPayload {
   const { key: _k, device: _d, sync: _s, ...settings } = DEFAULT_SETTINGS
   void _k; void _d; void _s
   return {
     serverTime: now, since: 0, settings: { ...settings, setupDone: true },
-    roles: [role], users: [{ id: owner.id, name: owner.name, username: 'owner', roleId: role.id, active: true, color: owner.color, hasPassword: true, grants: [], denies: [],
-      limits: owner.limits, failedAttempts: 0, lockedUntil: null, lastLoginAt: null, createdAt: now, updatedAt: now, createdBy: null }],
+    roles: [role, watcherRole],
+    users: [owner, watcher].map((u) => ({ id: u.id, name: u.name, username: u.username, roleId: u.roleId, active: true, color: u.color, hasPassword: true, grants: [], denies: [],
+      limits: u.limits, failedAttempts: 0, lockedUntil: null, lastLoginAt: null, createdAt: now, updatedAt: now, createdBy: null })),
     products: [{
       id: 'p-kh', name: { en: 'Khamrah', ar: 'خمرة', ku: 'خەمرە' }, description: { en: '', ar: '', ku: '' }, brand: 'Lattafa', category: 'perfume', gender: 'unisex', concentration: 'EDP',
       scentFamilies: [], notes: { top: [], heart: [], base: [] }, season: 'all', longevity: 3, sillage: 3, image: null, art: { c1: '#000', c2: '#111', shape: 'rect' },
@@ -94,11 +104,16 @@ beforeEach(async () => {
     if (path === '/health') return json(200, { ok: true, app: 'lattafa' })
     if (path === '/setup/status') return json(200, { setupDone: true })
     if (path === '/auth/login') {
+      const who = body.username === 'watch' ? watcher : owner
       return body.password === 'right password'
-        ? json(200, { token: 'tok-owner', user: owner, device: null })
+        ? json(200, { token: 'tok-'+who.id, user: who, device: null })
         : json(401, { error: { code: 'invalid_credentials', params: { left: 4 } } })
     }
-    if (path === '/auth/me') return json(200, { user: owner })
+    // whoever this token belongs to (the panel checks the session is still the same person)
+    const bearer = (init.headers as Record<string, string> | undefined)?.Authorization ?? ''
+    const signedIn = bearer.includes(watcher.id) ? watcher : owner
+    if (path === '/auth/me') return json(200, { user: signedIn })
+    if (path.startsWith('/audit')) return json(200, { entries: audit })
     if (path === '/auth/logout') return json(200, { ok: true })
     if (path.startsWith('/sync/pull')) return json(200, pull())
     if (path === '/sync/push') return json(200, { results: [] })
@@ -177,5 +192,28 @@ describe('Admin panel', () => {
     expect(await screen.findByLabelText('Username', {}, wait)).toBeInTheDocument()
     expect(calls.some((c) => c.path === '/auth/logout')).toBe(true)
     expect(useSession.getState().actor).toBeNull()
+  }, 30_000)
+
+  it('an account made only to watch lands on the activity log and reaches nothing else', async () => {
+    render(<AdminApp />)
+    await user.type(await screen.findByLabelText('Username', {}, wait), 'watch')
+    await user.type(screen.getByLabelText('Password'), 'right password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    // it lands on Activity: what happened, who did it, when
+    expect(await screen.findByRole('heading', { name: 'Activity' }, wait)).toBeInTheDocument()
+    expect(await screen.findByText('New till/phone connected', {}, wait)).toBeInTheDocument()
+    expect(screen.getByText('Prices changed in bulk')).toBeInTheDocument()
+    expect(screen.getByText('Rand Owner')).toBeInTheDocument()
+
+    // …but never the figures behind it
+    expect(screen.queryByText(/41,000/)).toBeNull()
+    expect(screen.queryByText(/35,000/)).toBeNull()
+
+    // and no other screen is on offer
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent?.trim())).toEqual(['Activity'])
+    window.location.hash = '#/reports'
+    expect(await screen.findByRole('heading', { name: 'No access' }, wait)).toBeInTheDocument()
   }, 30_000)
 })

@@ -155,6 +155,10 @@ tests/                       Feature (HTTP) + Unit (pricing, permissions)
   and give any individual extra permissions or take some away.
 * Some things are **Super-Admin-only whatever a role says**: `roles.manage`, `users.delete`, `devices.manage`,
   `backup.manage`, `settings.edit`. A Manager can create cashiers but can't mint a Super Admin or hand out grants.
+* **A watch-only account:** a custom role holding just `audit.view` (app: admin) sees one screen — **Activity**, what
+  happened and who did it — and nothing else. The log's details column holds the figures that changed, so it is shown
+  only to someone who may see the shop's money (`reports.financial` or `prices.edit`); everything else the account
+  might ask the server for comes back `403`. Useful for watching the shop without seeing prices, sales or customers.
 * Guard rails: you can't delete or disable yourself or the last Super Admin; built-in roles can't be edited/deleted;
   a role in use can't be deleted; a user with sales history is deactivated, never deleted.
 * **Supervisor approval:** a cashier needing a discount above their limit / a large refund / a void asks a supervisor to
@@ -218,7 +222,7 @@ so an edit made in the same second as the previous pull can't be missed.
 
 All planned steps are built: sign-in, the dashboard, "Sales to check" (flagged offline
 sales, explained, marked as checked) and the management screens — products, product sheet, stock, customers,
-delegates, sales, reports, users & roles (activity log, devices), settings, my account. These are the POS's own
+delegates, sales, reports, users & roles (devices), activity, settings, my account. These are the POS's own
 screens running against the server, with the till-only parts left out (selling, returns, the till's local backup).
 Also built: **Purchasing** (suppliers in USD or IQD, purchase orders, receiving into stock — which sets each size's
 cost price — supplier statements and payments) and **Expenses** (by month and category, dollars or dinars).
