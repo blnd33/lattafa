@@ -75,9 +75,9 @@ class ProductController extends Controller
 
     public function import(Request $r): JsonResponse
     {
-        $d = $r->validate(['rows' => ['required', 'array', 'min:1', 'max:2000'], 'rows.*' => ['array']]);
+        $d = $r->validate(['rows' => ['required', 'array', 'min:1', 'max:2000'], 'rows.*' => ['array'], 'addStock' => ['sometimes', 'boolean']]);
 
-        return response()->json($this->catalog->import($r->user(), $d['rows']));
+        return response()->json($this->catalog->import($r->user(), $d['rows'], (bool) ($d['addStock'] ?? false)));
     }
 
     /** A free in-store EAN-13 for the product editor's "generate" button (tills can't pick one offline without clashing). */

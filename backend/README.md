@@ -97,8 +97,15 @@ what each role — and each individual — may do.
 row is added (same perfume name again = another size of it); rows can be pasted straight from Excel, with or without
 their header row. SKU and barcode are generated when left empty. **Excel files:** the sheet downloads a ready template
 (.xlsx with dropdown lists and a "How to fill" page) or all current products, and uploads .xlsx / .csv files back into
-the grid to be checked before "Add all rows" (rows with an existing SKU update that size). The Excel reading/writing is
-built in (`pos/src/lib/xlsx.ts`, no library) and works offline.
+the grid to be checked before "Add all rows" (rows with an existing SKU update that size and add their quantity to its
+stock). The Excel reading/writing is built in (`pos/src/lib/xlsx.ts`, no library) and works offline.
+
+**Supplier invoices:** the supplier's .xlsx (الباركود · القيمة · الحسم · السعر · الكمية · المادة, plus the shop's own
+"cost price in dinnar" and selling-price columns and the rate next to "Rate" in the title row) is uploaded as it is.
+Free pieces (الحسم = 100%) are left out, so stock counts what was bought; the name gives the size, brand (لطافة →
+Lattafa, لطافة برايد → Lattafa Pride, نيش → Niche Emarati), category and gender. Rows with no selling price, or a
+perfume/mist with no size in its name, are marked red to fill in. An item already on file (same barcode, or same Arabic
+name + brand + size) updates its cost and price and gets its pieces added.
 
 **Delegates:** in the POS, *Users → New account* with the role **Delegate** and a PIN. On the delegate's phone open
 `https://<your-domain>/delegate/`; the Super Admin connects the phone once with their username and password (it gets a

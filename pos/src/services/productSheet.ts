@@ -115,7 +115,7 @@ const HEADER_ALIASES: Record<SheetCol, string[]> = {
   cost_iqd: ['cost_iqd', 'cost', 'buy price', 'purchase price', 'التكلفة', 'سعر الشراء', 'تێچوو', 'نرخی کڕین'],
   retail_iqd: ['retail_iqd', 'retail', 'price', 'retail price', 'sell price', 'السعر', 'سعر البيع', 'سعر المفرد', 'نرخ', 'نرخی فرۆشتن', 'نرخی تاک'],
   wholesale_iqd: ['wholesale_iqd', 'wholesale', 'wholesale price', 'الجملة', 'سعر الجملة', 'نرخی کۆ', 'کۆ'],
-  stock: ['stock', 'qty', 'quantity', 'opening stock', 'الكمية', 'المخزون', 'بڕ', 'کۆگا'],
+  stock: ['stock', 'qty', 'quantity', 'opening stock', 'الكمية', 'المخزون', 'الكمية الافتتاحية', 'بڕ', 'کۆگا', 'بڕی سەرەتا'],
   min_stock: ['min_stock', 'min', 'min stock', 'minimum', 'low stock', 'الحد الأدنى', 'کەمترین'],
   barcode: ['barcode', 'ean', 'upc', 'الباركود', 'باركود', 'بارکۆد'],
   sku: ['sku', 'code', 'item code', 'الرمز', 'كود', 'کۆد'],
@@ -173,13 +173,161 @@ export function tableToPatches(table: string[][]): Partial<SheetRow>[] | null {
   return null
 }
 
-/* ───────── Excel files ───────── */
+/* ───────── a supplier's invoice ───────── */
 
 /**
- * Rows from an uploaded file: an Excel workbook (.xlsx — the first sheet with column titles) or a CSV file.
- * Errors: `file_xls` (the old binary format), `file_no_header`, `file_bad`.
+ * The supplier's invoice as it comes (Arabic columns: الباركود · القيمة · الحسم · السعر · الكمية · المادة · ت), with the
+ * shop's own columns added: the cost in dinars (السعر × the rate in the title row) and the selling price.
  */
-export async function readSheetFile(file: File): Promise<{ patches: Partial<SheetRow>[]; sheet: string }> {
+const INVOICE_HEADERS = {
+  barcode: ['الباركود', 'باركود', 'barcode', 'بارکۆد'],
+  name: ['المادة', 'اسم المادة', 'الصنف', 'item', 'description'],
+  qty: ['الكمية', 'العدد', 'qty', 'quantity'],
+  usd: ['السعر', 'سعر الوحدة', 'price', 'unit price'],
+  discount: ['الحسم', 'الخصم', 'خصم', 'discount'],
+  // these three may have more words after them: "cost price in dinnar", "Rate (D × )"
+  cost: ['cost', 'الكلفة', 'سعر الكلفة', 'التكلفة', 'تێچوو'],
+  sell: ['selling price', 'sell price', 'sale price', 'retail', 'سعر البيع', 'البيع', 'سعر المفرد', 'نرخی فرۆشتن'],
+  rate: ['rate', 'سعر الصرف', 'الصرف'],
+}
+type InvoiceCol = keyof typeof INVOICE_HEADERS
+const PREFIX_COLS: InvoiceCol[] = ['cost', 'sell', 'rate']
+
+function invoiceColumns(header: string[]): Partial<Record<InvoiceCol, number>> | null {
+  const cols: Partial<Record<InvoiceCol, number>> = {}
+  header.forEach((cell, i) => {
+    const h = norm(cell)
+    if (!h) return
+    const kind = (Object.keys(INVOICE_HEADERS) as InvoiceCol[]).find((k) => cols[k] === undefined &&
+      INVOICE_HEADERS[k].some((w) => h === norm(w) || (PREFIX_COLS.includes(k) && h.startsWith(`${norm(w)} `))))
+    if (kind) cols[kind] = i
+  })
+  if (cols.barcode === undefined || cols.name === undefined || cols.qty === undefined || (cols.usd === undefined && cols.cost === undefined)) return null
+  // the selling price may have no title yet: the column right after the cost
+  if (cols.sell === undefined && cols.cost !== undefined && !(header[cols.cost + 1] ?? '').trim()) cols.sell = cols.cost + 1
+  return cols
+}
+
+const SIZE_IN_NAME = /(\d+(?:[.,]\d+)?)\s*(?:مللي|ملل|ملي|مل|ml)(?![\p{L}])/iu
+/** "عطر خمرة 100مل / لطافة 4د" → Khamrah's row: name خمرة, 100 ml, Lattafa. The size and brand stay empty when not in the name. */
+export function readInvoiceName(raw: string): Pick<SheetRow, 'name_ar' | 'brand' | 'category' | 'gender' | 'concentration' | 'size' | 'unit'> {
+  let text = raw.replace(/\s+/g, ' ').trim()
+  const size = SIZE_IN_NAME.exec(text)
+  if (size) text = text.replace(size[0], ' ')
+  const [left, ...after] = text.split('/')
+  const rest = after.join(' ')
+  const brand = /لطاف[ةه]\s*برايد/.test(rest) ? 'Lattafa Pride' : /نيش/.test(rest) ? 'Niche Emarati' : 'Lattafa'
+  // after the "/" come the brand and the supplier's codes ("4د", "@"); anything else there is part of the name
+  const extra = rest.replace(/لطاف[ةه]\s*برايد|لطاف[ةه]|نيش/g, ' ').replace(/(^|\s)\d+\s*د(?=\s|$)/g, ' ').replace(/[@*]/g, ' ')
+  let name = `${left} ${extra}`.replace(/\s+/g, ' ').trim()
+  // the kind of product is the first word(s); "عطر" (perfume) is left out of the name, the others stay so a body mist
+  // or an air freshener never becomes a size of the perfume of the same name
+  let category = 'perfume', concentration = 'EDP'
+  if (/^(سيت|طقم)(\s|$)/.test(name)) [category, concentration] = ['set', 'Set']
+  else if (/^معطر\s?(جو|فراش)(\s|$)/.test(name)) [category, concentration] = ['home', 'Mist']
+  else if (/^معطر(\s|$)/.test(name)) [category, concentration] = ['mist', 'Mist']
+  else if (/^دهن(\s|$)/.test(name)) [category, concentration] = ['oil', 'Oil']
+  else name = name.replace(/^عطر\s+/, '')
+  const gender = /(^|\s)(لل)?رجال(ي|ى)?(\s|$)/.test(raw) ? 'men' : /(^|\s)(لل)?(نساء|نسائي|نسائى)(\s|$)/.test(raw) ? 'women' : 'unisex'
+  return { name_ar: name, brand, category, gender, concentration, size: size ? trimNum(readNumber(size[1], true) ?? 0) : '', unit: 'ml' }
+}
+
+/**
+ * A supplier's invoice → row patches, or null when the table isn't one. The free pieces (100% discount — the bottle the
+ * supplier adds to show) are left out, so the stock counts what was bought; the same item twice becomes one row.
+ */
+export function invoiceToPatches(table: string[][]): { patches: Partial<SheetRow>[]; free: number } | null {
+  for (let h = 0; h < Math.min(table.length, 15); h++) {
+    const cols = table[h] && invoiceColumns(table[h])
+    if (!cols) continue
+    const header = table[h]
+    // the exchange rate is the number next to its title ("Rate (D × )" | 1700)
+    const rate = cols.rate !== undefined ? header.slice(cols.rate + 1).map((c) => readNumber(c)).find((n): n is number => typeof n === 'number' && n > 0) : undefined
+    const cell = (r: string[], c?: number) => (c === undefined ? '' : (r[c] ?? '').trim())
+    const byKey = new Map<string, Partial<SheetRow>>()
+    let free = 0
+    for (const r of table.slice(h + 1)) {
+      if (!r) continue
+      const raw = cell(r, cols.name)
+      // the end of the list ("***** انتهى *****") and the totals under it are not items
+      if (!/\p{L}/u.test(raw) || /انتهى/.test(raw)) continue
+      const discount = readNumber(cell(r, cols.discount).replace('%', ''))
+      if (discount === 100) { free++; continue }
+      const qty = readNumber(cell(r, cols.qty))
+      const usd = readNumber(cell(r, cols.usd))
+      const cost = readNumber(cell(r, cols.cost)) ?? (typeof usd === 'number' && rate ? usd * rate : null)
+      const sell = readNumber(cell(r, cols.sell))
+      // a note in the barcode cell ("الباركود مكرر في …") is not a barcode: the item gets one of ours
+      const barcode = /^[0-9A-Za-z-]{4,32}$/.test(cell(r, cols.barcode)) ? cell(r, cols.barcode) : ''
+      const p: Partial<SheetRow> = {
+        ...readInvoiceName(raw), barcode, stock: typeof qty === 'number' && qty > 0 ? String(Math.round(qty)) : '',
+        cost_iqd: typeof cost === 'number' && cost > 0 ? String(Math.round(cost)) : '', retail_iqd: typeof sell === 'number' && sell > 0 ? String(Math.round(sell)) : '',
+      }
+      const key = barcode || `${p.name_ar}|${p.brand}|${p.size}`
+      const same = byKey.get(key)
+      if (same) {
+        // the same item on two lines: the pieces add up, the later prices win
+        const pieces = Number(same.stock || 0) + Number(p.stock || 0)
+        byKey.set(key, { ...same, cost_iqd: p.cost_iqd || same.cost_iqd, retail_iqd: p.retail_iqd || same.retail_iqd, stock: pieces ? String(pieces) : '' })
+      } else byKey.set(key, p)
+    }
+    return { patches: [...byKey.values()], free }
+  }
+  return null
+}
+
+/** Cells a row from a supplier's invoice still needs: the selling price, and the size when the name doesn't say it (a gift set has none). */
+export const invoiceNeeds = (p: Partial<SheetRow>): SheetCol[] =>
+  [...(!p.retail_iqd?.trim() ? ['retail_iqd' as const] : []), ...(!p.size?.trim() && p.category !== 'set' ? ['size' as const] : [])]
+
+/**
+ * Items already in the catalogue are filled in from it: the row then updates that size — the new cost, the selling price
+ * if the invoice has one, and its pieces are added to the stock. Found by barcode, else by the Arabic name, brand and
+ * size (an item the supplier sends without a barcode; with no size in the name, a perfume that has only one size).
+ */
+async function matchCatalogue(patches: Partial<SheetRow>[]): Promise<{ patches: Partial<SheetRow>[]; known: number }> {
+  const [products, variants] = await Promise.all([db.products.toArray(), db.variants.toArray()])
+  const pmap = new Map(products.map((p) => [p.id, p]))
+  const byBarcode = new Map(variants.filter((v) => v.barcode).map((v) => [v.barcode, v]))
+  const nameKey = (ar: string, brand: string) => `${ar.trim().toLowerCase()}|${brand.trim().toLowerCase()}`
+  const byName = new Map(products.filter((p) => p.name.ar.trim()).map((p) => [nameKey(p.name.ar, p.brand), p]))
+  const byNameAndSize = (p: Partial<SheetRow>) => {
+    const prod = byName.get(nameKey(p.name_ar ?? '', p.brand ?? ''))
+    if (!prod) return undefined
+    const sizes = variants.filter((v) => v.productId === prod.id && v.active)
+    const size = readNumber(p.size ?? '', true)
+    return typeof size === 'number' ? sizes.find((v) => v.unit === p.unit && Math.abs(v.size - size) < 0.005) : sizes.length === 1 ? sizes[0] : undefined
+  }
+  let known = 0
+  const out = patches.map((p) => {
+    const v = (p.barcode && byBarcode.get(p.barcode)) || byNameAndSize(p)
+    const prod = v && pmap.get(v.productId)
+    if (!v || !prod) return p
+    known++
+    return {
+      ...p, sku: v.sku, name_en: prod.name.en, name_ar: prod.name.ar || p.name_ar, name_ku: prod.name.ku, brand: prod.brand, category: prod.category,
+      gender: prod.gender, concentration: prod.concentration, size: v.size > 0 ? trimNum(v.size) : '', unit: v.unit,
+      cost_iqd: p.cost_iqd || (v.costIQD ? String(v.costIQD) : ''), retail_iqd: p.retail_iqd || String(v.retailIQD),
+      wholesale_iqd: String(v.wholesaleIQD), min_stock: String(v.minStock),
+    }
+  })
+  return { patches: out, known }
+}
+
+/* ───────── Excel files ───────── */
+
+export interface SheetFile {
+  patches: Partial<SheetRow>[]
+  sheet: string
+  /** Set when the file was a supplier's invoice: what each row still needs, the free-piece lines left out, the items already on file. */
+  invoice?: { need: SheetCol[][]; free: number; known: number }
+}
+
+/**
+ * Rows from an uploaded file: an Excel workbook (.xlsx — the first sheet with column titles, or a supplier's invoice)
+ * or a CSV file. Errors: `file_xls` (the old binary format), `file_no_header`, `file_bad`.
+ */
+export async function readSheetFile(file: File): Promise<SheetFile> {
   const name = file.name.toLowerCase()
   if (name.endsWith('.xls')) throw new AppError('file_xls')
   let tables: { name: string; rows: string[][] }[]
@@ -190,6 +338,11 @@ export async function readSheetFile(file: File): Promise<{ patches: Partial<Shee
     throw new AppError('file_bad')
   }
   for (const t of tables) {
+    const invoice = invoiceToPatches(t.rows)
+    if (invoice) {
+      const { patches, known } = await matchCatalogue(invoice.patches)
+      return { patches, sheet: t.name, invoice: { need: patches.map((p) => (p.sku ? [] : invoiceNeeds(p))), free: invoice.free, known } }
+    }
     const patches = tableToPatches(t.rows)
     if (patches) return { patches, sheet: t.name }
   }
@@ -257,9 +410,10 @@ export async function catalogueSheetRows(): Promise<SheetRow[]> {
 
 export type CellErrors = Partial<Record<SheetCol, { key: string; vars?: Record<string, string | number> }>>
 
-/** What is wrong with a row, cell by cell (empty = fine). Pure — no database. */
-export function checkRow(r: SheetRow): CellErrors {
+/** What is wrong with a row, cell by cell (empty = fine). `need`: cells this row must have (a supplier's invoice). Pure — no database. */
+export function checkRow(r: SheetRow, need: readonly SheetCol[] = []): CellErrors {
   const e: CellErrors = {}
+  for (const c of need) if (!r[c].trim()) e[c] = { key: c === 'retail_iqd' ? 'sheet.err_retail' : 'sheet.err_needed' }
   if (!r.name_en.trim() && !r.name_ar.trim() && !r.name_ku.trim()) e.name_en = { key: 'sheet.err_name' }
   const retail = readNumber(r.retail_iqd)
   if (retail === null) e.retail_iqd = { key: 'sheet.err_retail' }
@@ -284,9 +438,10 @@ export interface SaveFailure { ok: false; errors: CellErrors; message?: string }
 /**
  * Saves rows (one Enter = one row; "Add all" = many). Each row is checked first; the good ones go to the import in
  * one go. A row without a SKU that matches a size already in the catalogue (same perfume, same size) updates it;
- * otherwise it gets a new SKU such as LAT-KHAMRAH-100ML.
+ * otherwise it gets a new SKU such as LAT-KHAMRAH-100ML. The quantity is the opening stock of a new size and is added
+ * to the stock of one already on file. `need`: per row, cells that must be filled (see `checkRow`).
  */
-export async function saveSheetRows(rows: SheetRow[]): Promise<(SaveResult | SaveFailure)[]> {
+export async function saveSheetRows(rows: SheetRow[], need: (readonly SheetCol[] | undefined)[] = []): Promise<(SaveResult | SaveFailure)[]> {
   assertCan('products.import')
   const [products, variants] = await Promise.all([db.products.toArray(), db.variants.toArray()])
   const productByKey = new Map(products.map((p) => [productKey(p.name.en, p.name.ar, p.name.ku, p.brand), p]))
@@ -297,7 +452,7 @@ export async function saveSheetRows(rows: SheetRow[]): Promise<(SaveResult | Sav
   const good: { i: number; row: CsvRow; existing: boolean }[] = []
 
   rows.forEach((r, i) => {
-    const errors = checkRow(r)
+    const errors = checkRow(r, need[i])
     const name = { en: r.name_en.trim(), ar: r.name_ar.trim(), ku: r.name_ku.trim() }
     const brand = r.brand.trim() || 'Lattafa'
     const size = readNumber(r.size, true) ?? 0
@@ -347,7 +502,7 @@ export async function saveSheetRows(rows: SheetRow[]): Promise<(SaveResult | Sav
 
   if (good.length) {
     try {
-      await importCatalog(good.map((g) => g.row))
+      await importCatalog(good.map((g) => g.row), { addStock: true })
       for (const g of good) out[g.i] = { ok: true, status: g.existing ? 'updated' : 'added', sku: g.row.sku }
     } catch (e) {
       // nothing was saved (the import is all-or-nothing): every row that was about to go keeps its place

@@ -259,20 +259,23 @@ class CatalogService
 
     /**
      * Upsert from CSV rows the POS already parsed. Existing SKU → prices/barcode/min-stock updated;
-     * new SKU → creates a variant (and a product when the product name is new).
+     * new SKU → creates a variant (and a product when the product name is new). With `$addStock` (the product sheet and
+     * supplier invoices) a known SKU also gets its `stock` added — a delivery; without it an exported file can come back
+     * in without touching the stock.
      *
      * @param array<int, array<string, mixed>> $rows keys: sku, barcode, name_en, name_ar, name_ku, brand, category, gender, concentration, size_label, size, unit (ml|oz), cost_iqd, retail_iqd, wholesale_iqd, min_stock, stock — or legacy `ml` instead of size + unit
      * @return array{created: int, updated: int, skipped: int}
      */
-    public function import(User $actor, array $rows): array
+    public function import(User $actor, array $rows, bool $addStock = false): array
     {
         $this->need($actor, 'products.import');
         if (! $rows) {
             throw new AppException('nothing_to_import');
         }
-        $created = $updated = $skipped = 0;
+        $created = $updated = $skipped = $received = 0;
+        $receipt = (string) Str::uuid7();
         $blank = ['sku' => '', 'barcode' => '', 'name_en' => '', 'name_ar' => '', 'name_ku' => '', 'brand' => '', 'category' => '', 'gender' => '', 'concentration' => '', 'size_label' => '', 'size' => '', 'unit' => '', 'ml' => '', 'wholesale_iqd' => '', 'min_stock' => null, 'stock' => 0];
-        DB::transaction(function () use ($actor, $rows, $blank, &$created, &$updated, &$skipped) {
+        DB::transaction(function () use ($actor, $rows, $blank, $addStock, $receipt, &$created, &$updated, &$skipped, &$received) {
             // two sizes on one barcode would make scanning ambiguous
             $barcodeFree = fn (string $code, ?string $exceptId = null) => $code === '' || ! Variant::where('barcode', $code)->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))->exists();
             // one product per name + brand; the name is whichever language was filled in (an Arabic-only or Kurdish-only
@@ -297,6 +300,10 @@ class CatalogService
                 }
                 if ($existing) {
                     $existing->update(['retail_iqd' => $retail, 'cost_iqd' => $cost, 'wholesale_iqd' => $wholesale, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : $existing->min_stock] + (! empty($r['barcode']) ? ['barcode' => $r['barcode']] : []));
+                    if ($addStock && (int) ($r['stock'] ?? 0) > 0) {
+                        $this->stock->applyMovement($existing->id, (int) $r['stock'], 'purchase', $actor, ['refType' => 'receipt', 'refId' => $receipt, 'note' => 'Excel import']);
+                        $received += (int) $r['stock'];
+                    }
                     $updated++;
                     continue;
                 }
@@ -333,7 +340,7 @@ class CatalogService
                 }
                 $created++;
             }
-            $this->audit->log($actor, 'products.import', 'product', '*', ['created' => $created, 'updated' => $updated]);
+            $this->audit->log($actor, 'products.import', 'product', '*', ['created' => $created, 'updated' => $updated] + ($received ? ['received' => $received] : []));
         });
 
         return ['created' => $created, 'updated' => $updated, 'skipped' => $skipped];

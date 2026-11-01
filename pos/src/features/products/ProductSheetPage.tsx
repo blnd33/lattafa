@@ -11,7 +11,7 @@ import { errorMessage, useT } from '@/i18n'
 import { uuid } from '@/lib/id'
 import { downloadBlob } from '@/lib/image'
 import {
-  CHOICE_COLUMNS, blankRow, catalogueSheetRows, isBlank, pasteToPatches, readSheetFile, saveSheetRows, sheetWorkbook, type CellErrors, type SheetCol, type SheetRow,
+  CHOICE_COLUMNS, blankRow, catalogueSheetRows, checkRow, isBlank, pasteToPatches, readSheetFile, saveSheetRows, sheetWorkbook, type CellErrors, type SheetCol, type SheetRow,
 } from '@/services/productSheet'
 import { useUI } from '@/store/ui'
 import { AppError } from '@/services/context'
@@ -26,6 +26,8 @@ interface Line {
   errors?: CellErrors
   /** a problem with the whole row (e.g. no connection) — an `err.*` code */
   message?: string
+  /** cells that came empty from a supplier's invoice and must be filled in (the selling price, the size) */
+  need?: SheetCol[]
 }
 const fresh = (from?: SheetRow): Line => ({ id: uuid(), v: blankRow(from) })
 /** There is always one empty row at the bottom to type into. */
@@ -100,7 +102,7 @@ export function ProductSheetPage() {
     if (!targets.length) { if (moveFrom !== undefined) focusCell(moveFrom + 1, 0); return }
     setBusy(new Set(targets.map((l) => l.id)))
     try {
-      const res = await saveSheetRows(targets.map((l) => l.v))
+      const res = await saveSheetRows(targets.map((l) => l.v), targets.map((l) => l.need))
       const byId = new Map(targets.map((l, k) => [l.id, res[k]]))
       setLines(useSheet.getState().lines.map((l) => {
         const r = byId.get(l.id)
@@ -182,20 +184,28 @@ export function ProductSheetPage() {
     toast.success(t('sheet.pasted', { n: patches.length }))
   }
 
-  /** Rows from a file go below the ones already there, to be checked before "Add all rows". */
-  const addPatches = (patches: Partial<SheetRow>[]) => {
+  /** Rows from a file go below the ones already there, to be checked before "Add all rows". A supplier's invoice says
+   * what each row still needs: those cells are marked straight away. */
+  const addPatches = (patches: Partial<SheetRow>[], need?: SheetCol[][]) => {
     const cur = useSheet.getState().lines.filter((l) => l.saved || !isBlank(l.v))
-    for (const p of patches) cur.push({ ...fresh(cur[cur.length - 1]?.v), v: { ...blankRow(cur[cur.length - 1]?.v), ...p } })
+    patches.forEach((p, i) => {
+      const v = { ...blankRow(cur[cur.length - 1]?.v), ...p }
+      const errors = need ? checkRow(v, need[i]) : {}
+      cur.push({ ...fresh(cur[cur.length - 1]?.v), v, ...(need?.[i]?.length ? { need: need[i] } : {}), ...(Object.keys(errors).length ? { errors } : {}) })
+    })
     setLines(cur)
   }
   const upload = async (file?: File) => {
     if (!file) return
     setFileBusy('upload')
     try {
-      const { patches } = await readSheetFile(file)
+      const { patches, invoice } = await readSheetFile(file)
       if (!patches.length) { toast.error(t('err.nothing_to_import')); return }
-      addPatches(patches)
-      toast.success(t('sheet.loaded', { n: patches.length, file: file.name }))
+      addPatches(patches, invoice?.need)
+      if (invoice) {
+        const missing = invoice.need.filter((n) => n.length).length
+        toast.success([t('sheet.loaded_invoice', { n: patches.length, file: file.name, free: invoice.free }), invoice.known ? t('sheet.invoice_known', { n: invoice.known }) : '', missing ? t('sheet.invoice_missing', { n: missing }) : ''].filter(Boolean).join(' '))
+      } else toast.success(t('sheet.loaded', { n: patches.length, file: file.name }))
     } catch (e) {
       toast.error(errorMessage(e, t))
     } finally {
@@ -236,7 +246,7 @@ export function ProductSheetPage() {
       </>} />
 
       <Card className="flex flex-wrap gap-2 !py-3 text-xs text-fg-2">
-        {['sheet.tip_enter', 'sheet.tip_move', 'sheet.tip_fill', 'sheet.tip_paste', 'sheet.tip_sizes'].map((k) => (
+        {['sheet.tip_enter', 'sheet.tip_move', 'sheet.tip_fill', 'sheet.tip_paste', 'sheet.tip_sizes', 'sheet.tip_invoice'].map((k) => (
           <span key={k} className="rounded-full bg-surface-2 px-3 py-1.5">{t(k)}</span>
         ))}
       </Card>
@@ -265,7 +275,7 @@ export function ProductSheetPage() {
                     <td className="sticky start-0 z-[1] border-b border-e border-line bg-surface-2 px-2 text-center text-xs text-fg-2 num">{r + 1}</td>
                     <td className="whitespace-nowrap border-b border-e border-line px-2 text-xs">
                       {isBusy ? <Loader2 className="size-4 animate-spin text-gold-text" />
-                        : l.saved ? <span className="inline-flex items-center gap-1 font-semibold text-success"><CheckCircle2 className="size-4" />{t(`sheet.${l.saved.status}`)}</span>
+                        : l.saved ? <span className="inline-flex items-center gap-1 font-semibold text-success"><CheckCircle2 className="size-4" />{t(`sheet.${l.saved.status}`)}{l.saved.status === 'updated' && Number(l.v.stock) > 0 && <span className="num">+{l.v.stock}</span>}</span>
                           : hasErr ? <span className="inline-flex items-center gap-1 font-semibold text-danger"><AlertTriangle className="size-4" />{t('sheet.fix')}</span>
                             : !blank ? <span className="inline-flex items-center gap-1 text-fg-2"><CornerDownLeft className="size-3.5" />{t('sheet.press_enter')}</span> : null}
                       {!l.saved && !isBusy && !blank && (

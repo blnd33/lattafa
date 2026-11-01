@@ -97,11 +97,16 @@ const num = (s: string, d = 0) => { if (String(s ?? '').trim() === '') return d;
 const GENDERS: Gender[] = ['men', 'women', 'unisex']
 const art = (i: number) => ['#8B4A2B', '#27365C', '#6A2F42', '#3E6B4F', '#B5442F', '#7A4FA0'][i % 6]
 
-export async function importCatalog(rows: CsvRow[]): Promise<{ created: number; updated: number }> {
+/**
+ * `addStock`: a row for a SKU already on file also adds its `stock` to that size (a delivery — the product sheet and
+ * supplier invoices). Without it the stock of a known SKU is left alone, so an exported file can be imported again.
+ */
+export async function importCatalog(rows: CsvRow[], opts: { addStock?: boolean } = {}): Promise<{ created: number; updated: number }> {
   const actor = assertCan('products.import')
   if (!rows.length) throw new AppError('nothing_to_import')
-  if (isServer()) return remote.importCatalog(rows)
-  let created = 0, updated = 0
+  if (isServer()) return remote.importCatalog(rows, opts)
+  let created = 0, updated = 0, received = 0
+  const receipt = uuid()
   await db.transaction('rw', [db.products, db.variants, db.stock, db.stockMovements, db.counters, db.audit], async () => {
     const products = await db.products.toArray()
     const byKey = new Map(products.map((p) => [productKey(p.name.en, p.name.ar, p.name.ku, p.brand), p]))
@@ -113,6 +118,11 @@ export async function importCatalog(rows: CsvRow[]): Promise<{ created: number; 
       const retail = num(r.retail_iqd), cost = num(r.cost_iqd), wholesale = num(r.wholesale_iqd, retail)
       if (existing) {
         await db.variants.update(existing.id, { retailIQD: retail, costIQD: cost, wholesaleIQD: wholesale, minStock: num(r.min_stock, existing.minStock), ...(r.barcode ? { barcode: r.barcode } : {}) })
+        const pieces = num(r.stock)
+        if (opts.addStock && pieces > 0) {
+          await applyMovement({ variantId: existing.id, delta: pieces, type: 'purchase', refType: 'receipt', refId: receipt, note: 'Excel import', userId: actor.id })
+          received += pieces
+        }
         updated++
         continue
       }
@@ -143,7 +153,7 @@ export async function importCatalog(rows: CsvRow[]): Promise<{ created: number; 
       if (opening > 0) await applyMovement({ variantId: v.id, delta: opening, type: 'opening', note: 'CSV import', userId: actor.id })
       created++
     }
-    await audit('products.import', 'product', '*', { created, updated })
+    await audit('products.import', 'product', '*', { created, updated, ...(received ? { received } : {}) })
   })
   return { created, updated }
 }

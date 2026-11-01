@@ -150,6 +150,27 @@ class CatalogStockTest extends ApiTestCase
         $this->assertSame(47000, Variant::where('sku', 'LTF-KHAM-100')->first()->retail_iqd);
     }
 
+    public function test_a_delivery_import_adds_the_pieces_of_sizes_already_on_file(): void
+    {
+        $this->shop();
+        $kham = Variant::where('sku', 'LTF-KHAM-100')->first();
+        $before = $this->stockOf($kham);
+        // a file exported and brought back leaves the stock alone…
+        $this->api('POST', 'products/import', ['rows' => [['sku' => 'LTF-KHAM-100', 'retail_iqd' => 47000, 'cost_iqd' => 27000, 'stock' => $before]]])->assertOk();
+        $this->assertSame($before, $this->stockOf($kham));
+
+        // …a supplier's invoice from the product sheet adds what came in, at the new cost
+        $this->api('POST', 'products/import', ['addStock' => true, 'rows' => [
+            ['sku' => 'LTF-KHAM-100', 'retail_iqd' => 48000, 'cost_iqd' => 29000, 'wholesale_iqd' => 40000, 'stock' => 12],
+            ['sku' => 'INV-ATLAS-55', 'name_ar' => 'اطلس', 'brand' => 'Lattafa', 'retail_iqd' => 30000, 'cost_iqd' => 16000, 'size' => '55', 'unit' => 'ml', 'stock' => 12],
+        ]])->assertOk()->assertJsonPath('created', 1)->assertJsonPath('updated', 1);
+        $this->assertSame($before + 12, $this->stockOf($kham));
+        $this->assertSame([48000, 29000, 40000], [$kham->fresh()->retail_iqd, $kham->fresh()->cost_iqd, $kham->fresh()->wholesale_iqd]);
+        $this->assertSame(12, $this->stockOf(Variant::where('sku', 'INV-ATLAS-55')->first()));
+        $mv = $this->api('GET', 'stock/movements?variantId='.$kham->id)->assertOk()->json('movements.0');
+        $this->assertSame(['purchase', 12, $before + 12], [$mv['type'], $mv['qty'], $mv['balanceAfter']]);
+    }
+
     public function test_receiving_stock_adds_units_and_can_update_cost_for_price_editors(): void
     {
         $this->shop();

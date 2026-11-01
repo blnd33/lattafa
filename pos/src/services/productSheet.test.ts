@@ -145,3 +145,107 @@ describe('Enter adds the row to the products', () => {
     expect((await db.products.toArray()).some((p) => p.name.en === 'Fresh One')).toBe(false)
   })
 })
+
+describe('a supplier invoice uploaded as it is', () => {
+  const asFile = async (blob: Blob, name: string) => new File([await blob.arrayBuffer()], name, { type: blob.type })
+  // laid out like the supplier's file: the shop added the cost in dinars (H), the selling price (I) and the rate (J1/K1)
+  const HEAD = ['الباركود', 'القيمة', 'الحسم', 'السعر', 'الكمية', 'المادة', 'ت', 'cost price in dinnar ', 'selling price', 'Rate (D × )', 1600]
+  const invoice = async (rows: (string | number)[][], head = HEAD) => {
+    const { writeXlsx } = await import('@/lib/xlsx')
+    return asFile(await writeXlsx([
+      { name: 'Table 1', header: false, columns: head.map(() => ({ width: 10 })), rows: [head, ...rows] },
+      { name: 'Table 2', header: false, columns: [{ width: 10 }], rows: [['اسم المستخدم : …'], ['صافي الدفع كتابة: …']] },
+    ]), 'supplier-invoice.xlsx')
+  }
+  const line = (barcode: string, usd: number, qty: number, name: string, n: number, sell: number | '' = '', free = false) =>
+    [barcode, free ? '' : Math.round(usd * qty), free ? '% 100' : '', usd, qty, name, n, Math.round(usd * 1600), free ? '' : sell]
+
+  it('reads the names, leaves out the free pieces and says what is missing', async () => {
+    const file = await invoice([
+      line('6290360593722', 10, 12, 'عطر اطلس 55مل / لطافة', 1, 30000),
+      line('6290360593722', 10, 1, 'عطر اطلس 55مل / لطافة', 2, '', true),
+      line('', 12, 12, 'عطر اكير بانوفي 100مل / لطافة', 3, 33000),
+      line('', 12, 1, 'عطر اكير بانوفي 100مل / لطافة', 4, '', true),
+      line('6290360592220', 20, 12, 'عطر حابك للرجال 100مل / لطافة برايد 4د', 5, 31000),
+      line('6290362349303', 20, 6, 'سيت هدايا خمرة', 6),
+      line('6298043161305', 1.5, 12, 'معطر جسم ارت اوف نايتور11 /200مل لطافة برايد', 7),
+      line('6290360599991', 12, 12, 'عطر مسمم / لطافة 4د', 8, 50000),
+      line('6290360599992', 25, 6, 'عطر غنوة 100مل / نيش @', 9, 60000),
+      ['', '', '', '', '', '***** انتهى *****'],
+      ['', 29585, '', '', 2502],
+    ])
+    const r = await readSheetFile(file)
+    expect(r.sheet).toBe('Table 1')
+    expect(r.invoice).toMatchObject({ free: 2, known: 0 })
+    expect(r.patches).toHaveLength(7)
+    expect(r.patches[0]).toMatchObject({ name_ar: 'اطلس', brand: 'Lattafa', category: 'perfume', size: '55', unit: 'ml', cost_iqd: '16000', retail_iqd: '30000', stock: '12', barcode: '6290360593722' })
+    expect(r.patches[1]).toMatchObject({ name_ar: 'اكير بانوفي', size: '100', stock: '12', barcode: '' })
+    expect(r.patches[2]).toMatchObject({ name_ar: 'حابك للرجال', brand: 'Lattafa Pride', gender: 'men', size: '100' })
+    expect(r.patches[3]).toMatchObject({ name_ar: 'سيت هدايا خمرة', category: 'set', size: '', retail_iqd: '', stock: '6' })
+    expect(r.patches[4]).toMatchObject({ name_ar: 'معطر جسم ارت اوف نايتور11', category: 'mist', brand: 'Lattafa Pride', size: '200', cost_iqd: '2400' })
+    expect(r.patches[5]).toMatchObject({ name_ar: 'مسمم', size: '' })
+    expect(r.patches[6]).toMatchObject({ name_ar: 'غنوة', brand: 'Niche Emarati' })
+    // a gift set needs only its price; a perfume or a mist also its size when the name has none
+    expect(r.invoice!.need).toEqual([[], [], [], ['retail_iqd'], ['retail_iqd'], ['size'], []])
+  })
+
+  it('the selling price column may still have no title, and the cost may come from the dollar price × the rate', async () => {
+    const head = ['الباركود', 'القيمة', 'الحسم', 'السعر', 'الكمية', 'المادة', 'ت', 'cost price in dinnar ', '', 'Rate (D × )', 1500]
+    const r = await readSheetFile(await invoice([['6290360593722', 120, '', 10, 12, 'عطر اطلس 55مل / لطافة', 1, '', 30000]], head))
+    expect(r.patches[0]).toMatchObject({ cost_iqd: '15000', retail_iqd: '30000' })
+  })
+
+  it('rows still missing a price or size wait; filled in, they are added with only the paid pieces in stock', async () => {
+    const r = await readSheetFile(await invoice([
+      line('6290360593722', 10, 12, 'عطر اطلس 55مل / لطافة', 1, 30000),
+      line('6290360593722', 10, 1, 'عطر اطلس 55مل / لطافة', 2, '', true),
+      line('6290360599991', 12, 12, 'عطر مسمم / لطافة 4د', 3, 50000),
+    ]))
+    const rows = r.patches.map((p) => row(p))
+    const first = await saveSheetRows(rows, r.invoice!.need)
+    expect(first[0]).toMatchObject({ ok: true, status: 'added' })
+    expect(first[1]).toMatchObject({ ok: false, errors: { size: { key: 'sheet.err_needed' } } })
+    const [second] = await saveSheetRows([{ ...rows[1], size: '100' }], [r.invoice!.need[1]])
+    expect(second).toMatchObject({ ok: true, status: 'added' })
+    const atlas = (await db.variants.where('barcode').equals('6290360593722').first())!
+    expect([atlas.label, atlas.costIQD, atlas.retailIQD, atlas.wholesaleIQD]).toEqual(['55 ml', 16000, 30000, 30000])
+    expect((await stockMap())[atlas.id]).toBe(12)
+  })
+
+  it('the next invoice: an item already on file gets its pieces added and its new prices, and keeps the rest', async () => {
+    const first = await readSheetFile(await invoice([line('6290360593722', 10, 12, 'عطر اطلس 55مل / لطافة', 1, 30000)]))
+    await saveSheetRows(first.patches.map((p) => row(p)), first.invoice!.need)
+    const atlas = (await db.variants.where('barcode').equals('6290360593722').first())!
+    await db.variants.update(atlas.id, { wholesaleIQD: 26000 })
+
+    // the price went up; the selling price was left empty this time
+    const next = await readSheetFile(await invoice([line('6290360593722', 11, 6, 'عطر اطلس 55مل / لطافة', 1), line('6290360593722', 11, 1, 'عطر اطلس 55مل / لطافة', 2, '', true)]))
+    expect(next.invoice).toMatchObject({ known: 1, need: [[]] })
+    expect(next.patches[0]).toMatchObject({ sku: atlas.sku, retail_iqd: '30000', wholesale_iqd: '26000', cost_iqd: '17600', stock: '6' })
+    const before = await db.variants.count()
+    const [res] = await saveSheetRows(next.patches.map((p) => row(p)), next.invoice!.need)
+    expect(res).toMatchObject({ ok: true, status: 'updated', sku: atlas.sku })
+    expect(await db.variants.count()).toBe(before)
+    const after = (await db.variants.get(atlas.id))!
+    expect([after.costIQD, after.retailIQD, after.wholesaleIQD]).toEqual([17600, 30000, 26000])
+    expect((await stockMap())[atlas.id]).toBe(18)
+    const mv = (await db.stockMovements.where('variantId').equals(atlas.id).toArray()).map((m) => [m.type, m.qty]).sort()
+    expect(mv).toEqual([['opening', 12], ['purchase', 6]])
+  })
+
+  it('an item without a barcode is found again by its name and size; a note in the barcode cell is not a barcode', async () => {
+    const items = (qty: number) => [
+      line('', 12, qty, 'عطر اكير بانوفي 100مل / لطافة', 1, 33000),
+      line('الباركود مكرر في اترنال عود', 13, qty, 'عطر ماسا 100مل / لطافة 4د', 2, 35000),
+    ]
+    const first = await readSheetFile(await invoice(items(12)))
+    expect(first.patches.map((p) => p.barcode)).toEqual(['', ''])
+    expect((await saveSheetRows(first.patches.map((p) => row(p)), first.invoice!.need)).every((x) => x.ok)).toBe(true)
+    const next = await readSheetFile(await invoice(items(6)))
+    expect(next.invoice!.known).toBe(2)
+    const res = await saveSheetRows(next.patches.map((p) => row(p)), next.invoice!.need)
+    expect(res.map((x) => x.ok && x.status)).toEqual(['updated', 'updated'])
+    const stock = await stockMap()
+    for (const x of res) expect(stock[(await db.variants.where('sku').equals((x as { sku: string }).sku).first())!.id]).toBe(18)
+  })
+})

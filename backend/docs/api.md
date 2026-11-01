@@ -68,7 +68,7 @@ Legend: 🔓 public · 🔑 any signed-in user · `perm` needs that permission (
 | `products.edit` | `PATCH /products/{id}/active` `{active}` | |
 | `products.delete` | `DELETE /products/{id}` | `{result:"deleted"\|"deactivated"}` (sold products are hidden, not erased) |
 | `prices.edit` | `POST /products/bulk-price` `{mode:pct\|fixed,value,target:retail\|wholesale\|both,productIds?}` | rounds to 250 IQD |
-| `products.import` | `POST /products/import` `{rows:[…]}` | CSV columns: `sku,barcode,name_en,name_ar,name_ku,brand,category,gender,concentration,size_label,size,unit,cost_iqd,retail_iqd,wholesale_iqd,min_stock,stock` (`unit` = ml or oz; an old file with an `ml` column instead of `size,unit` still works) → `{created,updated,skipped}` |
+| `products.import` | `POST /products/import` `{rows:[…],addStock?}` | CSV columns: `sku,barcode,name_en,name_ar,name_ku,brand,category,gender,concentration,size_label,size,unit,cost_iqd,retail_iqd,wholesale_iqd,min_stock,stock` (`unit` = ml or oz; an old file with an `ml` column instead of `size,unit` still works) → `{created,updated,skipped}`. `stock` is the opening stock of a new SKU; a known SKU keeps its stock unless `addStock: true` (the product sheet — a delivery, e.g. a supplier's invoice), which adds `stock` to it as a `purchase` movement. |
 | `inventory.movements` | `GET /stock/movements?variantId=&limit=` | |
 | `inventory.view` | `GET /stock/low` | at or under minimum |
 | `inventory.adjust` | `POST /stock/adjust` `{variantId,newQty,reason:adjustment\|damage,note?}` | |

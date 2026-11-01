@@ -249,8 +249,8 @@ export async function bulkPriceUpdate(input: { mode: 'pct' | 'fixed'; value: num
   return r.updated
 }
 export async function nextBarcode(): Promise<string> { return (await api<{ barcode: string }>('GET', '/products/next-barcode')).barcode }
-export async function importCatalog(rows: CsvRow[]): Promise<{ created: number; updated: number }> {
-  const r = await api<{ created: number; updated: number }>('POST', '/products/import', { rows }, { timeoutMs: 120_000 })
+export async function importCatalog(rows: CsvRow[], opts: { addStock?: boolean } = {}): Promise<{ created: number; updated: number }> {
+  const r = await api<{ created: number; updated: number }>('POST', '/products/import', { rows, ...(opts.addStock ? { addStock: true } : {}) }, { timeoutMs: 120_000 })
   await pullNow()
   return { created: r.created, updated: r.updated }
 }
