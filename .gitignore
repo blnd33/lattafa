@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# never upload: the local sign-in list, settings with keys/passwords, databases, local tool settings
+ACCOUNTS (local only).md
+backend/.env.*
+!backend/.env.example
+!backend/.env.production.example
+*.sqlite
+*.sqlite-journal
+.claude/

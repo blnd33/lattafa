@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lattafa Delegate App — Design Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ───────── Lattafa design tokens (same as Store POS / Menu) ───────── */
+:root{
+  --gold:#D4A548; --gold-dark:#B8892F; --gold-light:#E9CD8A; --gold-soft:#F7EEDA;
+  --ink:#1A1714; --charcoal:#2B2622; --ivory:#FBF8F2; --muted:#8A8178;
+  --success:#3E8E5E; --danger:#C0453A; --warning:#D98E2B;
+  --bg:#FBF8F2; --surface:#fff; --surface-2:#F5EFE3; --text:#1A1714; --text-2:#6F665D; --line:#EBDFC5; --gold-text:#8F6A1C;
+  --img-bg:radial-gradient(circle at 50% 38%,#FFFBF0 0,#F7EEDA 72%);
+  --shadow:0 6px 18px rgba(26,23,20,.07);
+  --low-bg:#FCEBD3; --low-fg:#8A5410; --dan-bg:#F9E1DD; --dan-fg:#A23429; --ok-bg:#DDF0E4; --ok-fg:#2C7147;
+  --map-land:#EFE7D6; --map-road:#FFFFFF; --map-block:#F6F0E2; --map-green:#DCE7D6; --map-water:#D8E4E8;
+}
+html[data-theme=dark]{
+  --bg:#14110F; --surface:#201C18; --surface-2:#2B2622; --text:#F6F0E4; --text-2:#A89F93; --line:#3B342C; --gold-text:#E2BB6A;
+  --img-bg:radial-gradient(circle at 50% 38%,#3D332A 0,#25201B 75%);
+  --shadow:0 6px 18px rgba(0,0,0,.4);
+  --low-bg:#4A3416; --low-fg:#F2C77A; --dan-bg:#4A2320; --dan-fg:#F2A59C; --ok-bg:#1F3A2A; --ok-fg:#7BD3A0;
+  --map-land:#221E1A; --map-road:#3A332C; --map-block:#2A2521; --map-green:#26332A; --map-water:#22303A;
+}
+*{box-sizing:border-box;margin:0}
+html,body{background:#0E0C0A}
+body{font-family:Poppins,Tajawal,system-ui,sans-serif;color:#EDE6D8;min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input{font:inherit;color:inherit}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.sm{width:16px;height:16px} svg.i.lg{width:26px;height:26px}
+html[dir=rtl] .flip{transform:scaleX(-1)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* preview shell */
+.pv-bar{direction:ltr;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between;padding:12px 20px;background:#17130F;border-bottom:1px solid #2E271F;position:sticky;top:0;z-index:100}
+.pv-title{font-family:'Playfair Display',serif;font-size:18px;color:#E9CD8A;display:flex;align-items:center;gap:10px}
+.pv-title img{height:30px} .pv-title small{font-family:Poppins,sans-serif;font-size:12px;color:#9A9083}
+.pv-tools{display:flex;gap:8px;flex-wrap:wrap}
+.pv-tool{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#CFC5B4;padding:8px 14px;border:1px solid #3A3128;border-radius:999px}
+.pv-tool[aria-pressed=true]{background:#D4A548;color:#1A1714;border-color:#D4A548;font-weight:600}
+.pv-note{max-width:760px;margin:0 auto 34px;padding:0 20px;color:#8F857A;font-size:12.5px;text-align:center;line-height:1.7}
+.phones{display:flex;flex-wrap:wrap;gap:34px 30px;justify-content:center;padding:28px 12px 30px}
+.ph{width:410px;display:flex;flex-direction:column;gap:12px;align-items:center;zoom:var(--z,1)}
+.ph figcaption{color:#CFC5B4;font-size:13px;letter-spacing:.04em}
+.ph figcaption b{color:#E9CD8A;font-weight:600;margin-inline-end:6px}
+.device{width:410px;height:864px;border-radius:56px;background:#0a0908;padding:10px;box-shadow:0 30px 70px rgba(0,0,0,.55),inset 0 0 0 2px #2a2420}
+
+/* app screen */
+.scr{width:390px;height:844px;border-radius:46px;overflow:hidden;background:var(--bg);color:var(--text);position:relative;display:flex;flex-direction:column;font-size:14px;transition:background .25s}
+html[dir=rtl] .scr{direction:rtl} html[dir=ltr] .scr{direction:ltr}
+html[lang=ar] .scr,html[lang=ckb] .scr{font-family:Tajawal,Poppins,sans-serif}
+.serif{font-family:'Playfair Display',Georgia,serif}
+html[lang=ar] .serif,html[lang=ckb] .serif{font-family:Tajawal,sans-serif;font-weight:800}
+.num{font-family:Poppins,sans-serif;font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.sb{height:34px;display:flex;align-items:center;justify-content:space-between;padding:6px 26px 0;font-size:13px;font-weight:600;flex:none;direction:ltr;position:relative;z-index:2}
+.sb .cam{position:absolute;left:50%;top:9px;width:14px;height:14px;border-radius:50%;background:#000;transform:translateX(-50%)}
+.sb .r{display:flex;gap:6px;align-items:center}
+.sb svg{width:15px;height:15px;fill:currentColor;stroke:none}
+.gest{height:20px;display:grid;place-items:center;flex:none}
+.gest i{width:120px;height:4px;border-radius:2px;background:var(--text);opacity:.35}
+
+.login{--bg:#14110F;--surface:#201C18;--surface-2:#2B2622;--text:#F6F0E4;--text-2:#A89F93;--line:#3B342C;--gold-text:#E2BB6A;background:radial-gradient(120% 60% at 50% 0,#3A2E1C 0,#14110F 60%);color:var(--text)}
+.content{flex:1;overflow:auto;padding:4px 16px 18px;display:flex;flex-direction:column;gap:14px;scrollbar-width:none;min-height:0}
+.content::-webkit-scrollbar{display:none}
+.content>*{flex:none}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 18px 10px;gap:10px;flex:none}
+.hdr h1{font-size:23px;font-weight:600;line-height:1.2;min-width:0}
+.hdr h1.sm{font-size:18px}
+.hdr small{display:block;color:var(--text-2);font-size:12.5px;font-weight:400;font-family:Poppins,Tajawal,sans-serif}
+.avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--gold-light),var(--gold-dark));color:var(--ink);font-weight:700;display:grid;place-items:center;font-size:14px;flex:none}
+.icon-btn{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);flex:none}
+.chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;background:var(--surface-2);font-size:12px;font-weight:500;white-space:nowrap}
+.chip.warn{background:var(--low-bg);color:var(--low-fg)} .chip.ok{background:var(--ok-bg);color:var(--ok-fg)} .chip.dan{background:var(--dan-bg);color:var(--dan-fg)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px;box-shadow:var(--shadow)}
+.card h3{font-size:15px;font-weight:600}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.muted{color:var(--text-2)}
+.btn{height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;font-size:15.5px;width:100%;transition:.15s}
+.btn.gold{background:linear-gradient(180deg,var(--gold),var(--gold-dark));color:var(--ink);box-shadow:0 8px 20px rgba(184,137,47,.32)}
+.btn.ghost{background:var(--surface-2)}
+.seg{display:flex;background:var(--surface-2);border-radius:14px;padding:4px;gap:4px}
+.seg button{flex:1;height:44px;border-radius:11px;font-size:13.5px;font-weight:600;color:var(--text-2)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(26,23,20,.12)}
+.seg.gold button[aria-pressed=true]{background:var(--gold);color:var(--ink)}
+.field{display:flex;align-items:center;gap:10px;height:48px;border-radius:14px;background:var(--surface);border:1.5px solid var(--line);padding:0 14px;color:var(--text-2)}
+.field input{flex:1;min-width:0;border:0;background:none;outline:0;font-size:15px;color:var(--text)}
+.field:focus-within{border-color:var(--gold)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:none}
+.cchip{height:40px;padding:0 16px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;font-weight:500;white-space:nowrap}
+.cchip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--gold-light)}
+html[data-theme=dark] .cchip[aria-pressed=true]{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold-light),var(--gold-dark))}
+.bar.dan i{background:linear-gradient(90deg,#E8A29A,var(--danger))}
+
+/* bottom nav (Material-3 style, 5 items, raised Sell) */
+.nav{display:grid;grid-template-columns:repeat(5,1fr);align-items:end;height:76px;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px 8px;flex:none;position:relative;z-index:3}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;color:var(--text-2);min-height:56px;justify-content:center}
+.nav .pill{width:56px;height:30px;border-radius:15px;display:grid;place-items:center;transition:.2s}
+.nav button[aria-current=page]{color:var(--gold-text);font-weight:600}
+.nav button[aria-current=page] .pill{background:var(--gold-soft)}
+html[data-theme=dark] .nav button[aria-current=page] .pill{background:#3A3020}
+.nav .sellb{position:relative;top:-20px;min-height:auto}
+.nav .fab{width:60px;height:60px;border-radius:50%;background:linear-gradient(160deg,var(--gold-light),var(--gold-dark));color:var(--ink);display:grid;place-items:center;box-shadow:0 8px 20px rgba(184,137,47,.45);border:4px solid var(--bg)}
+.nav .sellb span:last-child{margin-top:2px}
+
+/* login */
+.login .mid{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 24px 0;gap:14px;min-height:0}
+.login .logo{height:118px;margin-top:14px;filter:drop-shadow(0 8px 24px rgba(212,165,72,.3))}
+.login h1{font-size:30px;font-weight:600;color:var(--gold-light);line-height:1.1}
+.login .sub{color:var(--text-2);font-size:13.5px;margin-top:-8px}
+.login .lang{position:absolute;top:44px;inset-inline-end:18px;direction:ltr}
+.dots{display:flex;gap:16px;margin:16px 0 4px}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--gold);transition:.15s}
+.dots i.on{background:var(--gold);box-shadow:0 0 12px rgba(212,165,72,.6)}
+.pad{display:grid;grid-template-columns:repeat(3,76px);gap:14px 22px;direction:ltr;margin-top:6px}
+.pad button{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(233,205,138,.16);font-size:27px;font-family:Poppins,sans-serif;font-weight:500;display:grid;place-items:center;color:var(--text)}
+.pad button:active{background:rgba(212,165,72,.25)}
+.pad .ghost{background:none;border-color:transparent}
+.bound{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);margin:auto 0 8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.05)}
+.bound svg{color:var(--gold)}
+
+/* home */
+.hero{position:relative;overflow:hidden;background:linear-gradient(160deg,#2B2622,#14110F);color:#F6F0E4;border-radius:24px;padding:18px;box-shadow:0 14px 30px rgba(26,23,20,.28);border:1px solid rgba(233,205,138,.18)}
+html[data-theme=dark] .hero{background:linear-gradient(160deg,#2F2820,#1B1714)}
+.hero .wm{position:absolute;inset-inline-end:-26px;top:-18px;height:190px;opacity:.09;pointer-events:none}
+.hero .lbl{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#B9AE9C}
+html[dir=rtl] .hero .lbl{letter-spacing:0}
+.hero .big{font-size:38px;font-weight:600;color:var(--gold);line-height:1.15;margin:2px 0 14px}
+.hero .big small{font-size:14px;color:#B9AE9C;font-family:Poppins,Tajawal,sans-serif;font-weight:500}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(233,205,138,.2);padding-top:12px}
+.kpis>div{padding:0 10px;border-inline-start:1px solid rgba(233,205,138,.15)} .kpis>div:first-child{border:0;padding-inline-start:0}
+.kpis small{display:block;font-size:11.5px;color:#B9AE9C}.kpis b{font-size:16px;font-weight:600}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.qa button{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:500;min-height:88px;line-height:1.25;text-align:center}
+.qa .ic{width:40px;height:40px;border-radius:14px;background:var(--gold-soft);color:#8F6A1C;display:grid;place-items:center}
+html[data-theme=dark] .qa .ic{background:#3A3020;color:var(--gold-light)}
+.vrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)} .vrow:last-child{border:0;padding-bottom:0}
+.vrow .av{width:42px;height:42px;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;color:var(--gold-text);flex:none}
+.vrow .t{flex:1;min-width:0;line-height:1.3;font-weight:600;font-size:14px} .vrow .t small{display:block;font-weight:400;color:var(--text-2);font-size:12px}
+
+/* stock */
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sum .card{padding:12px 14px} .sum small{display:block;color:var(--text-2);font-size:12px} .sum b{font-size:20px;font-weight:600}
+.item{display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:center;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.item .im{width:54px;height:64px;border-radius:12px;background:var(--img-bg);display:grid;place-items:center}
+.item .im svg{height:54px;width:auto}
+.item .t{font-weight:600;font-size:14.5px;line-height:1.3} .item .t small{display:block;font-weight:400;color:var(--text-2);font-size:12px;margin-top:2px}
+.qty-b{min-width:54px;text-align:center;padding:6px 10px;border-radius:12px;background:var(--gold-soft);color:#6B4E12;font-weight:700;font-size:16px;line-height:1.1}
+.qty-b small{display:block;font-size:10px;font-weight:500;color:#8F6A1C}
+.qty-b.low{background:var(--dan-bg);color:var(--dan-fg)} .qty-b.low small{color:var(--dan-fg)}
+html[data-theme=dark] .qty-b{background:#3A3020;color:var(--gold-light)}
+.body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.xfab{position:absolute;inset-inline-end:16px;bottom:36px;height:56px;padding:0 20px;border-radius:18px;background:linear-gradient(180deg,var(--gold),var(--gold-dark));color:var(--ink);display:flex;align-items:center;gap:10px;font-weight:600;box-shadow:0 12px 26px rgba(184,137,47,.45);z-index:4}
+
+/* sale */
+.cust{display:flex;flex-direction:column;gap:10px}
+.cust .top{display:flex;align-items:center;gap:12px}
+.cust .av{width:44px;height:44px;border-radius:14px;background:var(--gold-soft);color:#8F6A1C;display:grid;place-items:center;flex:none}
+.cust b{font-size:15px}
+.sline{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line)}
+.sline:last-child{border:0}
+.sline .im{width:48px;height:58px;border-radius:12px;background:var(--img-bg);display:grid;place-items:center}.sline .im svg{height:48px;width:auto}
+.sline .t{font-weight:600;font-size:14px;line-height:1.3}.sline .t small{display:block;color:var(--text-2);font-weight:400;font-size:12px}
+.stepper{display:inline-flex;align-items:center;background:var(--surface-2);border-radius:14px;margin-top:6px}
+.stepper button{width:44px;height:44px;display:grid;place-items:center;border-radius:14px}
+.stepper button[disabled]{opacity:.3}
+.stepper b{min-width:28px;text-align:center;font-size:15px}
+.cap{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--low-bg);color:var(--low-fg);margin-top:4px}
+.ls{text-align:end;font-weight:700;font-size:14px}
+.tot .r{display:flex;justify-content:space-between;padding:4px 0;color:var(--text-2);font-size:13.5px}
+.tot .r.g{color:var(--text);font-size:14px;padding-top:10px;margin-top:6px;border-top:1px solid var(--gold-light);align-items:baseline}
+.tot .r.g b{font-size:28px;font-weight:600;color:#8F6A1C;line-height:1.1}
+html[data-theme=dark] .tot .r.g b{color:var(--gold)}
+.tot .r.grn span:last-child{color:var(--success);font-weight:600}
+.sticky{padding:12px 16px 10px;background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;flex:none}
+.btp{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--text-2)} .btp svg{color:#3B82F6}
+
+/* customers + map */
+.map{border-radius:20px;overflow:hidden;border:1px solid var(--line);height:212px;position:relative;flex:none}
+.map svg{width:100%;height:100%;display:block}
+.mp-land{fill:var(--map-land)}.mp-block{fill:var(--map-block)}.mp-green{fill:var(--map-green)}.mp-water{fill:var(--map-water)}
+.mp-road{stroke:var(--map-road);fill:none;stroke-linecap:round}
+.bubble{position:absolute;background:var(--ink);color:#F6F0E4;font-size:11.5px;padding:6px 10px;border-radius:10px;white-space:nowrap;border:1px solid rgba(233,205,138,.4);box-shadow:0 6px 16px rgba(0,0,0,.25)}
+.bubble b{color:var(--gold-light)}
+.cus{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.cus .av{width:46px;height:46px;border-radius:15px;background:var(--gold-soft);color:#8F6A1C;display:grid;place-items:center}
+html[data-theme=dark] .cus .av{background:#3A3020;color:var(--gold-light)}
+.cus .t{font-weight:600;font-size:14.5px;line-height:1.3;min-width:0}.cus .t small{display:flex;gap:6px;align-items:center;font-weight:400;color:var(--text-2);font-size:12px;margin-top:2px}
+.cus .b{text-align:end;font-size:13px;font-weight:700;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+html[dir=rtl] .cus .b{align-items:flex-start}
+
+/* closing */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{padding:12px 14px}.kpi small{display:block;color:var(--text-2);font-size:12px}.kpi b{font-size:19px;font-weight:600;display:block;margin-top:2px}
+.kpi.gold{background:linear-gradient(160deg,#2B2622,#14110F);border-color:rgba(233,205,138,.2);color:#F6F0E4}.kpi.gold small{color:#B9AE9C}.kpi.gold b{color:var(--gold)}
+.check{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}.check:last-child{border:0;padding-bottom:0}
+.check .ok{width:26px;height:26px;border-radius:50%;background:var(--ok-bg);color:var(--ok-fg);display:grid;place-items:center;flex:none}
+.check .ok svg{width:15px;height:15px;stroke-width:2.6}
+.check .ok.w{background:var(--low-bg);color:var(--low-fg)}
+.count-in{display:flex;align-items:center;gap:10px;height:56px;border-radius:14px;border:1.5px solid var(--gold);padding:0 14px;background:var(--surface-2)}
+.count-in b{font-size:22px;font-weight:600;font-family:Poppins,sans-serif;direction:ltr}
+.status{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--low-bg);color:var(--low-fg);font-size:13px;font-weight:500}
+.credit{padding:9px 16px;text-align:center;font-size:10px;color:#8F857A;background:#0E0C0A;border-radius:0 0 0 0;direction:ltr;flex:none}
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+<symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
+<symbol id="i-cash" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+<symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></symbol>
+<symbol id="i-nav" viewBox="0 0 24 24"><path d="m3 11 19-9-9 19-2-8-8-2z"/></symbol>
+<symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></symbol>
+<symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+<symbol id="i-del" viewBox="0 0 24 24"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"/><path d="m18 9-6 6"/><path d="m12 9 6 6"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-userplus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></symbol>
+<symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 2-4h16l2 4"/><path d="M4 21V10"/><path d="M20 21V10"/><path d="M2 7a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M4 21h16"/><path d="M9 21v-6h6v6"/></symbol>
+<symbol id="i-clip" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+</svg>
+
+<div class="pv-bar">
+  <div class="pv-title"><img src="assets/logo.png" alt=""> Lattafa · Delegate App <small>design preview · Flutter (Android) · sample data</small></div>
+  <div class="pv-tools">
+    <div class="pv-tool" style="padding:4px" role="group" aria-label="Language">
+      <button class="pv-tool" style="border:0;padding:5px 12px" data-act="lang" data-v="en" aria-pressed="true">EN</button>
+      <button class="pv-tool" style="border:0;padding:5px 12px" data-act="lang" data-v="ar" aria-pressed="false">عربي</button>
+      <button class="pv-tool" style="border:0;padding:5px 12px" data-act="lang" data-v="ku" aria-pressed="false">کوردی</button>
+    </div>
+    <button class="pv-tool" data-act="theme" aria-pressed="false">Dark mode</button>
+    <button class="pv-tool" data-act="offline" aria-pressed="true">Offline (as in the field)</button>
+  </div>
+</div>
+
+<div class="phones" id="phones"></div>
+<p class="pv-note">Sample data only. Tap the PIN pad, the quantity buttons (note the cap at van stock), the price-list and payment toggles — they work. Kurdish (Sorani) and Arabic strings are first drafts for native review.</p>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const ic=(n,c='')=>`<svg class="i ${c}"><use href="#i-${n}"/></svg>`;
+const r250=x=>Math.round(x/250)*250;
+
+/* ───────── i18n ───────── */
+const T={
+en:{gm:'Good morning',name:'Ahmed',fullname:'Ahmed Sulaiman',app:'Lattafa Delegate',pin_t:'Enter your PIN',bound:'Device bound',offline100:'Works 100% offline',
+ sync_off:'Offline · {n} pending',sync_off_s:'Offline · {n}',sync_ok:'Synced',today:"Today's sales",collected:'Collected',visits:'Visits',cash_hand:'Cash in hand',
+ q_sale:'New sale',q_collect:'Collect',q_visit:'Check in',q_request:'Request stock',van:'Van stock',units:'units',low_n:'{n} low',next:'Next visits',
+ n_home:'Home',n_stock:'Stock',n_sell:'Sell',n_cus:'Customers',n_more:'More',
+ my_stock:'My stock',search:'Search perfumes…',f_all:'All',f_low:'Low',f_men:'Men',f_women:'Women',f_oud:'Oud',in_van:'in van',wval:'Wholesale value',iqd:'IQD',
+ new_sale:'New sale',balance:'Balance',limit:'Credit limit',plist:'Price list',wholesale:'Wholesale',retail:'Retail',max_van:'Max {n} in van',
+ subtotal:'Subtotal',discount:'Discount (5%)',total:'Total',payment:'Payment',cash:'Cash',debt:'Debt',partial:'Partial',paid_now:'Paid now',due:'Added to debt',new_bal:'New balance',
+ complete:'Complete & print',bt:'Bluetooth printer connected',bt_s:'Printer',
+ customers:'Customers',list:'List',map:'Map',add_cus:'Add customer (GPS)',km:'km',owes:'Owes',settled:'Settled',over:'Over limit',
+ closing:'Daily closing',sales_total:'Sales total',collections:'Collections',expenses:'Expenses',exp_cash:'Expected cash',counted:'Counted cash',rem_stock:'Remaining stock',
+ cash_sales:'Cash sales',credit_sales:'Credit sales',c_sync:'All sales synced',c_stock:'Stock counted',c_visits:'Visits logged',send:'Send to admin for approval',pending:'Not sent yet — admin approves the closing',
+ sold:'sold today',area1:'Duhok Center',area2:'Zakho',area3:'Sumel',area4:'Akre',you:'You are here',invoices:'invoices'},
+ar:{gm:'صباح الخير',name:'أحمد',fullname:'أحمد سليمان',app:'لطافة · المندوب',pin_t:'أدخل رمز الدخول',bound:'الجهاز مرتبط',offline100:'يعمل دون إنترنت بالكامل',
+ sync_off:'غير متصل · {n} بالانتظار',sync_off_s:'غير متصل · {n}',sync_ok:'تمت المزامنة',today:'مبيعات اليوم',collected:'المقبوضات',visits:'الزيارات',cash_hand:'النقد بيدي',
+ q_sale:'بيع جديد',q_collect:'تحصيل',q_visit:'تسجيل زيارة',q_request:'طلب بضاعة',van:'بضاعة السيارة',units:'قطعة',low_n:'{n} منخفضة',next:'الزيارات القادمة',
+ n_home:'الرئيسية',n_stock:'المخزون',n_sell:'بيع',n_cus:'الزبائن',n_more:'المزيد',
+ my_stock:'بضاعتي',search:'ابحث عن عطر…',f_all:'الكل',f_low:'منخفض',f_men:'رجالي',f_women:'نسائي',f_oud:'عود',in_van:'في السيارة',wval:'القيمة بسعر الجملة',iqd:'د.ع',
+ new_sale:'بيع جديد',balance:'الرصيد المستحق',limit:'حد الائتمان',plist:'قائمة الأسعار',wholesale:'جملة',retail:'مفرد',max_van:'الأقصى {n} في السيارة',
+ subtotal:'المجموع الفرعي',discount:'الخصم (5٪)',total:'الإجمالي',payment:'الدفع',cash:'نقد',debt:'آجل',partial:'جزئي',paid_now:'المدفوع الآن',due:'يضاف إلى الدين',new_bal:'الرصيد الجديد',
+ complete:'إتمام وطباعة',bt:'الطابعة متصلة عبر بلوتوث',bt_s:'الطابعة',
+ customers:'الزبائن',list:'قائمة',map:'خريطة',add_cus:'إضافة زبون (GPS)',km:'كم',owes:'عليه',settled:'مسدد',over:'تجاوز الحد',
+ closing:'الإغلاق اليومي',sales_total:'إجمالي المبيعات',collections:'التحصيلات',expenses:'المصاريف',exp_cash:'النقد المتوقع',counted:'النقد المعدود',rem_stock:'البضاعة المتبقية',
+ cash_sales:'مبيعات نقدية',credit_sales:'مبيعات آجلة',c_sync:'تمت مزامنة كل المبيعات',c_stock:'تم جرد البضاعة',c_visits:'الزيارات المسجلة',send:'إرسال للمدير للموافقة',pending:'لم يُرسل بعد — المدير يوافق على الإغلاق',
+ sold:'بيعت اليوم',area1:'دهوك المركز',area2:'زاخو',area3:'سميل',area4:'عقرة',you:'موقعك',invoices:'فواتير'},
+ku:{gm:'بەیانیت باش',name:'ئەحمەد',fullname:'ئەحمەد سلێمان',app:'لەتافە · نوێنەر',pin_t:'پینەکەت بنووسە',bound:'ئامێر بەستراوەتەوە',offline100:'بە تەواوی بێ ئینتەرنێت کار دەکات',
+ sync_off:'ئۆفلاین · {n} چاوەڕوانن',sync_off_s:'ئۆفلاین · {n}',sync_ok:'هاوکاتکراوە',today:'فرۆشی ئەمڕۆ',collected:'وەرگیراو',visits:'سەردانەکان',cash_hand:'پارە لە دەستدا',
+ q_sale:'فرۆشی نوێ',q_collect:'وەرگرتنی پارە',q_visit:'تۆمارکردنی سەردان',q_request:'داواکاری کاڵا',van:'کاڵای ئۆتۆمبێل',units:'دانە',low_n:'{n} کەم',next:'سەردانە داهاتووەکان',
+ n_home:'سەرەکی',n_stock:'کۆگا',n_sell:'فرۆشتن',n_cus:'کڕیارەکان',n_more:'زیاتر',
+ my_stock:'کاڵاکانم',search:'بگەڕێ بۆ عەتر…',f_all:'هەموو',f_low:'کەم',f_men:'پیاوان',f_women:'ژنان',f_oud:'عود',in_van:'لە ئۆتۆمبێل',wval:'بەهای کۆ',iqd:'دینار',
+ new_sale:'فرۆشی نوێ',balance:'قەرزی ماوە',limit:'سنووری قەرز',plist:'لیستی نرخ',wholesale:'بە کۆ',retail:'بە تاک',max_van:'زۆرترین {n} لە ئۆتۆمبێل',
+ subtotal:'کۆی بەشەکی',discount:'داشکاندن (5%)',total:'کۆی گشتی',payment:'پارەدان',cash:'کاش',debt:'قەرز',partial:'بەشێک',paid_now:'ئێستا دراوە',due:'دەخرێتە سەر قەرز',new_bal:'قەرزی نوێ',
+ complete:'تەواوکردن و چاپکردن',bt:'پرینتەر بە بلوتوث بەستراوە',bt_s:'پرینتەر',
+ customers:'کڕیارەکان',list:'لیست',map:'نەخشە',add_cus:'زیادکردنی کڕیار (GPS)',km:'کم',owes:'قەرزارە',settled:'پارەدراوە',over:'لە سنوور تێپەڕیوە',
+ closing:'داخستنی ڕۆژانە',sales_total:'کۆی فرۆش',collections:'پارەی وەرگیراو',expenses:'خەرجییەکان',exp_cash:'پارەی چاوەڕوانکراو',counted:'پارەی ژمێردراو',rem_stock:'کاڵای ماوە',
+ cash_sales:'فرۆشی کاش',credit_sales:'فرۆشی قەرز',c_sync:'هەموو فرۆشەکان هاوکاتکراون',c_stock:'کاڵا ژمێردرا',c_visits:'سەردانە تۆمارکراوەکان',send:'ناردن بۆ بەڕێوەبەر بۆ پەسەندکردن',pending:'هێشتا نەنێردراوە — بەڕێوەبەر داخستنەکە پەسەند دەکات',
+ sold:'ئەمڕۆ فرۆشراوە',area1:'دهۆک ناوەند',area2:'زاخۆ',area3:'سێمێل',area4:'ئاکرێ',you:'شوێنی تۆ',invoices:'وەسڵ'}
+};
+const HL={en:'en',ar:'ar',ku:'ckb'};
+const S={lang:'en',theme:'light',offline:true,pin:'12',mode:'partial',plist:'w',partial:500000,cap:'all'};
+const t=(k,v)=>{let s=T[S.lang][k]??T.en[k]??k;if(v)for(const x in v)s=s.replace('{'+x+'}',v[x]);return s};
+
+/* ───────── sample data ───────── */
+const V=[
+{id:'khamrah',n:{en:'Khamrah',ar:'خمرة',ku:'خەمرە'},ml:100,w:36000,r:45000,van:24,tag:'unisex',c1:'#8B4A2B',c2:'#3A1E12',shape:'rect'},
+{id:'asad',n:{en:'Asad',ar:'أسد',ku:'ئەسەد'},ml:100,w:33500,r:42000,van:18,tag:'men',c1:'#3B3530',c2:'#0F0D0B',shape:'tall'},
+{id:'yara',n:{en:'Yara',ar:'يارا',ku:'یارا'},ml:100,w:30000,r:38000,van:30,tag:'women',c1:'#F2BCCB',c2:'#C77A9A',shape:'round'},
+{id:'raghba',n:{en:'Raghba',ar:'رغبة',ku:'ڕەغبە'},ml:100,w:28000,r:36000,van:3,tag:'unisex',c1:'#B5442F',c2:'#5E1E14',shape:'flask'},
+{id:'badee',n:{en:"Bade'e Al Oud",ar:'بديع العود',ku:'بەدیع ئەلعود'},ml:100,w:38500,r:48000,van:9,tag:'oud',c1:'#8A6A38',c2:'#2E2010',shape:'tall'},
+{id:'fakhar',n:{en:'Fakhar Black',ar:'فخر بلاك',ku:'فەخر بلاک'},ml:100,w:35000,r:44000,van:2,tag:'men',c1:'#27365C',c2:'#0B1020',shape:'rect'}
+];
+const byId=Object.fromEntries(V.map(v=>[v.id,v]));
+const CUS=[
+{n:{en:'Al-Noor Perfumes',ar:'عطور النور',ku:'عەترخانەی نوور'},area:'area1',km:.4,bal:350000,lim:1000000,x:150,y:112},
+{n:{en:'Rose Gift Gallery',ar:'معرض الورد للهدايا',ku:'گەلەری دیاری ڕۆز'},area:'area2',km:1.2,bal:0,lim:800000,x:262,y:64},
+{n:{en:'Sultan Cosmetics',ar:'سلطان للتجميل',ku:'سوڵتان بۆ جوانکاری'},area:'area3',km:3.8,bal:1120000,lim:1000000,x:64,y:70},
+{n:{en:'Bahar Boutique',ar:'بوتيك بهار',ku:'بۆتیکی بەهار'},area:'area4',km:6.1,bal:120000,lim:600000,x:284,y:150}
+];
+let lines=[{id:'khamrah',q:12},{id:'yara',q:10},{id:'raghba',q:3}];
+
+let bid=0;
+function bottle(p){
+  const id=++bid,g=`url(#gl${id})`,cp=`url(#cp${id})`;
+  const defs=`<defs><linearGradient id="gl${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.c1}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient><linearGradient id="cp${id}" x1="0" x2="1"><stop offset="0" stop-color="#F0D58F"/><stop offset=".5" stop-color="#D4A548"/><stop offset="1" stop-color="#9C7420"/></linearGradient></defs>`;
+  const label=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#fff" opacity=".9"/><rect x="${x+6}" y="${y+h/2-4}" width="${w-12}" height="3" rx="1.5" fill="#D4A548"/><rect x="${x+10}" y="${y+h/2+3}" width="${w-20}" height="2" rx="1" fill="#D4A548" opacity=".6"/>`;
+  let b;
+  switch(p.shape){
+  case'tall':b=`<rect x="48" y="4" width="24" height="32" rx="4" fill="${cp}"/><rect x="54" y="34" width="12" height="10" fill="#B58A2E"/><rect x="36" y="44" width="48" height="116" rx="9" fill="${g}"/><rect x="41" y="52" width="6" height="98" rx="3" fill="#fff" opacity=".22"/>${label(44,92,32,36)}`;break;
+  case'round':b=`<rect x="46" y="6" width="28" height="24" rx="5" fill="${cp}"/><rect x="52" y="28" width="16" height="12" fill="#B58A2E"/><circle cx="60" cy="112" r="46" fill="${g}"/><path d="M26 98a36 36 0 0 1 20-28" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" opacity=".26"/>${label(42,100,36,28)}`;break;
+  case'flask':b=`<rect x="48" y="6" width="24" height="22" rx="4" fill="${cp}"/><rect x="54" y="26" width="12" height="14" fill="#B58A2E"/><path d="M40 40h40l20 108q1 12-11 12H31q-12 0-11-12Z" fill="${g}"/><path d="M42 50l-12 96" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".22"/>${label(42,104,36,30)}`;break;
+  default:b=`<rect x="44" y="6" width="32" height="28" rx="5" fill="${cp}"/><rect x="50" y="32" width="20" height="10" fill="#B58A2E"/><rect x="24" y="42" width="72" height="118" rx="14" fill="${g}"/><rect x="30" y="52" width="7" height="98" rx="3.5" fill="#fff" opacity=".24"/>${label(38,92,44,36)}`;
+  }
+  return `<svg viewBox="0 0 120 170" aria-hidden="true">${defs}<ellipse cx="60" cy="163" rx="34" ry="4.5" fill="#000" opacity=".13"/>${b}</svg>`;
+}
+
+/* ───────── shared bits ───────── */
+const status=(dark)=>`<div class="sb" style="color:${dark?'#F6F0E4':'var(--text)'}"><span class="num">9:41</span><span class="cam"></span><span class="r"><svg viewBox="0 0 24 24"><path d="M2 20h3V14H2zm5 0h3V10H7zm5 0h3V6h-3zm5 0h3V2h-3z"/></svg><svg viewBox="0 0 24 24"><path d="M1 9a16 16 0 0 1 22 0l-2 2a13 13 0 0 0-18 0zm4 4a10 10 0 0 1 14 0l-2 2a7 7 0 0 0-10 0zm4 4a4 4 0 0 1 6 0l-3 3z"/></svg><svg viewBox="0 0 24 24"><path d="M17 4h-1V2H8v2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/></svg></span></div>`;
+const gest=`<div class="gest"><i></i></div>`;
+const credit=`<div class="credit">Developed by <b style="color:#E9CD8A">Coda Agency</b> — Build What's Next — +964 750 730 8005 — @codatechagency</div>`;
+function nav(active){
+  const it=[['home','home','n_home'],['stock','box','n_stock'],['sell','bag','n_sell'],['cus','users','n_cus'],['more','grid','n_more']];
+  return `<nav class="nav">${it.map(([k,i,l])=>k==='sell'
+   ?`<button class="sellb" aria-label="${t(l)}"><span class="fab">${ic('bag','lg')}</span></button>`
+   :`<button ${active===k?'aria-current="page"':''}><span class="pill">${ic(i)}</span><span>${t(l)}</span></button>`).join('')}</nav>`}
+const syncChip=()=>S.offline?`<span class="chip warn">${ic('wifioff','sm')}${t('sync_off_s',{n:'<span class="num">4</span>'})}</span>`:`<span class="chip ok">${ic('wifi','sm')}${t('sync_ok')}</span>`;
+
+/* ───────── screens ───────── */
+function sLogin(){
+  const d=S.pin.length;
+  return `<div class="scr login">${status(true)}
+  <div class="lang seg gold" style="padding:3px;border-radius:99px;background:rgba(255,255,255,.08)">${['en','ar','ku'].map(l=>`<button data-act="lang" data-v="${l}" aria-pressed="${S.lang===l}" style="height:30px;padding:0 11px;border-radius:99px;font-size:11.5px;flex:none">${l==='en'?'EN':l==='ar'?'عربي':'کوردی'}</button>`).join('')}</div>
+  <div class="mid"><img class="logo" src="assets/logo.png" alt="Lattafa"><h1 class="serif">${t('app')}</h1><div class="sub">${t('offline100')}</div>
+   <div style="margin-top:18px;font-size:14px;color:var(--text-2)">${t('pin_t')}</div>
+   <div class="dots">${[0,1,2,3].map(i=>`<i class="${i<d?'on':''}"></i>`).join('')}</div>
+   <div class="pad">${['1','2','3','4','5','6','7','8','9','','0','del'].map(k=>k===''?'<button class="ghost" tabindex="-1" aria-hidden="true"></button>':`<button data-act="pin" data-v="${k}" aria-label="${k==='del'?'Delete':k}">${k==='del'?ic('del','lg'):k}</button>`).join('')}</div>
+   <div class="bound">${ic('lock','sm')}${t('bound')} · <span class="num">SM-A546B · DHK-012</span></div>
+  </div>${gest}${credit}</div>`}
+
+function sHome(){
+  const nx=CUS.slice(0,3);
+  return `<div class="scr">${status()}
+  <div class="hdr"><div class="row" style="gap:12px"><div class="avatar">AS</div><div style="min-width:0"><small class="muted" style="font-size:12.5px;display:block">${t('gm')}</small><h1 class="serif sm">${t('fullname')}</h1></div></div>${syncChip()}</div>
+  <div class="content">
+   <div class="hero"><img class="wm" src="assets/logo.png" alt=""><div class="lbl">${t('today')}</div>
+     <div class="big serif num">1,240,000 <small>${t('iqd')}</small></div>
+     <div class="kpis"><div><small>${t('collected')}</small><b class="num">480,000</b></div><div><small>${t('visits')}</small><b class="num">6 / 10</b></div><div><small>${t('cash_hand')}</small><b class="num">720,000</b></div></div></div>
+   <div class="qa">${[['bag','q_sale'],['cash','q_collect'],['pin','q_visit'],['truck','q_request']].map(([i,l])=>`<button><span class="ic">${ic(i)}</span>${t(l)}</button>`).join('')}</div>
+   <div class="card"><div class="row"><h3>${t('van')}</h3><span class="chip warn" style="height:26px">${ic('warn','sm')}${t('low_n',{n:'<span class="num">2</span>'})}</span></div>
+     <div class="row" style="margin:10px 0 8px;align-items:baseline"><b class="serif num" style="font-size:26px">86 <span class="muted" style="font-size:14px;font-family:Poppins,Tajawal,sans-serif;font-weight:400">/ 120 ${t('units')}</span></b><span class="muted" style="font-size:12px"><span class="num">34</span> ${t('sold')}</span></div>
+     <div class="bar"><i style="width:72%"></i></div></div>
+   <div class="card"><h3 style="margin-bottom:4px">${t('next')}</h3>${nx.map(c=>`<div class="vrow"><span class="av">${ic('store')}</span><span class="t">${c.n[S.lang]}<small>${t(c.area)} · <span class="num">${c.km}</span> ${t('km')}</small></span>${c.bal?`<span class="chip ${c.bal>c.lim?'dan':'warn'}" style="height:26px"><span class="num">${fmt(c.bal/1000)}k</span></span>`:`<span class="chip ok" style="height:26px">${ic('check','sm')}</span>`}</div>`).join('')}</div>
+  </div>${nav('home')}${gest}${credit}</div>`}
+
+function sStock(){
+  const f=S.cap;
+  const list=V.filter(v=>f==='all'||(f==='low'?v.van<=5:v.tag===f));
+  const tot=V.reduce((a,v)=>a+v.van,0),val=V.reduce((a,v)=>a+v.van*v.w,0);
+  return `<div class="scr">${status()}
+  <div class="hdr"><h1 class="serif">${t('my_stock')}<small>${t('van')}</small></h1><button class="icon-btn" aria-label="Search">${ic('search')}</button></div>
+  <div class="body"><div class="content" style="padding-bottom:110px;flex:1">
+   <div class="sum"><div class="card"><small>${t('van')}</small><b class="num">${tot} <span class="muted" style="font-size:12px;font-family:Poppins,Tajawal,sans-serif">${t('units')}</span></b></div><div class="card"><small>${t('wval')}</small><b class="num">${fmt(val/1000)}k</b></div></div>
+   <div class="chips">${[['all','f_all'],['low','f_low'],['men','f_men'],['women','f_women'],['oud','f_oud']].map(([k,l])=>`<button class="cchip" data-act="cap" data-v="${k}" aria-pressed="${f===k}">${t(l)}</button>`).join('')}</div>
+   ${list.map(v=>`<div class="item"><div class="im">${bottle(v)}</div><div class="t">${v.n[S.lang]}<small><span class="num">${v.ml} ml</span> · <span class="num">${fmt(v.w)}</span> ${t('iqd')}</small></div><div class="qty-b ${v.van<=5?'low':''} num">${v.van}<small>${t('in_van')}</small></div></div>`).join('')}
+  </div>
+  <button class="xfab">${ic('truck')}${t('q_request')}</button></div>${nav('stock')}${gest}${credit}</div>`}
+
+/* pricing for the sale screen (single source: PricingService on the server, mirrored offline) */
+function sale(){
+  let sub=0;lines.forEach(l=>{const v=byId[l.id];sub+=l.q*(S.plist==='w'?v.w:v.r)});
+  const disc=r250(sub*.05),total=sub-disc;
+  const paid=S.mode==='cash'?total:S.mode==='debt'?0:Math.min(S.partial,total);
+  const due=total-paid,cus=CUS[0];
+  return{sub,disc,total,paid,due,newBal:cus.bal+due,cus};
+}
+function sSale(){
+  const s=sale(),c=s.cus,pct=Math.min(100,Math.round(s.newBal/c.lim*100));
+  return `<div class="scr">${status()}
+  <div class="hdr"><div class="row" style="gap:10px"><button class="icon-btn" aria-label="Back">${ic('back','flip')}</button><h1 class="serif">${t('new_sale')}</h1></div><span class="chip ok">${ic('bt','sm')}${t('bt_s')}</span></div>
+  <div class="content" style="padding-bottom:10px">
+   <div class="card cust" style="padding:12px 14px"><div class="top"><span class="av">${ic('store')}</span><div style="flex:1"><b>${c.n[S.lang]}</b><div class="muted" style="font-size:12px">${t(c.area)}</div></div>${ic('chev','flip')}</div>
+     <div class="row" style="font-size:12.5px"><span class="muted">${t('balance')}</span><b class="num">${fmt(c.bal)} → ${fmt(s.newBal)}</b></div>
+     <div class="bar ${s.newBal>c.lim*.8?'dan':''}"><i style="width:${pct}%"></i></div>
+     <div class="row muted" style="font-size:11.5px"><span>${t('limit')}</span><span class="num">${fmt(c.lim)} ${t('iqd')}</span></div></div>
+   <div class="seg"><button data-act="plist" data-v="w" aria-pressed="${S.plist==='w'}">${t('wholesale')}</button><button data-act="plist" data-v="r" aria-pressed="${S.plist==='r'}">${t('retail')}</button></div>
+   <div class="card" style="padding:2px 14px">${lines.map((l,ix)=>{const v=byId[l.id],p=S.plist==='w'?v.w:v.r,atMax=l.q>=v.van;return `<div class="sline"><div class="im">${bottle(v)}</div><div><div class="t">${v.n[S.lang]}<small><span class="num">${v.ml} ml · ${fmt(p)}</span></small></div>
+      <div class="stepper"><button data-act="dec" data-ix="${ix}" aria-label="−">${ic('minus','sm')}</button><b class="num">${l.q}</b><button data-act="inc" data-ix="${ix}" aria-label="+" ${atMax?'disabled':''}>${ic('plus','sm')}</button></div>${atMax?`<div class="cap">${ic('warn','sm')}${t('max_van',{n:'<span class="num">'+v.van+'</span>'})}</div>`:''}</div>
+      <div class="ls num">${fmt(l.q*p)}</div></div>`}).join('')}</div>
+  </div>
+  <div class="sticky" style="gap:8px">
+   <div class="row" style="font-size:12.5px;color:var(--text-2)"><span>${t('subtotal')} <span class="num">${fmt(s.sub)}</span></span><span style="color:var(--success);font-weight:600">${t('discount')} <span class="num">− ${fmt(s.disc)}</span></span></div>
+   <div class="row" style="align-items:baseline"><span style="font-weight:500">${t('total')}</span><b class="serif num" style="font-size:28px;font-weight:600;color:var(--gold-text);line-height:1.1">${fmt(s.total)} <small style="font-size:12px;color:var(--text-2);font-family:Poppins,Tajawal,sans-serif;font-weight:500">${t('iqd')}</small></b></div>
+   <div class="seg gold">${[['cash','cash'],['debt','debt'],['partial','partial']].map(([k,l])=>`<button data-act="mode" data-v="${k}" aria-pressed="${S.mode===k}" style="height:40px">${t(l)}</button>`).join('')}</div>
+   ${S.mode==='partial'?`<div class="g2"><label class="field" style="flex-direction:column;align-items:stretch;height:auto;padding:6px 14px;gap:0"><span style="font-size:11.5px">${t('paid_now')}</span><input class="num" id="partial" inputmode="numeric" value="${fmt(s.paid)}" style="font-size:17px;font-weight:600;height:28px"></label><div class="field" style="flex-direction:column;align-items:stretch;height:auto;padding:6px 14px;gap:0;background:var(--surface-2)"><span style="font-size:11.5px">${t('due')}</span><b class="num" style="font-size:17px;height:28px;line-height:28px;color:var(--danger)">${fmt(s.due)}</b></div></div>`:''}
+   <button class="btn gold" style="height:52px">${ic('bt')}${t('complete')}</button></div>${gest}${credit}</div>`}
+
+function pin(x,y,c,on){return `<g transform="translate(${x} ${y})"><ellipse cy="2" rx="8" ry="3" fill="#000" opacity=".18"/><path d="M0 0c-9-11-14-17-14-24a14 14 0 1 1 28 0c0 7-5 13-14 24z" fill="${c}" ${on?'stroke="#1A1714" stroke-width="2"':''}/><circle cy="-24" r="5.2" fill="${on?'#1A1714':'#fff'}"/></g>`}
+function sCus(){
+  return `<div class="scr">${status()}
+  <div class="hdr"><h1 class="serif">${t('customers')}<small><span class="num">${CUS.length}</span> · ${t('van')}</small></h1><button class="icon-btn" aria-label="Add">${ic('userplus')}</button></div>
+  <div class="body"><div class="content" style="padding-bottom:110px;flex:1">
+   <div class="seg"><button aria-pressed="false">${t('list')}</button><button aria-pressed="true">${t('map')}</button></div>
+   <div class="map"><svg viewBox="0 0 358 212" preserveAspectRatio="xMidYMid slice" aria-label="Map">
+     <rect class="mp-land" width="358" height="212"/>
+     <path class="mp-water" d="M0 178C60 160 110 196 180 184S300 168 358 186V212H0Z"/>
+     <rect class="mp-green" x="196" y="96" width="70" height="46" rx="10"/><rect class="mp-green" x="22" y="112" width="50" height="34" rx="9"/>
+     <g class="mp-block"><rect x="96" y="20" width="44" height="30" rx="5"/><rect x="152" y="20" width="36" height="30" rx="5"/><rect x="205" y="20" width="56" height="30" rx="5"/><rect x="278" y="20" width="60" height="30" rx="5"/><rect x="96" y="66" width="44" height="34" rx="5"/><rect x="152" y="66" width="36" height="34" rx="5"/><rect x="278" y="72" width="60" height="30" rx="5"/><rect x="96" y="120" width="44" height="30" rx="5"/><rect x="152" y="132" width="36" height="24" rx="5"/></g>
+     <path class="mp-road" d="M-10 58 L370 62" stroke-width="9"/><path class="mp-road" d="M-10 158 C80 150 180 168 370 148" stroke-width="9"/><path class="mp-road" d="M144 -10 L148 230" stroke-width="9"/><path class="mp-road" d="M270 -10 L262 230" stroke-width="7"/><path class="mp-road" d="M68 -10 L80 230" stroke-width="6"/>
+     <path d="M-10 58 L370 62" stroke="#D4A548" stroke-width="1.6" stroke-dasharray="7 7" fill="none" opacity=".7"/>
+     <circle cx="176" cy="170" r="20" fill="#D4A548" opacity=".22"/><circle cx="176" cy="170" r="8" fill="#1A1714" stroke="#fff" stroke-width="3"/>
+     ${CUS.map((c,i)=>pin(c.x,c.y,c.bal>c.lim?'#C0453A':'#D4A548',i===0)).join('')}
+   </svg><span class="bubble" style="left:${CUS[0].x/358*100}%;top:${(CUS[0].y-56)/212*100}%;transform:translateX(-50%)"><b>${CUS[0].n[S.lang]}</b> · <span class="num">350k</span></span>
+   <span class="chip" style="position:absolute;bottom:10px;inset-inline-start:10px;height:28px;background:var(--ink);color:#F6F0E4">${ic('nav','sm')}${t('you')}</span></div>
+   ${CUS.map(c=>{const over=c.bal>c.lim;return `<div class="cus"><span class="av">${ic('store')}</span><div class="t">${c.n[S.lang]}<small>${ic('pin','sm')}${t(c.area)} · <span class="num">${c.km}</span> ${t('km')}</small></div><div class="b">${c.bal?`<span class="num" style="color:${over?'var(--danger)':'var(--text)'}">${fmt(c.bal)}</span><span class="chip ${over?'dan':'warn'}" style="height:22px;font-size:11px">${over?t('over'):t('owes')}</span>`:`<span class="chip ok" style="height:24px">${ic('check','sm')}${t('settled')}</span>`}</div></div>`}).join('')}
+  </div>
+  <button class="xfab">${ic('pin')}${t('add_cus')}</button></div>${nav('cus')}${gest}${credit}</div>`}
+
+function sClose(){
+  const cashS=740000,credS=500000,col=480000,exp=35000,expected=cashS+col-exp,counted=expected;
+  return `<div class="scr">${status()}
+  <div class="hdr"><h1 class="serif">${t('closing')}<small class="num">29 Sep 2026 · ${t('fullname')}</small></h1><button class="icon-btn" aria-label="Back">${ic('clip')}</button></div>
+  <div class="content" style="padding-bottom:12px">
+   <div class="g2"><div class="card kpi gold"><small>${t('sales_total')}</small><b class="num serif">${fmt(cashS+credS)}</b></div><div class="card kpi"><small>${t('collections')}</small><b class="num">${fmt(col)}</b></div></div>
+   <div class="card"><div class="row" style="font-size:13px"><span>${t('cash_sales')}</span><b class="num">${fmt(cashS)}</b></div><div class="bar" style="margin:6px 0 12px"><i style="width:${cashS/(cashS+credS)*100}%"></i></div>
+     <div class="row" style="font-size:13px"><span>${t('credit_sales')}</span><b class="num">${fmt(credS)}</b></div><div class="bar dan" style="margin-top:6px"><i style="width:${credS/(cashS+credS)*100}%"></i></div></div>
+   <div class="card"><div class="row" style="font-size:13.5px;padding-bottom:8px;border-bottom:1px dashed var(--line)"><span class="muted">${t('expenses')}</span><b class="num">− ${fmt(exp)}</b></div>
+     <div class="row" style="font-size:13.5px;padding:8px 0"><span class="muted">${t('exp_cash')}</span><b class="num" style="font-size:17px">${fmt(expected)}</b></div>
+     <div class="muted" style="font-size:12px;margin:4px 2px 6px">${t('counted')}</div><div class="count-in">${ic('cash')}<b>${fmt(counted)}</b><span style="margin-inline-start:auto;font-size:12px;color:var(--text-2)">${t('iqd')}</span></div></div>
+   <div class="card"><div class="check"><span class="ok">${ic('check')}</span>${t('c_sync')}</div><div class="check"><span class="ok">${ic('check')}</span>${t('c_stock')} · <span class="num muted">${t('rem_stock')}: 86</span></div><div class="check"><span class="ok w">${ic('warn')}</span>${t('c_visits')} · <span class="num">6 / 10</span></div></div>
+   <div class="status">${ic('clock')}<span>${t('pending')}</span></div>
+  </div>
+  <div class="sticky"><button class="btn gold">${ic('send')}${t('send')}</button></div>${gest}${credit}</div>`}
+
+const SCREENS=[['01','Login · device binding',sLogin],['02','Home · my day',sHome],['03','My stock · van only',sStock],['04','New sale · capped at van stock',sSale],['05','Customers · list & map',sCus],['06','Daily closing',sClose]];
+function render(){
+  const h=document.documentElement;h.lang=HL[S.lang];h.dir=S.lang==='en'?'ltr':'rtl';h.dataset.theme=S.theme;
+  const solo=(location.hash.match(/^#(\d)$/)||[])[1]; /* e.g. index.html#4 shows only screen 04 */
+  $('#phones').innerHTML=SCREENS.filter(s=>!solo||s[0]==='0'+solo).map(([n,cap,fn])=>`<figure class="ph"><div class="device">${fn()}</div><figcaption><b>${n}</b>${cap}</figcaption></figure>`).join('');
+  $$('[data-act=lang]').forEach(b=>{if(b.closest('.pv-bar'))b.setAttribute('aria-pressed',b.dataset.v===S.lang)});
+  const tb=$('[data-act=theme]');tb.setAttribute('aria-pressed',S.theme==='dark');
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a)return;const v=a.dataset.v,ix=+a.dataset.ix;
+  switch(a.dataset.act){
+    case'lang':S.lang=v;break;
+    case'theme':S.theme=S.theme==='dark'?'light':'dark';break;
+    case'offline':S.offline=!S.offline;a.setAttribute('aria-pressed',S.offline);a.textContent=S.offline?'Offline (as in the field)':'Online';break;
+    case'pin':if(v==='del')S.pin=S.pin.slice(0,-1);else if(S.pin.length<4)S.pin+=v;break;
+    case'cap':S.cap=v;break;
+    case'plist':S.plist=v;break;
+    case'mode':S.mode=v;break;
+    case'inc':{const l=lines[ix];if(l.q<byId[l.id].van)l.q++;break}
+    case'dec':{const l=lines[ix];if(l.q>1)l.q--;break}
+  }
+  render();
+});
+document.addEventListener('change',e=>{if(e.target.id==='partial'){S.partial=parseInt(e.target.value.replace(/\D/g,''))||0;render()}});
+function fit(){const w=innerWidth-24;document.documentElement.style.setProperty('--z',Math.min(1,w/410))}
+addEventListener('resize',fit);fit();render();
+</script>
+</body>
+</html>

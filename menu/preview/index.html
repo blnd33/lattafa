@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lattafa Perfume Menu — Design Preview</title>
+<meta name="theme-color" content="#0F0D0B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@400;500;600;700&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ───────── Lattafa tokens — the menu is dark-first (ink + gold) ───────── */
+:root{
+  --gold:#D4A548; --gold-dark:#B8892F; --gold-light:#E9CD8A; --gold-soft:#F7EEDA;
+  --ink:#1A1714; --charcoal:#2B2622; --ivory:#FBF8F2;
+  --bg:#0F0D0B; --bg-2:#161310; --card:#1C1814; --card-2:#252019; --line:#33291F; --line-2:#463825;
+  --text:#F3ECDD; --text-2:#B3A898; --gold-text:#E2BB6A; --success:#3E8E5E;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0}
+html{background:#0A0908;scroll-behavior:smooth}
+body{font-family:Poppins,Tajawal,system-ui,sans-serif;color:var(--text);background:#0A0908;min-height:100vh}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.sm{width:16px;height:16px}
+html[dir=rtl] .flip{transform:scaleX(-1)}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-radius:6px}
+.serif{font-family:'Playfair Display',Georgia,serif}
+html[lang=ar] body,html[lang=ckb] body{font-family:Tajawal,Poppins,sans-serif}
+html[lang=ar] .serif,html[lang=ckb] .serif{font-family:Tajawal,sans-serif;font-weight:800}
+.num{font-family:Poppins,sans-serif;font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;display:inline-block}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* preview shell */
+.pv-bar{direction:ltr;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding:10px 20px;background:#17130F;border-bottom:1px solid #2E271F;font-size:12.5px;color:#CFC5B4}
+.pv-title{font-family:'Playfair Display',serif;font-size:18px;color:#E9CD8A;display:flex;align-items:center;gap:10px}
+.pv-title img{height:30px} .pv-title small{font-family:Poppins,sans-serif;font-size:12px;color:#9A9083}
+.pv-tools{display:flex;gap:6px}
+.pv-tool{padding:8px 14px;border:1px solid #3A3128;border-radius:999px;color:#CFC5B4}
+.pv-tool[aria-pressed=true]{background:#D4A548;color:#1A1714;border-color:#D4A548;font-weight:600}
+.frame{margin:0 auto;width:100%;transition:max-width .3s}
+body.phone .frame{max-width:400px;box-shadow:0 0 0 1px #2E271F,0 30px 80px rgba(0,0,0,.6)}
+.pv-note{max-width:760px;margin:0 auto;padding:20px 20px 40px;color:#8F857A;font-size:12.5px;text-align:center;line-height:1.7}
+
+/* the menu itself — layout responds to its own width (works for phone + desktop) */
+.app{background:var(--bg);container-type:inline-size;container-name:menu;min-height:100vh;position:relative}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:18px}
+
+/* header */
+.hd{position:sticky;top:0;z-index:30;background:rgba(15,13,11,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.hd .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:10px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{height:40px}
+.brand b{font-size:22px;font-weight:600;letter-spacing:.3px;color:var(--gold-light)}
+.brand small{display:none;color:var(--text-2);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+html[dir=rtl] .brand small{letter-spacing:0}
+.langs{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;direction:ltr}
+.langs button{height:34px;min-width:44px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+.langs button[aria-pressed=true]{background:var(--gold);color:var(--ink)}
+
+/* hero */
+.hero{position:relative;overflow:hidden;background:radial-gradient(90% 70% at 75% 30%,rgba(212,165,72,.16),transparent 60%),linear-gradient(180deg,#14100D,var(--bg))}
+.hero .wm{position:absolute;inset-inline-end:-60px;top:-40px;height:520px;opacity:.05;pointer-events:none}
+.hero .wrap{display:grid;gap:28px;padding-block:34px 40px;position:relative}
+.kick{display:inline-flex;align-items:center;gap:10px;color:var(--gold-text);font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:600}
+html[dir=rtl] .kick{letter-spacing:0;font-size:13px}
+.kick::before{content:"";width:28px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(34px,9vw,58px);line-height:1.08;font-weight:600;margin:14px 0 14px;color:var(--text)}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,#F0D58F,#D4A548 60%,#B8892F);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--text-2);font-size:15.5px;line-height:1.75;max-width:460px}
+.cta{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+.btn{height:52px;padding:0 26px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-weight:600;font-size:15px;transition:.2s}
+.btn.gold{background:linear-gradient(180deg,#E0B457,#B8892F);color:var(--ink);box-shadow:0 10px 26px rgba(184,137,47,.32)}
+.btn.gold:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn.line{border:1px solid var(--line-2);color:var(--gold-light)}
+.btn.line:hover{border-color:var(--gold)}
+.arch{position:relative;justify-self:center;width:min(300px,78%);aspect-ratio:300/380;border-radius:999px 999px 26px 26px;border:1px solid var(--line-2);background:radial-gradient(circle at 50% 42%,rgba(212,165,72,.3),rgba(212,165,72,.04) 60%,transparent 72%),linear-gradient(180deg,#1E1913,#120F0C);display:grid;place-items:end center;padding-bottom:7%}
+.arch::before{content:"";position:absolute;inset:10px;border-radius:999px 999px 18px 18px;border:1px solid rgba(212,165,72,.25);pointer-events:none}
+.arch .tri{display:flex;align-items:flex-end;justify-content:center;gap:0;width:100%}
+.arch .tri svg{height:auto;filter:drop-shadow(0 14px 18px rgba(0,0,0,.5))}
+.arch .tri .a{width:34%;margin-inline-end:-9%;transform:rotate(-7deg)} .arch .tri .b{width:54%;z-index:2} .arch .tri .c{width:34%;margin-inline-start:-9%;transform:rotate(7deg)}
+.orn{display:flex;align-items:center;gap:14px;color:var(--gold);margin:0 auto;max-width:360px}
+.orn::before,.orn::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dark))}
+.orn::after{transform:scaleX(-1)}.orn i{width:7px;height:7px;background:var(--gold);transform:rotate(45deg)}
+
+/* filters */
+.fb{position:sticky;top:64px;z-index:20;background:rgba(15,13,11,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.fb .wrap{display:flex;flex-direction:column;gap:10px;padding-block:12px}
+.frow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search{flex:1;min-width:200px;display:flex;align-items:center;gap:10px;height:48px;padding:0 16px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--text-2)}
+.search:focus-within{border-color:var(--gold);box-shadow:0 0 0 4px rgba(212,165,72,.15)}
+.search input{flex:1;min-width:0;border:0;background:none;outline:0;font-size:15px;color:var(--text)}
+.search input::placeholder{color:var(--text-2);opacity:.8}
+.sel{height:48px;padding:0 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-size:13.5px;min-width:130px;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23D4A548' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-inline-end:36px}
+html[dir=rtl] .sel{background-position:left 14px center}
+.sel option{background:#1C1814}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:3px}
+.seg button{height:42px;padding:0 16px;border-radius:11px;font-size:13.5px;font-weight:500;color:var(--text-2);white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--gold);color:var(--ink);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chip{height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line);color:var(--text-2);font-size:13.5px;white-space:nowrap;background:transparent;transition:.15s}
+.chip:hover{border-color:var(--gold)}
+.chip[aria-pressed=true]{border-color:var(--gold);background:rgba(212,165,72,.14);color:var(--gold-light);font-weight:600}
+
+/* sections + cards */
+.sec{padding-block:34px 6px}
+.sh{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:16px}
+.sh h2{font-size:26px;font-weight:600}
+.sh span{color:var(--text-2);font-size:13px}
+.strip{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 14px;scrollbar-width:none;margin-inline:-18px;padding-inline:18px}
+.strip .pc{flex:0 0 min(64%,250px);scroll-snap-align:start}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.pc{background:linear-gradient(180deg,var(--card-2),var(--card));border:1px solid var(--line);border-radius:22px;overflow:hidden;cursor:pointer;transition:transform .25s,border-color .25s,box-shadow .25s;position:relative;text-align:start;display:flex;flex-direction:column;animation:up .5s both}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.pc:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 18px 40px rgba(0,0,0,.5),0 0 0 1px rgba(212,165,72,.2)}
+.pc .im{aspect-ratio:1/1.02;display:grid;place-items:center;background:radial-gradient(circle at 50% 46%,rgba(212,165,72,.24),transparent 62%)}
+.pc .im svg{height:70%;width:auto;filter:drop-shadow(0 12px 14px rgba(0,0,0,.5));transition:transform .35s}
+.pc:hover .im svg{transform:scale(1.06) translateY(-3px)}
+.badges{position:absolute;top:10px;inset-inline-start:10px;display:flex;gap:6px}
+.bd{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:99px;background:var(--gold);color:var(--ink)}
+html[dir=rtl] .bd{letter-spacing:0;font-size:11.5px}
+.bd.f{background:rgba(15,13,11,.7);color:var(--gold);border:1px solid var(--line-2);display:grid;place-items:center;padding:4px 7px}
+.pc .tx{padding:4px 14px 16px;display:flex;flex-direction:column;gap:3px}
+.pc .br{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+html[dir=rtl] .pc .br{letter-spacing:0;font-size:12px}
+.pc h3{font-size:19px;font-weight:600;line-height:1.25}
+.pc .meta{font-size:12px;color:var(--text-2)}
+.pc .pr{margin-top:8px;font-size:14px;color:var(--text)} .pc .pr small{color:var(--text-2);font-size:11.5px} .pc .pr b{color:var(--gold-light);font-weight:600}
+.none{text-align:center;padding:60px 10px;color:var(--text-2)}
+.none img{height:120px;opacity:.25;display:block;margin:0 auto 14px}
+
+/* detail sheet */
+.sbg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:60;display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
+.sbg[hidden]{display:none}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{position:relative;width:100%;max-width:1000px;max-height:94vh;overflow:auto;background:var(--bg-2);border:1px solid var(--line-2);border-radius:28px 28px 0 0;animation:rise .3s cubic-bezier(.2,.8,.2,1);container-type:inline-size}
+body.phone .sheet{max-width:400px}
+@keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.x{position:absolute;top:14px;inset-inline-end:14px;width:44px;height:44px;border-radius:50%;background:rgba(15,13,11,.7);border:1px solid var(--line-2);display:grid;place-items:center;z-index:5;color:var(--gold-light)}
+.sg{display:grid}
+.simg{position:relative;display:grid;place-items:center;padding:34px 20px 8px;background:radial-gradient(circle at 50% 48%,rgba(212,165,72,.3),transparent 62%)}
+.simg svg{height:260px;width:auto;filter:drop-shadow(0 20px 24px rgba(0,0,0,.6))}
+.dots{display:flex;gap:6px;justify-content:center;margin:6px 0 10px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--line-2)}.dots i:first-child{background:var(--gold);width:18px;border-radius:4px}
+.sinfo{padding:6px 22px 26px;display:flex;flex-direction:column;gap:16px}
+.sinfo .br{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+html[dir=rtl] .sinfo .br{letter-spacing:0}
+.sinfo h2{font-size:34px;font-weight:600;line-height:1.15;margin-top:2px}
+.tags{display:flex;gap:8px;flex-wrap:wrap}
+.tag{font-size:12px;padding:5px 12px;border-radius:99px;border:1px solid var(--line-2);color:var(--text-2)}
+.desc{color:var(--text-2);font-size:14.5px;line-height:1.8}
+.lab{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-2);margin-bottom:8px;font-weight:600}
+html[dir=rtl] .lab{letter-spacing:0;font-size:13px}
+.pyr{display:flex;flex-direction:column;gap:8px}
+.tier{display:grid;grid-template-columns:70px 1fr;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.tier:nth-child(2){background:linear-gradient(90deg,var(--card),var(--card-2))}
+.tier b{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--gold)}
+html[dir=rtl] .tier b{letter-spacing:0;font-size:13px}
+.notes{display:flex;flex-wrap:wrap;gap:6px}
+.note{font-size:13px;padding:5px 12px;border-radius:99px;background:rgba(212,165,72,.1);color:var(--gold-light);border:1px solid rgba(212,165,72,.22)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meter{padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.meter .d{display:flex;gap:4px;margin-top:4px}.meter svg{width:20px;height:20px;fill:none;stroke:var(--line-2);stroke-width:1.6}.meter svg.on{fill:var(--gold);stroke:var(--gold)}
+.meter small{color:var(--text-2);font-size:12px}
+.sizes{display:flex;gap:10px;flex-wrap:wrap}
+.size{flex:1;min-width:110px;min-height:56px;padding:8px 14px;border-radius:16px;border:1.5px solid var(--line-2);text-align:start;display:flex;flex-direction:column;gap:1px}
+.size b{font-size:15px}.size small{color:var(--text-2);font-size:12.5px}
+.size[aria-pressed=true]{border-color:var(--gold);background:rgba(212,165,72,.12)}
+.size[aria-pressed=true] small{color:var(--gold-light)}
+.buy{position:sticky;bottom:0;padding:14px 22px 20px;background:linear-gradient(180deg,transparent,var(--bg-2) 30%);display:flex;align-items:center;gap:14px}
+.buy .p{line-height:1.2}.buy .p small{display:block;color:var(--text-2);font-size:12px}.buy .p b{font-size:24px;color:var(--gold-light);font-weight:600}
+.buy .btn{flex:1;padding:0 14px;white-space:nowrap;font-size:14.5px;gap:8px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,30px);background:var(--ink);color:var(--text);border:1px solid var(--gold-dark);padding:14px 18px;border-radius:16px;z-index:100;opacity:0;pointer-events:none;transition:.3s;max-width:min(92vw,440px);font-size:13.5px;line-height:1.55;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.toast.on{opacity:1;transform:translate(-50%,0)}.toast b{color:var(--gold-light);display:block;margin-bottom:2px}
+
+/* footer */
+.ft{margin-top:50px;border-top:1px solid var(--line);background:#0A0908;padding-block:34px 24px;text-align:center}
+.ft img{height:74px;opacity:.9}
+.ft p{color:var(--text-2);font-size:13px;margin-top:8px}
+.credit{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:#8F857A;direction:ltr}.credit b{color:var(--gold-light);font-weight:600}
+
+/* container-query layout: same rules serve phone and desktop */
+@container menu (min-width:560px){
+  .brand small{display:block}
+  .grid{grid-template-columns:repeat(3,1fr);gap:18px}
+  .strip{margin-inline:0;padding-inline:0}.strip .pc{flex-basis:260px}
+}
+@container menu (min-width:860px){
+  .wrap{padding-inline:32px}
+  .hero .wrap{grid-template-columns:1.1fr .9fr;align-items:center;padding-block:64px 70px}
+  .grid{grid-template-columns:repeat(4,1fr)}
+  .fb .wrap{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .chips{flex:1 1 100%}
+  .fb .wrap>.frow:first-child{flex:1 1 560px}
+  .search{min-width:260px}
+}
+@container menu (min-width:1100px){.grid{grid-template-columns:repeat(5,1fr)}}
+@container (min-width:720px){
+  .sheet{border-radius:28px}
+  .sg{grid-template-columns:.95fr 1.05fr}
+  .simg{padding-top:60px}.simg svg{height:340px}
+  .sinfo{padding-top:44px}
+}
+@media (min-width:860px){.sbg{align-items:center;padding:24px}}
+body.phone .sbg{align-items:flex-end;padding:0}
+body.phone .sheet{border-radius:28px 28px 0 0}
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9 10c.5 2 2 3.5 4 4l1.5-1.5 2 1c-.3 1.2-1.3 2-2.5 2-3.3 0-6-2.7-6-6 0-1.2.8-2.2 2-2.5l1 2z"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2c3 5 7 8 7 12a7 7 0 0 1-14 0c0-4 4-7 7-12z"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+</svg>
+
+<div class="pv-bar">
+  <div class="pv-title"><img src="assets/logo.png" alt=""> Lattafa · Perfume Menu <small>design preview · public QR catalog · sample data</small></div>
+  <div class="pv-tools"><button class="pv-tool" data-act="view" data-v="phone" aria-pressed="false">Phone</button><button class="pv-tool" data-act="view" data-v="desktop" aria-pressed="true">Desktop</button></div>
+</div>
+
+<div class="frame"><div class="app" id="app">
+  <header class="hd"><div class="wrap">
+    <div class="brand"><img src="assets/logo.png" alt="Lattafa"><div><b class="serif">Lattafa</b><small data-i18n="tagline">Duhok · Iraq</small></div></div>
+    <div class="langs" role="group" aria-label="Language">
+      <button data-act="lang" data-v="en" aria-pressed="true">EN</button><button data-act="lang" data-v="ar" aria-pressed="false">عربي</button><button data-act="lang" data-v="ku" aria-pressed="false">کوردی</button>
+    </div>
+  </div></header>
+
+  <section class="hero">
+    <img class="wm" src="assets/logo.png" alt="">
+    <div class="wrap">
+      <div>
+        <span class="kick" data-i18n="kicker">Perfume boutique</span>
+        <h1 class="serif" id="heroH"></h1>
+        <p data-i18n="hero_p"></p>
+        <div class="cta"><a class="btn gold" href="#collection" data-i18n-html="cta"></a></div>
+      </div>
+      <div class="arch" aria-hidden="true"><div class="tri" id="tri"></div></div>
+    </div>
+  </section>
+
+  <div class="fb" id="collection"><div class="wrap">
+    <div class="frow">
+      <label class="search"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" data-i18n-ph="search_ph"></label>
+      <select class="sel" id="brand" aria-label="Brand"></select>
+      <select class="sel" id="price" aria-label="Price"></select>
+    </div>
+    <div class="frow"><div class="seg" id="gender" role="group"></div></div>
+    <div class="chips" id="fams"></div>
+  </div></div>
+
+  <main class="wrap" id="main"></main>
+
+  <footer class="ft"><div class="wrap">
+    <img src="assets/logo.png" alt="Lattafa">
+    <p data-i18n="foot1">Duhok, Kurdistan Region — Iraq</p>
+    <p style="font-size:12px" data-i18n="foot2">Prices in Iraqi Dinar. Availability may vary.</p>
+    <div class="credit">Developed by <b>Coda Agency</b> — Build What's Next — +964 750 730 8005 — <b>@codatechagency</b></div>
+  </div></footer>
+</div></div>
+
+<div class="sbg" id="sbg" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Perfume details"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<p class="pv-note">Sample data for design review only. This is the public, read-only menu that guests open from the QR code; the real one will read <b>/api/menu/*</b> and show only products the admin marked “show on menu”. Kurdish (Sorani) and Arabic strings are first drafts for native review.</p>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const ic=(n,c='')=>`<svg class="i ${c}"><use href="#i-${n}"/></svg>`;
+
+/* ───────── i18n ───────── */
+const T={
+en:{tagline:'Duhok · Iraq',kicker:'Perfume boutique',hero_a:'Discover your',hero_b:'signature scent',hero_p:'Oriental oud, warm amber and modern florals — curated for you. Browse, explore the notes, and order in seconds.',cta:'Explore collection',
+ search_ph:'Search perfume, brand or note…',brand_all:'All brands',price_any:'Any price',p1:'Under 35,000',p2:'35,000 – 42,000',p3:'Over 42,000',
+ g_all:'All',g_men:'Men',g_women:'Women',g_unisex:'Unisex',
+ f_all:'All scents',f_oud:'Oud',f_woody:'Woody',f_floral:'Floral',f_oriental:'Oriental',f_fresh:'Fresh',f_sweet:'Sweet',
+ featured:'Featured',new_arr:'New arrivals',all_perf:'All perfumes',results:'{n} perfumes',new:'New',from:'from',iqd:'IQD',
+ none:'No perfumes match your filters',reset:'Reset filters',
+ notes:'Fragrance notes',top:'Top',heart:'Heart',base:'Base',longevity:'Longevity',sillage:'Sillage',season:'Season',sizes:'Sizes',
+ s_winter:'Autumn · Winter',s_summer:'Spring · Summer',s_all:'All seasons',order:'Order via WhatsApp',wa_t:'Opens WhatsApp with this message',wa_hello:'Hello Lattafa, I would like to order:',
+ foot1:'Duhok, Kurdistan Region — Iraq',foot2:'Prices in Iraqi Dinar. Availability may vary.',close:'Close'},
+ar:{tagline:'دهوك · العراق',kicker:'بوتيك العطور',hero_a:'اكتشف',hero_b:'عطرك المميز',hero_p:'عود شرقي وعنبر دافئ وأزهار عصرية — مختارة لك. تصفّح النوتات العطرية واطلب خلال ثوانٍ.',cta:'استكشف المجموعة',
+ search_ph:'ابحث عن عطر أو ماركة أو نوتة…',brand_all:'كل الماركات',price_any:'أي سعر',p1:'أقل من 35,000',p2:'35,000 – 42,000',p3:'أكثر من 42,000',
+ g_all:'الكل',g_men:'رجالي',g_women:'نسائي',g_unisex:'للجنسين',
+ f_all:'كل العطور',f_oud:'عود',f_woody:'خشبي',f_floral:'زهري',f_oriental:'شرقي',f_fresh:'منعش',f_sweet:'حلو',
+ featured:'مختارات',new_arr:'وصل حديثاً',all_perf:'كل العطور',results:'{n} عطر',new:'جديد',from:'ابتداءً من',iqd:'د.ع',
+ none:'لا توجد عطور مطابقة',reset:'إعادة ضبط الفلاتر',
+ notes:'النوتات العطرية',top:'العليا',heart:'القلب',base:'القاعدة',longevity:'الثبات',sillage:'الفوحان',season:'الموسم',sizes:'الأحجام',
+ s_winter:'الخريف · الشتاء',s_summer:'الربيع · الصيف',s_all:'كل الفصول',order:'اطلب عبر واتساب',wa_t:'يفتح واتساب بهذه الرسالة',wa_hello:'مرحباً لطافة، أود طلب:',
+ foot1:'دهوك، إقليم كردستان — العراق',foot2:'الأسعار بالدينار العراقي. التوفر قد يختلف.',close:'إغلاق'},
+ku:{tagline:'دهۆک · عێراق',kicker:'بۆتیکی عەتر',hero_a:'عەترە',hero_b:'تایبەتەکەی خۆت بدۆزەرەوە',hero_p:'عودی ڕۆژهەڵاتی، ئەمبەری گەرم و گوڵی مۆدێرن — بۆ تۆ هەڵبژێردراون. بگەڕێ، نۆتەکان ببینە و لە چرکەیەکدا داوا بکە.',cta:'کۆمەڵەکە ببینە',
+ search_ph:'بگەڕێ بۆ عەتر، براند یان نۆت…',brand_all:'هەموو براندەکان',price_any:'هەر نرخێک',p1:'کەمتر لە 35,000',p2:'35,000 – 42,000',p3:'زیاتر لە 42,000',
+ g_all:'هەموو',g_men:'پیاوان',g_women:'ژنان',g_unisex:'یونیسێکس',
+ f_all:'هەموو بۆنەکان',f_oud:'عود',f_woody:'داری',f_floral:'گوڵاوی',f_oriental:'ڕۆژهەڵاتی',f_fresh:'فێنک',f_sweet:'شیرین',
+ featured:'هەڵبژاردەکان',new_arr:'نوێ گەیشتووە',all_perf:'هەموو عەترەکان',results:'{n} عەتر',new:'نوێ',from:'لە',iqd:'دینار',
+ none:'هیچ عەترێک نەدۆزرایەوە',reset:'ڕێکخستنەوەی فلتەرەکان',
+ notes:'نۆتەکانی بۆن',top:'سەرەوە',heart:'دڵ',base:'بنکە',longevity:'مانەوە',sillage:'بڵاوبوونەوە',season:'وەرز',sizes:'قەبارەکان',
+ s_winter:'پاییز · زستان',s_summer:'بەهار · هاوین',s_all:'هەموو وەرزەکان',order:'لە ڕێگەی واتسئاپەوە داوا بکە',wa_t:'واتسئاپ دەکرێتەوە لەگەڵ ئەم نامەیە',wa_hello:'سڵاو لەتافە، دەمەوێت داوا بکەم:',
+ foot1:'دهۆک، هەرێمی کوردستان — عێراق',foot2:'نرخەکان بە دیناری عێراقین. بەردەستبوون دەشێت جیاواز بێت.',close:'داخستن'}
+};
+const HL={en:'en',ar:'ar',ku:'ckb'};
+const S={lang:'en',q:'',gender:'all',fam:'all',brand:'all',price:'any',open:null,size:0};
+const t=(k,v)=>{let s=T[S.lang][k]??T.en[k]??k;if(v)for(const x in v)s=s.replace('{'+x+'}',v[x]);return s};
+
+/* ───────── notes dictionary ───────── */
+const N={cinnamon:['Cinnamon','قرفة','دارچین'],bergamot:['Bergamot','برغموت','بێرگاموت'],cardamom:['Cardamom','هيل','هێل'],dates:['Dates','تمر','خورما'],praline:['Praline','برالين','پرالین'],rose:['Rose','ورد','ڕۆز'],
+ vanilla:['Vanilla','فانيليا','ڤانیلیا'],amber:['Amber','عنبر','ئەمبەر'],musk:['Musk','مسك','میسک'],sandalwood:['Sandalwood','خشب الصندل','داری سندل'],oud:['Oud','عود','عود'],saffron:['Saffron','زعفران','زەعفەران'],
+ pepper:['Black pepper','فلفل أسود','بیبەری ڕەش'],tobacco:['Tobacco','تبغ','تووتن'],coffee:['Coffee','قهوة','قاوە'],iris:['Iris','زنبق','ئیریس'],orchid:['Orchid','أوركيد','ئۆرکید'],tangerine:['Tangerine','يوسفي','نارنگی'],
+ pineapple:['Pineapple','أناناس','ئەناناس'],jasmine:['Jasmine','ياسمين','یاسمین'],incense:['Incense','بخور','بەخوور'],patchouli:['Patchouli','باتشولي','پاچۆلی'],caramel:['Caramel','كراميل','کارامێل'],
+ lavender:['Lavender','لافندر','لاڤەندەر'],apple:['Apple','تفاح','سێو'],mint:['Mint','نعناع','نەعنا']};
+const nn=k=>N[k][{en:0,ar:1,ku:2}[S.lang]];
+
+/* ───────── sample catalog (real build: GET /api/menu/products) ───────── */
+const P=[
+{id:'khamrah',n:['Khamrah','خمرة','خەمرە'],b:'Lattafa',g:'unisex',fam:['oriental','sweet'],c:'EDP',se:'winter',lo:5,si:4,z:[[100,45000],[50,30000]],feat:1,c1:'#8B4A2B',c2:'#3A1E12',sh:'rect',
+ top:['cinnamon','bergamot','cardamom'],heart:['dates','praline','rose'],base:['vanilla','amber','sandalwood'],
+ d:['A warm gourmand of cinnamon, dates and praline melting into creamy vanilla and amber.','عطر دافئ شهي من القرفة والتمر والبرالين يذوب في الفانيليا الكريمية والعنبر.','بۆنێکی گەرم و شیرین لە دارچین و خورما و پرالین کە دەتوێتەوە لە ڤانیلیای کرێمی و ئەمبەر.']},
+{id:'asad',n:['Asad','أسد','ئەسەد'],b:'Lattafa',g:'men',fam:['oriental','woody'],c:'EDP',se:'winter',lo:5,si:4,z:[[100,42000]],feat:1,c1:'#3B3530',c2:'#0F0D0B',sh:'tall',
+ top:['pepper','tobacco'],heart:['coffee','iris'],base:['vanilla','amber','patchouli'],
+ d:['Bold and magnetic: black pepper and tobacco over coffee, iris and a smooth vanilla-amber base.','جريء وجذاب: فلفل أسود وتبغ فوق القهوة والزنبق وقاعدة ناعمة من الفانيليا والعنبر.','بوێر و ڕاکێش: بیبەری ڕەش و تووتن لەسەر قاوە و ئیریس و بنکەیەکی نەرمی ڤانیلیا و ئەمبەر.']},
+{id:'yara',n:['Yara','يارا','یارا'],b:'Lattafa',g:'women',fam:['floral','sweet'],c:'EDP',se:'all',lo:4,si:3,z:[[100,38000],[50,26000]],feat:1,nw:1,c1:'#F2BCCB',c2:'#C77A9A',sh:'round',
+ top:['orchid','tangerine'],heart:['jasmine','pineapple'],base:['vanilla','musk','sandalwood'],
+ d:['Soft, dreamy and feminine: orchid and tangerine wrapped in creamy vanilla musk.','ناعم وحالم وأنثوي: أوركيد ويوسفي في مسك الفانيليا الكريمي.','نەرم و خەیاڵاوی و ژنانە: ئۆرکید و نارنگی لە میسکی ڤانیلیای کرێمیدا.']},
+{id:'badee',n:["Bade'e Al Oud",'بديع العود','بەدیع ئەلعود'],b:'Lattafa Pride',g:'unisex',fam:['oud','woody'],c:'EDP',se:'winter',lo:5,si:5,z:[[100,48000]],feat:1,c1:'#8A6A38',c2:'#2E2010',sh:'tall',
+ top:['saffron','cardamom'],heart:['oud','rose'],base:['patchouli','amber','musk'],
+ d:['Regal oud with saffron and cardamom, deepened by rose, patchouli and warm amber.','عود ملكي مع الزعفران والهيل، يزداد عمقاً بالورد والباتشولي والعنبر الدافئ.','عودی شاهانە لەگەڵ زەعفەران و هێل، قووڵتر دەبێت بە ڕۆز و پاچۆلی و ئەمبەری گەرم.']},
+{id:'oudmood',n:['Oud Mood','عود مود','عود مود'],b:'Lattafa',g:'unisex',fam:['oud','oriental'],c:'EDP',se:'winter',lo:5,si:4,z:[[100,46000]],nw:1,c1:'#6A2F42',c2:'#22101A',sh:'rect',
+ top:['saffron','rose'],heart:['oud','incense'],base:['amber','vanilla','sandalwood'],
+ d:['A dark, smoky oud with saffron and rose, wrapped in incense, amber and vanilla.','عود داكن ودخاني مع الزعفران والورد، ملفوف بالبخور والعنبر والفانيليا.','عودێکی تاریک و دووکەڵاوی لەگەڵ زەعفەران و ڕۆز، پێچراوە بە بەخوور و ئەمبەر و ڤانیلیا.']},
+{id:'raghba',n:['Raghba','رغبة','ڕەغبە'],b:'Lattafa',g:'unisex',fam:['oriental','sweet'],c:'EDP',se:'winter',lo:4,si:4,z:[[100,36000]],c1:'#B5442F',c2:'#5E1E14',sh:'flask',
+ top:['saffron','incense'],heart:['rose'],base:['vanilla','oud','musk'],
+ d:['Saffron and incense open onto a deep heart of rose, resting on vanilla, oud and musk.','زعفران وبخور يفتحان على قلب عميق من الورد، فوق الفانيليا والعود والمسك.','زەعفەران و بەخوور دەکرێنەوە بۆ دڵێکی قووڵی ڕۆز، لەسەر ڤانیلیا و عود و میسک.']},
+{id:'ana',n:['Ana Abiyedh','أنا أبيض','ئەنا ئەبیەز'],b:'Lattafa',g:'unisex',fam:['fresh','floral'],c:'EDP',se:'summer',lo:3,si:3,z:[[60,30000]],nw:1,c1:'#F6F1E6',c2:'#CFC3A8',sh:'round',
+ top:['bergamot','mint'],heart:['jasmine','lavender'],base:['musk','amber'],
+ d:['Clean and luminous: bergamot and mint over jasmine and lavender, settling into soft musk.','نقي ومضيء: برغموت ونعناع فوق الياسمين واللافندر، ويستقر على مسك ناعم.','پاک و ڕووناک: بێرگاموت و نەعنا لەسەر یاسمین و لاڤەندەر، دەنیشێتەوە لەسەر میسکی نەرم.']},
+{id:'eclaire',n:['Eclaire','إكلير','ئیکلێر'],b:'Lattafa',g:'women',fam:['sweet','oriental'],c:'EDP',se:'all',lo:4,si:3,z:[[100,40000]],c1:'#EBBB70',c2:'#A8702B',sh:'rect',
+ top:['caramel','tangerine'],heart:['jasmine','rose'],base:['vanilla','musk','sandalwood'],
+ d:['Sweet caramel and tangerine with jasmine and rose, finishing on vanilla and musk.','كراميل حلو ويوسفي مع الياسمين والورد، ينتهي بالفانيليا والمسك.','کارامێلی شیرین و نارنگی لەگەڵ یاسمین و ڕۆز، کۆتایی دێت بە ڤانیلیا و میسک.']},
+{id:'haya',n:['Haya','هيا','هەیا'],b:'Lattafa',g:'women',fam:['floral','fresh'],c:'EDP',se:'summer',lo:3,si:3,z:[[100,37000]],c1:'#CDA2E3',c2:'#7A4FA0',sh:'tall',
+ top:['apple','bergamot'],heart:['rose','jasmine'],base:['musk','amber'],
+ d:['Bright apple and bergamot over a soft bouquet of rose and jasmine.','تفاح وبرغموت مشرقان فوق باقة ناعمة من الورد والياسمين.','سێو و بێرگاموتی ڕووناک لەسەر گوڵدەستەیەکی نەرمی ڕۆز و یاسمین.']},
+{id:'fakhar',n:['Fakhar Black','فخر بلاك','فەخر بلاک'],b:'Lattafa',g:'men',fam:['fresh','woody'],c:'EDP',se:'all',lo:4,si:4,z:[[100,44000]],c1:'#27365C',c2:'#0B1020',sh:'rect',
+ top:['bergamot','mint','apple'],heart:['lavender','iris'],base:['patchouli','amber','musk'],
+ d:['Fresh and refined: bergamot, mint and apple with lavender, iris and a woody amber base.','منعش وراقٍ: برغموت ونعناع وتفاح مع اللافندر والزنبق وقاعدة خشبية عنبرية.','فێنک و پەسەند: بێرگاموت و نەعنا و سێو لەگەڵ لاڤەندەر و ئیریس و بنکەیەکی داری ئەمبەری.']}
+];
+const byId=Object.fromEntries(P.map(p=>[p.id,p]));
+const L=()=>({en:0,ar:1,ku:2}[S.lang]);
+const minP=p=>Math.min(...p.z.map(z=>z[1]));
+
+/* generated bottle art — placeholder until real product photos are uploaded */
+let bid=0;
+function bottle(p){
+  const id=++bid,g=`url(#gl${id})`,cp=`url(#cp${id})`;
+  const defs=`<defs><linearGradient id="gl${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.c1}"/><stop offset="1" stop-color="${p.c2}"/></linearGradient><linearGradient id="cp${id}" x1="0" x2="1"><stop offset="0" stop-color="#F0D58F"/><stop offset=".5" stop-color="#D4A548"/><stop offset="1" stop-color="#9C7420"/></linearGradient></defs>`;
+  const label=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#fff" opacity=".9"/><rect x="${x+6}" y="${y+h/2-4}" width="${w-12}" height="3" rx="1.5" fill="#D4A548"/><rect x="${x+10}" y="${y+h/2+3}" width="${w-20}" height="2" rx="1" fill="#D4A548" opacity=".6"/>`;
+  let b;
+  switch(p.sh){
+  case'tall':b=`<rect x="48" y="4" width="24" height="32" rx="4" fill="${cp}"/><rect x="54" y="34" width="12" height="10" fill="#B58A2E"/><rect x="36" y="44" width="48" height="116" rx="9" fill="${g}"/><rect x="41" y="52" width="6" height="98" rx="3" fill="#fff" opacity=".22"/>${label(44,92,32,36)}`;break;
+  case'round':b=`<rect x="46" y="6" width="28" height="24" rx="5" fill="${cp}"/><rect x="52" y="28" width="16" height="12" fill="#B58A2E"/><circle cx="60" cy="112" r="46" fill="${g}"/><path d="M26 98a36 36 0 0 1 20-28" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" opacity=".26"/>${label(42,100,36,28)}`;break;
+  case'flask':b=`<rect x="48" y="6" width="24" height="22" rx="4" fill="${cp}"/><rect x="54" y="26" width="12" height="14" fill="#B58A2E"/><path d="M40 40h40l20 108q1 12-11 12H31q-12 0-11-12Z" fill="${g}"/><path d="M42 50l-12 96" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".22"/>${label(42,104,36,30)}`;break;
+  default:b=`<rect x="44" y="6" width="32" height="28" rx="5" fill="${cp}"/><rect x="50" y="32" width="20" height="10" fill="#B58A2E"/><rect x="24" y="42" width="72" height="118" rx="14" fill="${g}"/><rect x="30" y="52" width="7" height="98" rx="3.5" fill="#fff" opacity=".24"/>${label(38,92,44,36)}`;
+  }
+  return `<svg viewBox="0 0 120 170" aria-hidden="true">${defs}<ellipse cx="60" cy="163" rx="34" ry="4.5" fill="#000" opacity=".2"/>${b}</svg>`;
+}
+
+/* ───────── filtering ───────── */
+const active=()=>S.q.trim()||S.gender!=='all'||S.fam!=='all'||S.brand!=='all'||S.price!=='any';
+function filtered(){
+  const q=S.q.trim().toLowerCase();
+  return P.filter(p=>{
+    if(S.gender!=='all'&&p.g!==S.gender)return false;
+    if(S.fam!=='all'&&!p.fam.includes(S.fam))return false;
+    if(S.brand!=='all'&&p.b!==S.brand)return false;
+    const m=minP(p);
+    if(S.price==='p1'&&m>=35000)return false;
+    if(S.price==='p2'&&(m<35000||m>42000))return false;
+    if(S.price==='p3'&&m<=42000)return false;
+    if(q){const hay=(p.n.join(' ')+' '+p.b+' '+[...p.top,...p.heart,...p.base].map(k=>N[k].join(' ')).join(' ')).toLowerCase();if(!hay.includes(q))return false}
+    return true;
+  });
+}
+
+/* ───────── render ───────── */
+function card(p,i){
+  return `<article class="pc" data-open="${p.id}" tabindex="0" role="button" aria-label="${p.n[L()]}" style="animation-delay:${Math.min(i,10)*45}ms">
+    <div class="im">${bottle(p)}</div>
+    <div class="badges">${p.nw?`<span class="bd">${t('new')}</span>`:''}${p.feat?`<span class="bd f">${ic('star','sm')}</span>`:''}</div>
+    <div class="tx"><span class="br">${p.b}</span><h3 class="serif">${p.n[L()]}</h3><span class="meta"><span class="num">${p.z.map(z=>z[0]).join(' / ')} ml</span> · ${t('g_'+p.g)} · ${p.c}</span>
+    <div class="pr"><small>${t('from')}</small> <b class="num">${fmt(minP(p))}</b> <small>${t('iqd')}</small></div></div></article>`;
+}
+function renderMain(){
+  const res=filtered();
+  if(active()){
+    $('#main').innerHTML=`<section class="sec"><div class="sh"><h2 class="serif">${t('all_perf')}</h2><span>${t('results',{n:`<span class="num">${res.length}</span>`})}</span></div>
+      ${res.length?`<div class="grid">${res.map(card).join('')}</div>`:`<div class="none"><img src="assets/logo.png" alt=""><p>${t('none')}</p><button class="btn line" style="margin-top:16px" data-act="reset">${t('reset')}</button></div>`}</section>`;
+  }else{
+    const f=P.filter(p=>p.feat),n=P.filter(p=>p.nw);
+    $('#main').innerHTML=`
+     <section class="sec"><div class="sh"><h2 class="serif">${t('featured')}</h2></div><div class="strip">${f.map(card).join('')}</div></section>
+     <div class="orn" style="margin-top:14px"><i></i></div>
+     <section class="sec"><div class="sh"><h2 class="serif">${t('new_arr')}</h2></div><div class="strip">${n.map(card).join('')}</div></section>
+     <div class="orn" style="margin-top:14px"><i></i></div>
+     <section class="sec"><div class="sh"><h2 class="serif">${t('all_perf')}</h2><span>${t('results',{n:`<span class="num">${P.length}</span>`})}</span></div><div class="grid">${P.map(card).join('')}</div></section>`;
+  }
+}
+function renderFilters(){
+  $('#gender').innerHTML=['all','men','women','unisex'].map(g=>`<button data-act="gender" data-v="${g}" aria-pressed="${S.gender===g}">${t('g_'+g)}</button>`).join('');
+  $('#fams').innerHTML=['all','oud','woody','floral','oriental','fresh','sweet'].map(f=>`<button class="chip" data-act="fam" data-v="${f}" aria-pressed="${S.fam===f}">${t('f_'+f)}</button>`).join('');
+  const brands=[...new Set(P.map(p=>p.b))];
+  $('#brand').innerHTML=`<option value="all">${t('brand_all')}</option>`+brands.map(b=>`<option ${S.brand===b?'selected':''}>${b}</option>`).join('');
+  $('#price').innerHTML=[['any','price_any'],['p1','p1'],['p2','p2'],['p3','p3']].map(([v,l])=>`<option value="${v}" ${S.price===v?'selected':''}>${t(l)}</option>`).join('');
+}
+function renderHero(){
+  $('#heroH').innerHTML=S.lang==='ku'?`${t('hero_a')}<br><em>${t('hero_b')}</em>`:`${t('hero_a')}<br><em>${t('hero_b')}</em>`;
+  const w=(id,c)=>`<div class="${c}">${bottle(byId[id])}</div>`;
+  $('#tri').innerHTML=w('asad','a')+w('khamrah','b')+w('yara','c');
+}
+const drops=n=>[1,2,3,4,5].map(i=>`<svg viewBox="0 0 24 24" class="${i<=n?'on':''}"><use href="#i-drop"/></svg>`).join('');
+function renderSheet(){
+  const p=byId[S.open];if(!p)return;const z=p.z[S.size];
+  const tier=(k,arr)=>`<div class="tier"><b>${t(k)}</b><div class="notes">${arr.map(x=>`<span class="note">${nn(x)}</span>`).join('')}</div></div>`;
+  $('#sheet').innerHTML=`<button class="x" data-act="close" aria-label="${t('close')}">${ic('x')}</button>
+   <div class="sg"><div class="simg">${bottle(p)}</div>
+    <div class="sinfo">
+     <div><span class="br">${p.b}</span><h2 class="serif">${p.n[L()]}</h2></div>
+     <div class="tags"><span class="tag">${t('g_'+p.g)}</span><span class="tag">${p.c}</span><span class="tag">${t('s_'+p.se)}</span>${p.nw?`<span class="tag" style="color:var(--gold);border-color:var(--gold-dark)">${t('new')}</span>`:''}</div>
+     <p class="desc">${p.d[L()]}</p>
+     <div><div class="lab">${t('notes')}</div><div class="pyr">${tier('top',p.top)}${tier('heart',p.heart)}${tier('base',p.base)}</div></div>
+     <div class="meters"><div class="meter"><small>${t('longevity')}</small><div class="d">${drops(p.lo)}</div></div><div class="meter"><small>${t('sillage')}</small><div class="d">${drops(p.si)}</div></div></div>
+     <div><div class="lab">${t('sizes')}</div><div class="sizes">${p.z.map((s,i)=>`<button class="size" data-act="size" data-v="${i}" aria-pressed="${i===S.size}"><b class="num">${s[0]} ml</b><small class="num">${fmt(s[1])} ${t('iqd')}</small></button>`).join('')}</div></div>
+    </div></div>
+   <div class="buy"><div class="p"><small class="num">${p.z[S.size][0]} ml</small><b class="num">${fmt(z[1])}</b> <small style="display:inline">${t('iqd')}</small></div><button class="btn gold" data-act="order">${ic('chat')}${t('order')}</button></div>`;
+}
+function openSheet(id){S.open=id;S.size=0;renderSheet();$('#sbg').hidden=false;document.body.style.overflow='hidden';$('#sheet').scrollTop=0;setTimeout(()=>$('.x',$('#sheet'))?.focus(),50)}
+function closeSheet(){S.open=null;$('#sbg').hidden=true;document.body.style.overflow=''}
+
+function renderAll(){
+  const h=document.documentElement;h.lang=HL[S.lang];h.dir=S.lang==='en'?'ltr':'rtl';
+  $$('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
+  $$('[data-i18n-html]').forEach(e=>e.innerHTML=t(e.dataset.i18nHtml)+' '+`<svg class="i flip" style="transform:${S.lang==='en'?'none':'scaleX(-1)'}"><use href="#i-arrow"/></svg>`);
+  $('#q').placeholder=t('search_ph');
+  $$('.langs [data-act=lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.lang));
+  renderHero();renderFilters();renderMain();if(S.open)renderSheet();
+}
+function toast(html){const el=$('#toast');el.innerHTML=html;el.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>el.classList.remove('on'),3800)}
+
+/* ───────── events ───────── */
+document.addEventListener('click',e=>{
+  const o=e.target.closest('[data-open]');if(o){openSheet(o.dataset.open);return}
+  if(e.target===$('#sbg')){closeSheet();return}
+  const a=e.target.closest('[data-act]');if(!a)return;const v=a.dataset.v;
+  switch(a.dataset.act){
+    case'lang':S.lang=v;renderAll();break;
+    case'view':document.body.classList.toggle('phone',v==='phone');$$('[data-act=view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v));break;
+    case'gender':S.gender=v;renderFilters();renderMain();break;
+    case'fam':S.fam=v;renderFilters();renderMain();break;
+    case'reset':S.q='';S.gender='all';S.fam='all';S.brand='all';S.price='any';$('#q').value='';renderFilters();renderMain();break;
+    case'close':closeSheet();break;
+    case'size':S.size=+v;renderSheet();break;
+    case'order':{const p=byId[S.open],z=p.z[S.size];const msg=`${t('wa_hello')} ${p.n[L()]} ${z[0]}ml — ${fmt(z[1])} ${t('iqd')}`;toast(`<b>${t('wa_t')}</b>${msg}`);break}
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.open)closeSheet();
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-open]')){e.preventDefault();openSheet(e.target.dataset.open)}
+});
+$('#q').addEventListener('input',e=>{S.q=e.target.value;renderMain()});
+$('#brand').addEventListener('change',e=>{S.brand=e.target.value;renderMain()});
+$('#price').addEventListener('change',e=>{S.price=e.target.value;renderMain()});
+renderAll();
+</script>
+</body>
+</html>

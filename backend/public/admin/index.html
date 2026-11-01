@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1A1714" />
+    <meta name="robots" content="noindex" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lattafa Admin" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/admin.webmanifest" />
+    <title>Lattafa Admin</title>
+    <script>
+      // Apply saved theme/language before first paint so there is no flash (shared with the POS).
+      try {
+        var p = JSON.parse(localStorage.getItem('lattafa-ui') || '{}').state || {};
+        var d = document.documentElement;
+        var dark = p.theme === 'dark' || (p.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) d.classList.add('dark');
+        if (p.lang === 'ar' || p.lang === 'ku') { d.dir = 'rtl'; d.lang = p.lang === 'ku' ? 'ckb' : 'ar'; }
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/admin-B9KrPFEa.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/styles-DQcW1qaa.js">
+    <link rel="modulepreload" crossorigin href="/assets/toast-D0pW1oqY.js">
+    <link rel="modulepreload" crossorigin href="/assets/Field-DaMsuo-v.js">
+    <link rel="modulepreload" crossorigin href="/assets/catalog-Dl99e2FR.js">
+    <link rel="modulepreload" crossorigin href="/assets/NoAccess-Bl5W4YtD.js">
+    <link rel="modulepreload" crossorigin href="/assets/chevron-right-CvVyQdBO.js">
+    <link rel="modulepreload" crossorigin href="/assets/clipboard-check-A9TMS1Zc.js">
+    <link rel="modulepreload" crossorigin href="/assets/hand-coins-DQjOyDlA.js">
+    <link rel="modulepreload" crossorigin href="/assets/refresh-cw-DNF_b0tR.js">
+    <link rel="stylesheet" crossorigin href="/assets/styles-lYRyR_2E.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

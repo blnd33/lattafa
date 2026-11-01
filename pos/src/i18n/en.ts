@@ -1,0 +1,17 @@
+import { common } from './locales/en/common'
+import { errors } from './locales/en/errors'
+import { perms } from './locales/en/perms'
+import { auth } from './locales/en/auth'
+import { sell } from './locales/en/sell'
+import { shift } from './locales/en/shift'
+import { admin } from './locales/en/admin'
+import { admin2 } from './locales/en/admin2'
+import { delegate } from './locales/en/delegate'
+import { sheet } from './locales/en/sheet'
+import { panel } from './locales/en/panel'
+import { buy } from './locales/en/buy'
+import { reports } from './locales/en/reports'
+import { menu } from './locales/en/menu'
+import { audit } from './locales/en/audit'
+
+export const en: Record<string, string> = { ...common, ...errors, ...perms, ...auth, ...sell, ...shift, ...admin, ...admin2, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit }

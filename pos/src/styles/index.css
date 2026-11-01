@@ -1,0 +1,165 @@
+@import "tailwindcss" source(none);
+
+/* The one stylesheet shared by all three web apps — scan only their source (never backend/ or the design mock-ups). */
+@source "../";
+@source "../../../delegate/src";
+@source "../../../menu/src";
+@source "../../../admin/src";
+
+/* Fonts are bundled (not fetched) so the POS renders identically offline. */
+@import "@fontsource/poppins/latin-400.css";
+@import "@fontsource/poppins/latin-500.css";
+@import "@fontsource/poppins/latin-600.css";
+@import "@fontsource/poppins/latin-700.css";
+@import "@fontsource/tajawal/arabic-400.css";
+@import "@fontsource/tajawal/arabic-500.css";
+@import "@fontsource/tajawal/arabic-700.css";
+@import "@fontsource/tajawal/arabic-800.css";
+@import "@fontsource/playfair-display/latin-500.css";
+@import "@fontsource/playfair-display/latin-600.css";
+@import "@fontsource/playfair-display/latin-700.css";
+
+/* Dark mode is class-based so the user (not only the OS) controls it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────── Lattafa brand tokens ───────── */
+@theme {
+  --font-sans: "Poppins", "Tajawal", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Tajawal", Georgia, serif;
+
+  --color-gold: #d4a548;
+  --color-gold-dark: #b8892f;
+  --color-gold-light: #e9cd8a;
+  --color-gold-soft: #f7eeda;
+  --color-ink: #1a1714;
+  --color-charcoal: #2b2622;
+  --color-ivory: #fbf8f2;
+  --color-success: #3e8e5e;
+  --color-danger: #c0453a;
+  --color-warning: #d98e2b;
+
+  --radius-card: 1rem;
+  --shadow-soft: 0 6px 20px rgba(26, 23, 20, 0.07);
+  --shadow-pop: 0 24px 70px rgba(26, 23, 20, 0.32);
+  --breakpoint-xs: 26rem;
+
+  --animate-pop: pop 0.22s ease-out both;
+  --animate-rise: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade: fade 0.18s ease-out both;
+  --animate-shake: shake 0.35s;
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  /* customer menu, top of the page: a slow zoom-out on photos taking turns; gold light drifting when there are none */
+  --animate-kenburns: kenburns 7s ease-out both;
+  --animate-glow-a: glow-a 22s ease-in-out infinite alternate;
+  --animate-glow-b: glow-b 28s ease-in-out infinite alternate;
+  @keyframes kenburns { from { transform: scale(1.1); } to { transform: none; } }
+  @keyframes glow-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-8%, 6%, 0) scale(1.15); } }
+  @keyframes glow-b { from { transform: translate3d(0, 0, 0) scale(1.1); } to { transform: translate3d(10%, -8%, 0) scale(0.95); } }
+}
+
+/* Semantic colours switch with the theme; components use bg-surface, text-fg… */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-gold-text: var(--gold-text);
+  --color-overlay: var(--overlay);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-fg: var(--warn-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-fg: var(--ok-fg);
+}
+
+:root {
+  --bg: #fbf8f2;
+  --surface: #ffffff;
+  --surface-2: #f5efe3;
+  --line: #ebdfc5;
+  --text: #1a1714;
+  --text-2: #6f665d;
+  --gold-text: #8f6a1c;
+  --overlay: rgba(26, 23, 20, 0.62);
+  --img-bg: radial-gradient(circle at 50% 38%, #fffbf0 0, #f7eeda 72%);
+  --warn-bg: #fcebd3; --warn-fg: #8a5410;
+  --danger-bg: #f9e1dd; --danger-fg: #a23429;
+  --ok-bg: #ddf0e4; --ok-fg: #2c7147;
+  color-scheme: light;
+}
+.dark {
+  --bg: #14110f;
+  --surface: #201c18;
+  --surface-2: #2b2622;
+  --line: #3b342c;
+  --text: #f6f0e4;
+  --text-2: #a89f93;
+  --gold-text: #e2bb6a;
+  --overlay: rgba(0, 0, 0, 0.68);
+  --img-bg: radial-gradient(circle at 50% 38%, #3d332a 0, #25201b 75%);
+  --warn-bg: #4a3416; --warn-fg: #f2c77a;
+  --danger-bg: #4a2320; --danger-fg: #f2a59c;
+  --ok-bg: #1f3a2a; --ok-fg: #7bd3a0;
+  color-scheme: dark;
+}
+
+/* ───────── base ───────── */
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; text-size-adjust: 100%; }
+  html, body, #root { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Arabic script looks best a touch larger and with more line height */
+  html[lang="ar"] body, html[lang="ckb"] body { line-height: 1.6; }
+  button, [role="button"], a, label, select, summary { touch-action: manipulation; }
+  button { cursor: pointer; font: inherit; color: inherit; }
+  input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--color-gold); outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: var(--color-gold-light); color: var(--color-ink); }
+  /* thin gold scrollbars that don't eat space on desktop, hidden feel on touch */
+  * { scrollbar-width: thin; scrollbar-color: var(--color-gold-light) transparent; }
+  input[type="number"]::-webkit-inner-spin-button { display: none; }
+}
+
+@utility num {
+  /* numbers stay left-to-right and tabular even inside Arabic / Kurdish text */
+  font-variant-numeric: lining-nums tabular-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+@utility scroll-hide { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+@utility ps-safe { padding-inline-start: env(safe-area-inset-left); }
+@utility pe-safe { padding-inline-end: env(safe-area-inset-right); }
+
+/* note: Tailwind v4's hover: variant already applies only on real pointers (hover: hover) */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ───────── printing: only .print-area is printed (receipts, labels, reports) ───────── */
+@media print {
+  html, body { background: #fff !important; height: auto !important; }
+  body * { visibility: hidden !important; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area {
+    position: absolute !important; inset-inline-start: 0; top: 0;
+    margin: 0 !important; box-shadow: none !important; border-radius: 0 !important;
+    color: #000 !important; background: #fff !important;
+  }
+  .no-print { display: none !important; }
+}

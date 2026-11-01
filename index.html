@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lattafa — Design Previews</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#D4A548;--gold-light:#E9CD8A;--bg:#0F0D0B;--card:#1C1814;--line:#33291F;--text:#F3ECDD;--text-2:#B3A898;color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(80% 50% at 50% 0,rgba(212,165,72,.14),transparent 70%),var(--bg);color:var(--text);font-family:Poppins,system-ui,sans-serif;min-height:100vh;padding:48px 20px 32px}
+main{max-width:1040px;margin:0 auto}
+header{text-align:center;margin-bottom:44px}
+header img{height:110px}
+h1{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(28px,5vw,40px);color:var(--gold-light);margin-top:12px}
+header p{color:var(--text-2);margin-top:8px;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+a.card{display:flex;flex-direction:column;gap:10px;padding:26px;border-radius:22px;background:linear-gradient(180deg,#252019,var(--card));border:1px solid var(--line);color:inherit;text-decoration:none;transition:.25s}
+a.card:hover,a.card:focus-visible{border-color:var(--gold);transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.5);outline:none}
+.k{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:600}
+h2{font-family:'Playfair Display',serif;font-weight:600;font-size:26px}
+.d{color:var(--text-2);font-size:14px;line-height:1.7;flex:1}
+.go{color:var(--gold-light);font-weight:600;font-size:14px;margin-top:6px}
+.path{font-size:12px;color:#8F857A}
+footer{text-align:center;margin-top:48px;color:#8F857A;font-size:12px}footer b{color:var(--gold-light);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="pos/preview/assets/logo.png" alt="Lattafa">
+    <h1>Design previews</h1>
+    <p>Static, clickable mock-ups with sample data — approve the look before the backend is built.</p>
+  </header>
+  <div class="grid">
+    <a class="card" href="pos/preview/index.html"><span class="k">Cashiers · 1366×768 · touch</span><h2>Store POS</h2><p class="d">Selling screen, split payments with USD change, 80mm receipt, and shift close. Works in EN / AR / KU, light and dark, with an offline simulation.</p><span class="path">pos/preview/</span><span class="go">Open preview →</span></a>
+    <a class="card" href="delegate/preview/index.html"><span class="k">Field reps · Flutter · Android</span><h2>Delegate App</h2><p class="d">Six phone screens: PIN login, my day, van stock, capped-at-stock sales, customers on a map, and daily closing.</p><span class="path">delegate/preview/</span><span class="go">Open preview →</span></a>
+    <a class="card" href="menu/preview/index.html"><span class="k">Guests · QR code · public</span><h2>Perfume Menu</h2><p class="d">Luxury dark catalog with filters, notes pyramid, sizes and “Order via WhatsApp”. Switch between phone and desktop widths.</p><span class="path">menu/preview/</span><span class="go">Open preview →</span></a>
+  </div>
+  <footer>Developed by <b>Coda Agency</b> — Build What's Next — +964 750 730 8005 — <b>@codatechagency</b></footer>
+</main>
+</body>
+</html>

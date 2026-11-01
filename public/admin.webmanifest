@@ -1,0 +1,18 @@
+{
+  "name": "Lattafa Admin",
+  "short_name": "Lattafa Admin",
+  "description": "Admin panel for Lattafa Perfumes — products, stock, staff, delegates and reports.",
+  "id": "/admin/",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1A1714",
+  "background_color": "#1A1714",
+  "categories": ["business"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
