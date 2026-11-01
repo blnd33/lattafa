@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, CloudOff, LayoutDashboard, Lock, LogOut, Moon, Sun, Monitor, KeyRound, Clock, Languages } from 'lucide-react'
+import { BookOpen, Cloud, CloudOff, LayoutDashboard, Lock, LogOut, Moon, Sun, Monitor, KeyRound, Clock, Languages, Truck, type LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -16,6 +16,23 @@ import { fmtTime } from '@/lib/date'
 import { fmt } from '@/lib/money'
 import { audit } from '@/services/audit'
 import { syncNow } from '@/services/sync'
+
+export interface Section { key: 'admin' | 'delegate' | 'menu'; href: string; icon: LucideIcon; label: string }
+
+/**
+ * The other Lattafa sections — admin panel, delegate app, customer menu — each at its own address with its own sign-in.
+ * The admin panel is offered to people who see the shop's figures (and to everyone on the sign-in screen).
+ */
+export function useOtherSections(): Section[] {
+  const apps = useAppAddresses()
+  const actor = useSession((s) => s.actor)
+  const manager = !actor || actor.isSuperAdmin || hasPerm(actor.permissions, 'reports.view')
+  return [
+    ...(manager ? [{ key: 'admin' as const, href: apps.admin, icon: LayoutDashboard, label: 'nav.app_admin' }] : []),
+    { key: 'delegate', href: apps.delegate, icon: Truck, label: 'nav.app_delegate' },
+    { key: 'menu', href: apps.menu, icon: BookOpen, label: 'nav.app_menu' },
+  ]
+}
 
 /** EN | عربي | کوردی */
 export function LangSwitch({ className }: { className?: string }) {
@@ -138,11 +155,7 @@ export function UserMenu() {
   const setTheme = useUI((s) => s.setTheme)
   const navigate = useNavigate()
   const langs = useMemo(() => LANGS, [])
-  const apps = useAppAddresses()
   if (!actor) return null
-  const open = (href: string) => window.open(href, '_blank', 'noopener')
-  // the admin panel is for people who see the shop's figures (its own sign-in decides the rest)
-  const manager = actor.isSuperAdmin || hasPerm(actor.permissions, 'reports.view')
   return (
     <Menu
       title={actor.name}
@@ -181,8 +194,6 @@ export function UserMenu() {
             </div>
           </div>
           <div className="my-1 border-t border-line md:hidden" />
-          {manager && <MenuItem icon={<LayoutDashboard className="size-5" />} onClick={() => { close(); open(apps.admin) }}>{t('ap.open_admin')}</MenuItem>}
-          <MenuItem icon={<BookOpen className="size-5" />} onClick={() => { close(); open(apps.menu) }}>{t('ap.open_menu')}</MenuItem>
           <MenuItem icon={<KeyRound className="size-5" />} onClick={() => { close(); navigate('/account') }}>{t('account.title')}</MenuItem>
           <MenuItem icon={<Lock className="size-5" />} onClick={() => { close(); lock() }}>{t('auth.lock')}</MenuItem>
           <MenuItem icon={<LogOut className="size-5" />} danger onClick={() => { close(); void audit('auth.logout', 'user', actor.id); signOut() }}>{t('auth.sign_out')}</MenuItem>

@@ -55,10 +55,10 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
-    | Which web app opens at "/" — menu (default), pos, delegate or admin. Lets each app have its own address, e.g.
-    | locally one port per app (scripts/serve.mjs), or later a sub-domain per app.
+    | Which web app opens at "/" — pos (default: the shop's own address opens the till), menu, delegate or admin. Lets
+    | each app have its own address, e.g. locally one port per app (scripts/serve.mjs), or later a sub-domain per app.
     */
-    'home' => in_array(env('APP_HOME'), ['menu', 'pos', 'delegate', 'admin'], true) ? env('APP_HOME') : 'menu',
+    'home' => in_array(env('APP_HOME'), ['menu', 'pos', 'delegate', 'admin'], true) ? env('APP_HOME') : 'pos',
 
     /*
     | Where each web app lives, so the apps can link to each other (admin → POS, POS → admin, …). On one domain they are

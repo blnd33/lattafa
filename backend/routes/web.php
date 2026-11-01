@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 | One domain for everything:
-|   /            → the public perfume menu (or the app named in APP_HOME — one address per app)
+|   /            → the store POS (or the app named in APP_HOME — one address per app)
 |   /menu/       public menu        (built from ../menu)
 |   /pos/        store point of sale (built from ../pos)
 |   /delegate/   delegate web app   (built from ../delegate)

@@ -7,16 +7,16 @@ use Tests\TestCase;
 /** One domain: the API and the three web apps (menu, POS, delegate) are served by this application. */
 class ExampleTest extends TestCase
 {
-    public function test_the_domain_root_opens_the_public_menu(): void
+    public function test_the_domain_root_opens_the_pos(): void
     {
-        $this->get('/')->assertRedirect('/menu/')->assertHeader('Location', '/menu/');
+        $this->get('/')->assertRedirect('/pos/')->assertHeader('Location', '/pos/');
     }
 
     public function test_an_address_of_its_own_can_open_another_app(): void
     {
         // APP_HOME (e.g. one local port per app, scripts/serve.mjs): "/" opens that app, with its final slash kept
-        config(['app.home' => 'pos']);
-        $this->get('/')->assertHeader('Location', '/pos/');
+        config(['app.home' => 'menu']);
+        $this->get('/')->assertHeader('Location', '/menu/');
         config(['app.home' => 'delegate']);
         $this->get('/')->assertHeader('Location', '/delegate/');
     }
@@ -34,7 +34,7 @@ class ExampleTest extends TestCase
     {
         // .env.example ships SESSION_DRIVER=database, but there is no sessions table: the pages must not touch it
         config(['session.driver' => 'database']);
-        $res = $this->get('/')->assertRedirect('/menu/');
+        $res = $this->get('/')->assertRedirect('/pos/');
         $this->assertSame([], $res->headers->getCookies());
     }
 

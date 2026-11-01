@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { PinPad } from '@/components/ui/Pad'
 import { cn } from '@/components/ui/cn'
-import { Credit, LangSwitch, ThemeToggle } from '@/components/layout/Chrome'
+import { Credit, LangSwitch, ThemeToggle, useOtherSections } from '@/components/layout/Chrome'
 import { errorMessage, useT } from '@/i18n'
 import { listLoginUsers, loginWithPassword, loginWithPin } from '@/services/auth'
 import { isAppError } from '@/services/context'
@@ -27,6 +27,7 @@ export function SignIn({ lockedUserId }: { lockedUserId?: string }) {
   const signOut = useSession((s) => s.signOut)
   const unlock = useSession((s) => s.unlock)
   const lastUserId = useSession((s) => s.lastUserId)
+  const others = useOtherSections()
   // read afresh every time this screen shows: the list from before the till was connected would wrongly say "not connected"
   const { data: users, error: usersError, isLoading: firstLoad, isFetching, refetch } = useQuery({ queryKey: ['login-users'], queryFn: listLoginUsers, staleTime: 0, retry: false })
   const isLoading = firstLoad || (isFetching && !users?.length)
@@ -133,6 +134,16 @@ export function SignIn({ lockedUserId }: { lockedUserId?: string }) {
           </form>
         )}
       </main>
+      {/* the shop's address opens the POS; from here the other sections are one tap away */}
+      {!lockedUserId && (
+        <nav aria-label={t('nav.sections')} className="relative mx-auto flex flex-wrap items-center justify-center gap-2 px-4 pt-2">
+          {others.map((o) => (
+            <a key={o.key} href={o.href} className="inline-flex h-11 items-center gap-2 rounded-full bg-surface-2 px-4 text-sm font-medium text-fg-2 transition hover:bg-gold-soft hover:text-fg dark:hover:bg-charcoal">
+              <o.icon className="size-4" />{t(o.label)}
+            </a>
+          ))}
+        </nav>
+      )}
       <Credit className="pb-[max(1rem,env(safe-area-inset-bottom))] pt-2" />
     </div>
   )

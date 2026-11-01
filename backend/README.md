@@ -8,8 +8,8 @@ sync used by the POS tills and delegate phones.
 
 | URL | App | Source |
 |---|---|---|
-| `/` → `/menu/` | Public perfume menu (QR code in the shop) | `../menu` |
-| `/pos/` | Store point of sale (tills, tablets) | `../pos` |
+| `/menu/` | Public perfume menu (QR code in the shop) | `../menu` |
+| `/` → `/pos/` | Store point of sale (tills, tablets) — the domain opens it; its sidebar (phones: More) and sign-in screen link to the other sections | `../pos` |
 | `/delegate/` | Delegate field-sales app — a POS for the road, in the phone's browser (installable, works offline) | `../delegate` |
 | `/admin/` | Admin panel for the owner and managers — any computer or tablet, signs in with username + password and is never registered as a till; dashboard, sales to check, purchasing & suppliers, expenses, and every management screen (products, stock, customers, delegates, users, settings…) | `../admin` |
 | `/api/v1/…` | This API | here |

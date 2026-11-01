@@ -10,7 +10,7 @@ import { useActor } from '@/hooks/useAuth'
 import { hasPerm } from '@/lib/permissions'
 import { useUI } from '@/store/ui'
 import { NAV, type NavItem } from './nav'
-import { Credit, LangSwitch, RateChip, ShiftChip, SyncChip, ThemeToggle, UserMenu } from './Chrome'
+import { Credit, LangSwitch, RateChip, ShiftChip, SyncChip, ThemeToggle, UserMenu, useOtherSections } from './Chrome'
 
 function useVisibleNav(): NavItem[] {
   const actor = useActor()
@@ -22,6 +22,7 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
   const t = useT()
   const toggle = useUI((s) => s.toggleSidebar)
   const device = useDevice()
+  const others = useOtherSections()
   const main = items.filter((i) => i.group === 'main')
   const manage = items.filter((i) => i.group === 'manage')
   const link = (n: NavItem) => (
@@ -51,6 +52,16 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
         {main.map(link)}
         {manage.length > 0 && <div className="my-2 border-t border-white/10" />}
         {manage.map(link)}
+        {/* the other sections open in a tab of their own, so the till (and a sale on it) stays as it is */}
+        <div className="my-2 border-t border-white/10" />
+        {expanded && <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8f8574]">{t('nav.sections')}</p>}
+        {others.map((o) => (
+          <a key={o.key} href={o.href} target="_blank" rel="noopener" title={t(o.label)}
+            className={cn('flex items-center gap-3 rounded-2xl px-3 text-[#cfc5b4] transition hover:bg-white/10 hover:text-white', expanded ? 'h-11' : 'h-16 flex-col justify-center gap-1 px-1 text-[10.5px]')}>
+            <o.icon className="size-[22px] shrink-0" />
+            <span className={cn('truncate font-medium', expanded ? 'text-sm' : 'max-w-full leading-tight')}>{t(o.label)}</span>
+          </a>
+        ))}
       </nav>
       {device === 'desktop' && (
         <button type="button" onClick={toggle} aria-label={expanded ? t('nav.collapse') : t('nav.expand')} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl text-[#b9ae9c] transition hover:bg-white/10 hover:text-white">
@@ -88,6 +99,7 @@ function BottomNav({ items }: { items: NavItem[] }) {
   const [more, setMore] = useState(false)
   const navigate = useNavigate()
   const loc = useLocation()
+  const others = useOtherSections()
   const bottom = items.filter((i) => i.bottom)
   const rest = items.filter((i) => !i.bottom)
   const restActive = rest.some((r) => loc.pathname.startsWith(r.to))
@@ -121,6 +133,15 @@ function BottomNav({ items }: { items: NavItem[] }) {
             <KeyRound className="size-6 text-gold-text" />
             {t('account.title')}
           </button>
+        </div>
+        <p className="mb-2 mt-5 text-xs font-semibold text-fg-2">{t('nav.sections')}</p>
+        <div className="grid grid-cols-3 gap-3">
+          {others.map((o) => (
+            <a key={o.key} href={o.href} target="_blank" rel="noopener" onClick={() => setMore(false)} className="flex h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface-2 text-center text-xs font-medium transition active:scale-95">
+              <o.icon className="size-6 text-gold-text" />
+              {t(o.label)}
+            </a>
+          ))}
         </div>
         <Credit className="mt-5" />
       </Modal>

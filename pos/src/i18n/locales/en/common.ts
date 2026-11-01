@@ -47,6 +47,10 @@ export const common: Dict = {
   'nav.settings': 'Settings',
   'nav.more': 'More',
   'nav.collapse': 'Collapse',
+  'nav.sections': 'Other sections',
+  'nav.app_admin': 'Admin panel',
+  'nav.app_delegate': 'Delegate app',
+  'nav.app_menu': 'Customer menu',
   'nav.expand': 'Expand',
 
   'sync.online': 'Online',
