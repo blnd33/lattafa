@@ -68,7 +68,7 @@ export const errors: Dict = {
   'err.closing_not_pending': 'This closing is not waiting for approval.',
   'err.not_a_delegate': 'This account does not sell from a van.',
   'err.offline_first_login': 'No internet, and this person has not signed in on this device before. Sign in once while online.',
-  'err.device_not_registered': 'This device is not connected yet. The Super Admin must sign in on it once with their username and password.',
+  'err.device_not_registered': 'This device could not be identified. Reload the page and try again.',
   'err.device_revoked': 'This device has been blocked by the Super Admin.',
   'err.number_taken': 'Receipt number {number} is already used on the server.',
   'err.sale_not_synced': 'The original sale has not reached the server yet — it will be retried automatically.',

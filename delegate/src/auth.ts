@@ -1,10 +1,10 @@
 /**
  * Delegate sign-in.
  *
- *  1. Binding: the first time, the Super Admin signs in on the phone with username + password. The server registers it
- *     as a delegate device (code DL1, DL2… — it prefixes receipt numbers) and the phone downloads the catalogue.
- *  2. Every day: the delegate taps their name and types their PIN. Online the server checks it; a delegate who has
- *     signed in on this phone before can also sign in while offline (the PIN is checked against a hash made here).
+ * The delegate taps their name and types their PIN. Online the server checks it — the first good sign-in on a phone also
+ * connects the phone to the shop (code DL1, DL2… — it prefixes receipt numbers) and downloads the catalogue; nobody has
+ * to type an admin password on it. A delegate who has signed in on this phone before can also sign in while offline (the
+ * PIN is checked against a hash made here).
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -50,27 +50,10 @@ export const useSession = create<SessionState>()(
 )
 
 /** Device id header on every request (the server binds tokens to this phone). */
-export async function initDevice(): Promise<{ bound: boolean }> {
+export async function initDevice(): Promise<{ code: string }> {
   const m = await getMeta()
   setApiDevice(m.deviceId)
-  return { bound: !!m.deviceCode }
-}
-
-/* ───────── binding (Super Admin, once per phone) ───────── */
-
-export async function bindPhone(username: string, password: string, deviceName: string): Promise<void> {
-  const m = await getMeta()
-  setApiDevice(m.deviceId)
-  const r = await api<LoginResponse>('POST', '/auth/login', { username, password, app: 'delegate', deviceName: deviceName || 'Delegate phone' }, { anonymous: true })
-  if (!r.user.isSuperAdmin && !hasPerm(r.user.permissions, 'devices.manage')) throw new AppError('forbidden', { permission: 'devices.manage' })
-  setApiToken(r.token)
-  try {
-    await pull(true, null) // catalogue, customers and the list of delegates for the PIN screen
-    await patchMeta({ deviceCode: r.device?.code ?? '', deviceName: r.device?.name ?? deviceName })
-    await api('POST', '/auth/logout').catch(() => undefined) // the admin's token is not left on the delegate's phone
-  } finally {
-    setApiToken(null)
-  }
+  return { code: m.deviceCode }
 }
 
 /* ───────── PIN sign-in ───────── */
@@ -102,7 +85,8 @@ async function remember(actor: Actor, token: string, pin: string): Promise<void>
 export async function pinLogin(userId: string, pin: string): Promise<Actor> {
   let r: LoginResponse
   try {
-    r = await api<LoginResponse>('POST', '/auth/pin-login', { userId, pin, app: 'delegate' }, { anonymous: true })
+    const { deviceName } = await getMeta()
+    r = await api<LoginResponse>('POST', '/auth/pin-login', { userId, pin, app: 'delegate', ...(deviceName ? { deviceName } : {}) }, { anonymous: true })
   } catch (e) {
     if (!isOfflineError(e)) throw e
     return offlineLogin(userId, pin)

@@ -54,7 +54,7 @@ export const common: Dict = {
   'sync.local': 'Local mode',
   'sync.local_hint': 'Running without a server — everything is saved on this device.',
   'sync.queued': '{n} queued',
-  'auth.connect_device': 'This till is not connected to the shop server yet. The Super Admin signs in here once with their username and password to connect it.',
+  'auth.connect_device': 'Can’t reach the shop server. Check this device’s internet connection, then try again.',
   'connect.title': 'Connect this device to the shop server',
   'connect.body': 'The shop server is available. Once connected, products, prices, stock, customers and accounts come from the server, and sales from this device are sent to it. The data this device kept on its own (test data) is replaced.',
   'connect.backup': 'Download a backup of this device first',

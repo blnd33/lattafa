@@ -95,9 +95,21 @@ export async function loginWithPassword(username: string, password: string, app:
   return afterLogin(r, app === 'admin' ? {} : { password })
 }
 
+/** The PIN tiles from the server — any till may ask, so a new one shows the names before anyone signed in on it. `null` = offline. */
+export async function loginUsers(): Promise<{ id: string; name: string; color: string; roleName: string; locked: boolean }[] | null> {
+  try {
+    return (await api<{ users: { id: string; name: string; color: string; roleName: string; locked: boolean }[] }>('GET', '/auth/login-users?app=pos', undefined, { anonymous: true, timeoutMs: 6000 })).users
+  } catch (e) {
+    if (isOfflineError(e)) return null
+    throw e
+  }
+}
+
+/** The first good PIN on a new till also connects it to the shop (it gets its till code, e.g. ST2). */
 export async function loginWithPin(userId: string, pin: string): Promise<Actor> {
   try {
-    const r = await api<LoginResponse>('POST', '/auth/pin-login', { userId, pin }, { anonymous: true })
+    const s = await getSettings()
+    const r = await api<LoginResponse>('POST', '/auth/pin-login', { userId, pin, deviceName: s.device.name }, { anonymous: true })
     return await afterLogin(r, { pin })
   } catch (e) {
     if (!isOfflineError(e)) throw e

@@ -11,6 +11,7 @@ class PinLoginRequest extends ApiRequest
             'pin' => ['required', 'string', 'max:6'],
             'deviceId' => ['nullable', 'uuid'],
             'app' => ['nullable', 'in:pos,delegate'],
+            'deviceName' => ['nullable', 'string', 'max:80'],
         ];
     }
 }

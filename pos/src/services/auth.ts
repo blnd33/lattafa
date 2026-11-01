@@ -159,8 +159,12 @@ export async function refreshActor(userId: string): Promise<Actor | null | undef
   return loadActor(user)
 }
 
-/** People shown as tiles on the PIN login screen. */
+/** People shown as tiles on the PIN login screen: from the server when it can be reached, else this till's copy. */
 export async function listLoginUsers(): Promise<{ id: string; name: string; color: string; roleName: string; locked: boolean }[]> {
+  if (isServer()) {
+    const fromServer = await remote.loginUsers()
+    if (fromServer) return fromServer
+  }
   const [users, roles] = await Promise.all([db.users.toArray(), db.roles.toArray()])
   const byId = new Map(roles.map((r) => [r.id, r]))
   return users

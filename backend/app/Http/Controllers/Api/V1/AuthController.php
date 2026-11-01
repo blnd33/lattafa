@@ -10,6 +10,7 @@ use App\Http\Resources\Present;
 use App\Services\AuditService;
 use App\Services\AuthService;
 use App\Services\UserService;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -22,20 +23,40 @@ class AuthController extends Controller
     /** Username + password (admins; also how a new device is registered by the Super Admin). */
     public function login(LoginRequest $r): JsonResponse
     {
-        $out = $this->auth->loginWithPassword($r->validated('username'), $r->validated('password'), $this->deviceId($r), $r->validated('deviceName'), $r->validated('app') ?? 'pos');
+        $out = $this->guarded($r, fn () => $this->auth->loginWithPassword($r->validated('username'), $r->validated('password'), $this->deviceId($r), $r->validated('deviceName'), $r->validated('app') ?? 'pos'));
 
         return response()->json(['token' => $out['token'], 'user' => Present::actor($out['user']), 'device' => isset($out['device']) ? Present::device($out['device']) : null]);
     }
 
-    /** Cashier PIN sign-in on a registered device. */
+    /** Cashier PIN sign-in; the first one on a new till or phone connects it. */
     public function pinLogin(PinLoginRequest $r): JsonResponse
     {
-        $out = $this->auth->loginWithPin($r->validated('userId'), $r->validated('pin'), $this->deviceId($r) ?? '', $r->validated('app') ?? 'pos');
+        $out = $this->guarded($r, fn () => $this->auth->loginWithPin($r->validated('userId'), $r->validated('pin'), $this->deviceId($r) ?? '', $r->validated('app') ?? 'pos', $r->validated('deviceName')));
 
         return response()->json(['token' => $out['token'], 'user' => Present::actor($out['user']), 'device' => isset($out['device']) ? Present::device($out['device']) : null]);
     }
 
-    /** Tiles for the PIN screen — only for a registered, non-revoked device. */
+    /**
+     * The names and PIN pad are open to any device, so guessing is slowed per place as well as per person: after
+     * 15 wrong sign-ins from one address in an hour, that address waits (people mistyping now and then never get near).
+     */
+    private function guarded(Request $r, Closure $signIn): array
+    {
+        $key = 'signin-fail:'.$r->ip();
+        if (RateLimiter::tooManyAttempts($key, 15)) {
+            throw new AppException('too_many_requests', ['seconds' => RateLimiter::availableIn($key)], 429);
+        }
+        try {
+            return $signIn();
+        } catch (AppException $e) {
+            if (in_array($e->errorCode, ['invalid_credentials', 'account_locked'], true)) {
+                RateLimiter::hit($key, 3600);
+            }
+            throw $e;
+        }
+    }
+
+    /** Tiles for the PIN screen — any device except one the admin disconnected. */
     public function loginUsers(Request $r): JsonResponse
     {
         return response()->json(['users' => $this->auth->loginUsers($this->deviceId($r) ?? '', $r->query('app') === 'delegate' ? 'delegate' : 'pos')]);

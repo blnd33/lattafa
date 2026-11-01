@@ -108,8 +108,8 @@ perfume/mist with no size in its name, are marked red to fill in. An item alread
 name + brand + size) updates its cost and price and gets its pieces added.
 
 **Delegates:** in the POS, *Users → New account* with the role **Delegate** and a PIN. On the delegate's phone open
-`https://<your-domain>/delegate/`; the Super Admin connects the phone once with their username and password (it gets a
-code `DL1`, `DL2`…), then the delegate signs in with their PIN and sells from the shop's stock.
+`https://<your-domain>/delegate/`, tap the name and type the PIN — the first sign-in connects the phone (it gets a
+code `DL1`, `DL2`…); no admin password is needed on it. The delegate then sells from the shop's stock.
 
 **Install as an app:** all four apps have their own app icon and open full-screen, without the browser bar. On Android
 (Chrome) the delegate app offers **Install** on its home screen and under *More*; the POS and admin panel under *My
@@ -162,8 +162,10 @@ tests/                       Feature (HTTP) + Unit (pricing, permissions)
   permission, and records who approved. PIN guessing through this endpoint is rate-limited.
 * **PINs** are unique per person (HMAC fingerprint + bcrypt hash), so a PIN alone identifies an approver. Five wrong
   PINs lock the account for a minute (configurable).
-* **Devices:** a till must be registered before cashiers can PIN-in on it, and only the Super Admin's password login
-  registers one. Revoking a device kills every token issued to it.
+* **Devices:** every till and delegate phone is open: it shows the names, and the first good PIN (or password) sign-in
+  on it connects it (`ST1`, `DL1`…) — a device is only added once someone really signed in. Revoking a device kills
+  every token issued to it and keeps it out. Guessing is slowed twice: 5 wrong tries lock that person for a while, and
+  15 wrong sign-ins from one internet address in an hour make that address wait.
 
 > Deviation from the original brief: the brief suggested `spatie/laravel-permission`. Permissions here are a small
 > purpose-built layer instead, because the POS needs the *same* rules offline (a 1:1 port, kept honest by

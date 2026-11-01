@@ -13,6 +13,9 @@ use Illuminate\Support\Str;
  * Sign-in for the till: a cashier taps their name and types a PIN (fast, one-handed); admins may use a
  * username + password. Wrong PINs lock the account for a while. Tokens are Sanctum personal access
  * tokens tied to the device so a stolen token can be traced and a device can be revoked.
+ *
+ * Any till or delegate phone may show the names, and the first good sign-in on it connects it (ST1, DL1…) —
+ * nobody has to type an admin password on a new device. A device the admin disconnected stays refused.
  */
 class AuthService
 {
@@ -27,20 +30,20 @@ class AuthService
             $this->registerFailure($user);
         }
         // the admin panel is used from any computer: it never makes that computer a till
-        $device = $app === 'admin' ? null : $this->resolveDevice($user, $deviceId, $deviceName, allowRegister: true, prefix: $app === 'delegate' ? 'DL' : 'ST');
+        $device = $app === 'admin' ? null : $this->resolveDevice($user, $deviceId, $deviceName, prefix: $app === 'delegate' ? 'DL' : 'ST');
 
         return $this->finish($user, $device, $app);
     }
 
     /** @return array{token: string, user: User, device: ?Device} */
-    public function loginWithPin(string $userId, string $pin, string $deviceId, string $app = 'pos'): array
+    public function loginWithPin(string $userId, string $pin, string $deviceId, string $app = 'pos', ?string $deviceName = null): array
     {
         $user = User::with('role')->find($userId);
         $this->checkUsable($user);
         if (! Hash::check($pin, $user->pin_hash)) {
             $this->registerFailure($user);
         }
-        $device = $this->resolveDevice($user, $deviceId, null, allowRegister: false);
+        $device = $this->resolveDevice($user, $deviceId, $deviceName, prefix: $app === 'delegate' ? 'DL' : 'ST', needed: true);
 
         return $this->finish($user, $device, $app);
     }
@@ -59,14 +62,14 @@ class AuthService
         return $user->can($permission) ? $user : null;
     }
 
-    /** People shown as tiles on the PIN sign-in screen of `$app` (only for a registered device). */
+    /** People shown as tiles on the PIN sign-in screen of `$app` — on any device except one the admin disconnected. */
     public function loginUsers(string $deviceId, string $app = 'pos'): array
     {
         $device = Str::isUuid($deviceId) ? Device::find($deviceId) : null;
-        if (! $device || $device->revoked) {
-            throw new AppException('device_not_registered', [], 403);
+        if ($device?->revoked) {
+            throw new AppException('device_revoked', [], 403);
         }
-        $device->update(['last_seen_at' => Time::nowMs()]);
+        $device?->update(['last_seen_at' => Time::nowMs()]);
 
         return User::with('role')->where('active', true)->orderBy('name')->get()
             ->filter(fn (User $u) => $app === 'delegate' ? DelegateService::isDelegate($u) : in_array($app, $u->role->apps ?? [], true))
@@ -112,13 +115,14 @@ class AuthService
     }
 
     /**
-     * A device must be registered before cashiers can use PINs on it. Only someone who may manage devices
-     * (the Super Admin) can register a new one — by signing in with a password on it.
+     * The device signing in. A new one is connected by the first good sign-in on it — with a PIN or a password,
+     * by anyone — so it is only added once a real person has signed in, never just for opening the page.
+     * `$needed`: a PIN sign-in only happens on a device (a password one may come from plain API use).
      */
-    private function resolveDevice(User $user, ?string $deviceId, ?string $deviceName, bool $allowRegister, string $prefix = 'ST'): ?Device
+    private function resolveDevice(User $user, ?string $deviceId, ?string $deviceName, string $prefix = 'ST', bool $needed = false): ?Device
     {
         if (! $deviceId) {
-            if ($allowRegister) {
+            if (! $needed) {
                 return null; // plain API/admin access without a till
             }
             throw new AppException('device_not_registered', [], 403);
@@ -130,16 +134,13 @@ class AuthService
         if ($device) {
             return $device;
         }
-        if (! $allowRegister || ! $user->can('devices.manage')) {
-            throw new AppException('device_not_registered', [], 403);
-        }
         // tills are ST1, ST2…; delegate phones DL1, DL2… (the code prefixes their receipt numbers)
         $n = Device::where('code', 'like', $prefix.'%')->count() + 1;
         $code = $prefix.$n;
         while (Device::where('code', $code)->exists()) {
             $code = $prefix.(++$n);
         }
-        $device = Device::create(['id' => $deviceId, 'name' => trim($deviceName ?? '') ?: 'Counter '.$n, 'code' => $code]);
+        $device = Device::create(['id' => $deviceId, 'name' => trim($deviceName ?? '') ?: ($prefix === 'DL' ? 'Phone ' : 'Counter ').$n, 'code' => $code]);
         $this->audit->log($user, 'device.register', 'device', $device->id, ['name' => $device->name, 'code' => $device->code]);
 
         return $device;

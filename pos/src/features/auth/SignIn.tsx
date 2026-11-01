@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, KeyRound, Lock, UserRound } from 'lucide-react'
+import { ArrowLeft, KeyRound, Lock, RotateCw, UserRound } from 'lucide-react'
 import { BrandMark } from '@/components/ui/Brand'
 import { Avatar, Badge, Spinner } from '@/components/ui/Controls'
 import { Button } from '@/components/ui/Button'
@@ -28,7 +28,7 @@ export function SignIn({ lockedUserId }: { lockedUserId?: string }) {
   const unlock = useSession((s) => s.unlock)
   const lastUserId = useSession((s) => s.lastUserId)
   // read afresh every time this screen shows: the list from before the till was connected would wrongly say "not connected"
-  const { data: users, isLoading: firstLoad, isFetching } = useQuery({ queryKey: ['login-users'], queryFn: listLoginUsers, staleTime: 0 })
+  const { data: users, error: usersError, isLoading: firstLoad, isFetching, refetch } = useQuery({ queryKey: ['login-users'], queryFn: listLoginUsers, staleTime: 0, retry: false })
   const isLoading = firstLoad || (isFetching && !users?.length)
   const [mode, setMode] = useState<Mode>(lockedUserId ? { kind: 'pin', userId: lockedUserId } : { kind: 'tiles' })
   const [pin, setPin] = useState('')
@@ -97,7 +97,12 @@ export function SignIn({ lockedUserId }: { lockedUserId?: string }) {
                   </button>
                 ))}
               </div>
-            ) : <p className="max-w-md text-center text-fg-2">{isServer() ? t('auth.connect_device') : t('auth.no_users')}</p>}
+            ) : (
+              <div className="flex max-w-md flex-col items-center gap-3 text-center">
+                <p className="text-fg-2">{usersError ? errorMessage(usersError, t) : isServer() ? t('auth.connect_device') : t('auth.no_users')}</p>
+                {isServer() && <Button variant="secondary" icon={<RotateCw className="size-4" />} loading={isFetching} onClick={() => void refetch()}>{t('ap.retry')}</Button>}
+              </div>
+            )}
             <Button variant="ghost" className="mt-6" icon={<KeyRound className="size-5" />} onClick={() => { setMode({ kind: 'password' }); setError('') }}>{t('auth.use_password')}</Button>
           </>
         ) : mode.kind === 'pin' ? (

@@ -63,7 +63,7 @@ class AccessTest extends ApiTestCase
         $this->postJson('/api/v1/auth/login', ['username' => 'owner', 'password' => 'wrong-password'])->assertStatus(401)->assertJsonPath('error.code', 'invalid_credentials');
     }
 
-    public function test_pin_login_needs_a_registered_device_and_only_lists_pos_users(): void
+    public function test_pin_login_only_lists_pos_users(): void
     {
         $this->shop();
         $cashier = $this->makeUser('Ali', 'alii', 'cashier', '3333');
@@ -77,10 +77,53 @@ class AccessTest extends ApiTestCase
         $this->asUser($cashier, '3333');
         $this->api('GET', 'auth/me')->assertJsonPath('user.roleKey', 'cashier');
         $this->api('POST', 'auth/pin-login', ['userId' => $rep, 'pin' => '4444'], [])->assertStatus(403)->assertJsonPath('error.code', 'app_not_allowed');
+    }
 
-        // an unknown device gets nothing
-        $this->withHeaders(['X-Device-Id' => (string) Str::uuid()])->postJson('/api/v1/auth/pin-login', ['userId' => $cashier, 'pin' => '3333'])
-            ->assertStatus(403)->assertJsonPath('error.code', 'device_not_registered');
+    public function test_a_new_till_or_phone_connects_with_the_first_good_pin_and_no_admin_password(): void
+    {
+        $this->shop();
+        $cashier = $this->makeUser('Ali', 'alii', 'cashier', '3333');
+        $rep = $this->makeUser('Rep', 'rep1', 'delegate', '4444');
+        $till = (string) Str::uuid();
+        $phone = (string) Str::uuid();
+
+        // a till nobody has signed in on yet shows the names, and is not added just for opening the page
+        $this->withHeaders(['X-Device-Id' => $till])->getJson('/api/v1/auth/login-users')->assertOk()->assertJsonFragment(['name' => 'Ali']);
+        $this->assertNull(Device::find($till));
+        // a wrong PIN connects nothing
+        $this->withHeaders(['X-Device-Id' => $till])->postJson('/api/v1/auth/pin-login', ['userId' => $cashier, 'pin' => '9999'])->assertStatus(401);
+        $this->assertNull(Device::find($till));
+        // the cashier's own PIN connects it: the next till code, named as the till calls itself
+        $this->withHeaders(['X-Device-Id' => $till])->postJson('/api/v1/auth/pin-login', ['userId' => $cashier, 'pin' => '3333', 'deviceName' => 'Front desk'])
+            ->assertOk()->assertJsonPath('device.code', 'ST2')->assertJsonPath('device.name', 'Front desk');
+        $this->withHeaders(['X-Device-Id' => $phone])->postJson('/api/v1/auth/pin-login', ['userId' => $rep, 'pin' => '4444', 'app' => 'delegate'])
+            ->assertOk()->assertJsonPath('device.code', 'DL1')->assertJsonPath('device.name', 'Phone 1');
+
+        // a device the admin disconnected stays out, names and all
+        $this->api('POST', "devices/{$till}/revoke")->assertOk();
+        $this->withHeaders(['X-Device-Id' => $till])->getJson('/api/v1/auth/login-users')->assertStatus(403)->assertJsonPath('error.code', 'device_revoked');
+        $this->withHeaders(['X-Device-Id' => $till])->postJson('/api/v1/auth/pin-login', ['userId' => $cashier, 'pin' => '3333'])->assertStatus(403)->assertJsonPath('error.code', 'device_revoked');
+    }
+
+    public function test_many_wrong_sign_ins_from_one_place_make_that_place_wait(): void
+    {
+        $this->shop();
+        $a = $this->makeUser('Ali', 'alii', 'cashier', '3333');
+        $b = $this->makeUser('Bana', 'bana', 'cashier', '5555');
+        // 15 wrong tries in an hour from one address (spread over people, so no single account lock explains it)…
+        foreach ([$a, $b] as $who) {
+            for ($i = 0; $i < 4; $i++) {
+                $this->api('POST', 'auth/pin-login', ['userId' => $who, 'pin' => '9999'], [])->assertStatus(401);
+            }
+        }
+        for ($i = 0; $i < 7; $i++) {
+            $this->api('POST', 'auth/login', ['username' => 'owner', 'password' => 'not-it-'.$i], [])->assertStatus($i < 4 ? 401 : 423);
+        }
+        // …and the next sign-in from there waits, even with the right PIN
+        $this->api('POST', 'auth/pin-login', ['userId' => $a, 'pin' => '3333'], [])->assertStatus(429)->assertJsonPath('error.code', 'too_many_requests');
+        // the shop's other connection is not affected
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2']);
+        $this->api('POST', 'auth/pin-login', ['userId' => $b, 'pin' => '5555'], [])->assertOk();
     }
 
     public function test_wrong_pins_count_down_then_lock_the_account(): void
@@ -235,7 +278,7 @@ class AccessTest extends ApiTestCase
         $this->api('GET', 'stock/movements?variantId=garbage')->assertOk();
         $this->api('GET', 'audit?userId=garbage')->assertOk();
         $this->api('GET', 'reports/sales?userId=garbage')->assertOk();
-        $this->withHeaders(['X-Device-Id' => 'garbage'])->getJson('/api/v1/auth/login-users')->assertStatus(403)->assertJsonPath('error.code', 'device_not_registered');
+        $this->withHeaders(['X-Device-Id' => 'garbage'])->getJson('/api/v1/auth/login-users')->assertOk();
         $id = $this->makeUser('Ali', 'alii', 'cashier', '3333');
         $this->withHeaders(['X-Device-Id' => 'garbage'])->postJson('/api/v1/auth/pin-login', ['userId' => $id, 'pin' => '3333'])->assertStatus(403)->assertJsonPath('error.code', 'device_not_registered');
     }

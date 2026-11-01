@@ -13,7 +13,7 @@ import { useUI } from '@/store/ui'
 import { initDevice, useSession } from './auth'
 import { onSynced, startAutoSync } from './sync'
 import { startTracking } from './tracker'
-import { BindScreen, SignInScreen } from './screens/Auth'
+import { SignInScreen } from './screens/Auth'
 import { HomeScreen } from './screens/Home'
 import { StockScreen } from './screens/Stock'
 import { SellScreen } from './screens/Sell'
@@ -56,7 +56,6 @@ function Gate() {
   const actor = useSession((s) => s.actor)
   const device = useQuery({ queryKey: ['device'], queryFn: initDevice, staleTime: Infinity })
   if (device.isLoading) return <div className="grid min-h-dvh place-items-center bg-bg"><Spinner className="size-10" /></div>
-  if (!device.data?.bound) return <BindScreen />
   if (!actor) return <SignInScreen />
   return (
     <Shell>
