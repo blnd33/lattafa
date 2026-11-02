@@ -7,17 +7,29 @@
 import { useQuery } from '@tanstack/react-query'
 import type { I18nText, SizeUnit } from '@/data/types'
 import { api } from '@/services/api'
+import { pull } from './sync'
 
 export interface PriceRow { variantId: string; sku: string; name: I18nText; brand: string; label: string; retailIQD: number; usdCents: number }
 
 export const usePrices = () => useQuery({ queryKey: ['delegate-prices'], queryFn: async () => (await api<{ prices: PriceRow[] }>('GET', '/delegate-prices')).prices, retry: false })
 
-export const savePrices = async (prices: { variantId: string; usdCents: number }[]) =>
-  (await api<{ changed: number }>('PUT', '/delegate-prices', { prices })).changed
+/**
+ * Saves, then pulls the shop down again. The selling screen prices from this phone's own copy of the catalogue, so
+ * without the pull a price just changed here would not reach the bill until the next sync (up to half a minute).
+ */
+export async function savePrices(prices: { variantId: string; usdCents: number }[]): Promise<number> {
+  const { changed } = await api<{ changed: number }>('PUT', '/delegate-prices', { prices })
+  await pull()
+  return changed
+}
 
 export interface NewProduct { nameEn: string; nameAr: string; brand: string; size: number; unit: SizeUnit; usdCents: number; openingStock: number }
 
-export const addProduct = async (p: NewProduct) => await api('POST', '/delegate-products', p)
+/** Adds it, then pulls, so the new perfume is on the selling screen (with its stock) right away. */
+export async function addProduct(p: NewProduct): Promise<void> {
+  await api('POST', '/delegate-products', p)
+  await pull()
+}
 
 /** "23.70" → 2370 cents; null when it isn't a price. An empty box means nothing set (0). */
 export function toCents(text: string): number | null {
