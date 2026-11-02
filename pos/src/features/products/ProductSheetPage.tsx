@@ -56,6 +56,7 @@ const COLS: Col[] = [
   { key: 'cost_iqd', w: 'w-28', kind: 'number' },
   { key: 'retail_iqd', w: 'w-28', kind: 'number', ph: '35000' },
   { key: 'wholesale_iqd', w: 'w-28', kind: 'number' },
+  { key: 'wholesale_usd', w: 'w-32', kind: 'number', ph: '20.5' },
   { key: 'stock', w: 'w-24', kind: 'number' },
   { key: 'min_stock', w: 'w-24', kind: 'number', ph: '5' },
   { key: 'barcode', w: 'w-40', kind: 'text', dir: 'ltr' },

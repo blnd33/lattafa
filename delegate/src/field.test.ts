@@ -132,6 +132,17 @@ describe('dollars', () => {
     expect((await completeSale(cart({ currency: 'USD', priceList: 'retail', lines: [{ variantId: 'v-kh', qty: 1 }] }))).payments[0].tendered).toBe(31)
   })
 
+  it('a size with its own dollar price is sold at exactly that price, cents and all', async () => {
+    // the shop set $23.70 for this size in the product sheet; it beats the converted-and-rounded $24.50
+    await ddb.variants.update('v-kh', { wholesaleUSDCents: 2370 })
+    const s = await completeSale(cart({ currency: 'USD' }))
+    expect(s.items[0].unitPriceIQD).toBe(34602)           // $23.70 × 1460
+    expect(s.payments[0].tendered).toBe(47.4)             // 2 × $23.70, no rounding to half a dollar
+    // it is the dollar price list, so a dinar bill and a retail bill are untouched
+    expect((await completeSale(cart({ lines: [{ variantId: 'v-kh', qty: 1 }] }))).items[0].unitPriceIQD).toBe(36000)
+    expect((await completeSale(cart({ currency: 'USD', priceList: 'retail', lines: [{ variantId: 'v-kh', qty: 1 }] }))).items[0].unitPriceIQD).toBe(45260)
+  })
+
   it('at an odd rate the bill is still whole half-dollars', async () => {
     const m = (await ddb.meta.get('app'))!
     await ddb.meta.put({ ...m, settings: { ...m.settings!, currency: { ...m.settings!.currency, rate: 1475 } } })

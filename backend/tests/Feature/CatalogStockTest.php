@@ -150,6 +150,25 @@ class CatalogStockTest extends ApiTestCase
         $this->assertSame(47000, Variant::where('sku', 'LTF-KHAM-100')->first()->retail_iqd);
     }
 
+    public function test_the_dollar_price_list_is_imported_in_cents_and_an_empty_cell_keeps_it(): void
+    {
+        $this->shop();
+        $kham = Variant::where('sku', 'LTF-KHAM-100')->first();
+        $this->assertSame(0, $kham->wholesale_usd_cents); // nothing set yet: the bill converts from dinars
+
+        $this->api('POST', 'products/import', ['rows' => [['sku' => 'LTF-KHAM-100', 'retail_iqd' => 45000, 'wholesale_usd' => 2370]]])->assertOk();
+        $this->assertSame(2370, $kham->fresh()->wholesale_usd_cents);
+        // and it reaches the tills and the delegate's phone
+        $variants = collect($this->api('GET', 'products')->json('products'))->flatMap(fn ($p) => $p['variants'])->keyBy('sku');
+        $this->assertSame(2370, $variants['LTF-KHAM-100']['wholesaleUSDCents']);
+
+        // an empty cell leaves the dollar price alone; a new one replaces it
+        $this->api('POST', 'products/import', ['rows' => [['sku' => 'LTF-KHAM-100', 'retail_iqd' => 46000, 'wholesale_usd' => '']]])->assertOk();
+        $this->assertSame([2370, 46000], [$kham->fresh()->wholesale_usd_cents, $kham->fresh()->retail_iqd]);
+        $this->api('POST', 'products/import', ['rows' => [['sku' => 'LTF-KHAM-100', 'retail_iqd' => 46000, 'wholesale_usd' => 1900]]])->assertOk();
+        $this->assertSame(1900, $kham->fresh()->wholesale_usd_cents);
+    }
+
     public function test_a_delivery_import_adds_the_pieces_of_sizes_already_on_file(): void
     {
         $this->shop();

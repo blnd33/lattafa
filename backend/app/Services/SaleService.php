@@ -342,8 +342,11 @@ class SaleService
                 if (! $v) {
                     throw new AppException('product_unavailable', ['variantId' => (string) ($it['variantId'] ?? '')]);
                 }
-                // a delegate's dollar bill uses the list prices in dollars, rounded to 50 cents (see usdListPrice)
-                $listPrices = $delegate ? [$v->retail_iqd, $v->wholesale_iqd, self::usdListPrice($v->retail_iqd, $rate), self::usdListPrice($v->wholesale_iqd, $rate)] : [$v->retail_iqd];
+                // a delegate's dollar bill uses the shop's dollar price list for that size when it has one, else the
+                // dinar price at the bill's rate rounded to 50 cents (see usdListPrice)
+                $listPrices = $delegate
+                    ? array_filter([$v->retail_iqd, $v->wholesale_iqd, self::usdListPrice($v->retail_iqd, $rate), self::usdListPrice($v->wholesale_iqd, $rate), self::usdPrice($v->wholesale_usd_cents, $rate)])
+                    : [$v->retail_iqd];
                 if (! in_array((int) $it['unitPriceIQD'], $listPrices, true) && ! in_array('price_mismatch', $flags, true)) {
                     $flags[] = 'price_mismatch';
                 }
@@ -402,6 +405,12 @@ class SaleService
      * A list price in dollars, as the delegate app shows it: to the nearest 50 cents (never below 50 cents), back in
      * dinars at the bill's rate — so "$24.50" on the phone is exactly what the bill says. Same sum as `usdListPrice` there.
      */
+    /** A size's own dollar price (cents from the shop's price list) in dinars at the bill's rate; 0 when it has none. */
+    public static function usdPrice(int $cents, int $rate): int
+    {
+        return $cents > 0 && $rate > 0 ? (int) round($cents / 100 * $rate) : 0;
+    }
+
     public static function usdListPrice(int $iqd, int $rate): int
     {
         if ($iqd <= 0 || $rate <= 0) {

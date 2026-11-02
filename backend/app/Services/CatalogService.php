@@ -274,7 +274,7 @@ class CatalogService
         }
         $created = $updated = $skipped = $received = 0;
         $receipt = (string) Str::uuid7();
-        $blank = ['sku' => '', 'barcode' => '', 'name_en' => '', 'name_ar' => '', 'name_ku' => '', 'brand' => '', 'category' => '', 'gender' => '', 'concentration' => '', 'size_label' => '', 'size' => '', 'unit' => '', 'ml' => '', 'wholesale_iqd' => '', 'min_stock' => null, 'stock' => 0];
+        $blank = ['sku' => '', 'barcode' => '', 'name_en' => '', 'name_ar' => '', 'name_ku' => '', 'brand' => '', 'category' => '', 'gender' => '', 'concentration' => '', 'size_label' => '', 'size' => '', 'unit' => '', 'ml' => '', 'wholesale_iqd' => '', 'wholesale_usd' => '', 'min_stock' => null, 'stock' => 0];
         DB::transaction(function () use ($actor, $rows, $blank, $addStock, $receipt, &$created, &$updated, &$skipped, &$received) {
             // two sizes on one barcode would make scanning ambiguous
             $barcodeFree = fn (string $code, ?string $exceptId = null) => $code === '' || ! Variant::where('barcode', $code)->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))->exists();
@@ -293,6 +293,8 @@ class CatalogService
                 $retail = (int) ($r['retail_iqd'] ?? 0);
                 $cost = (int) ($r['cost_iqd'] ?? 0);
                 $wholesale = (int) (($r['wholesale_iqd'] ?? '') !== '' ? $r['wholesale_iqd'] : $retail);
+                // the dollar price list comes in as whole cents; an empty cell leaves the size's dollar price alone
+                $usdCents = ($r['wholesale_usd'] ?? '') !== '' ? max(0, (int) $r['wholesale_usd']) : null;
                 $existing = Variant::where('sku', $sku)->first();
                 $barcode = trim((string) ($r['barcode'] ?? ''));
                 if (! $barcodeFree($barcode, $existing?->id)) {
@@ -300,6 +302,9 @@ class CatalogService
                 }
                 if ($existing) {
                     $existing->update(['retail_iqd' => $retail, 'cost_iqd' => $cost, 'wholesale_iqd' => $wholesale, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : $existing->min_stock] + (! empty($r['barcode']) ? ['barcode' => $r['barcode']] : []));
+                    if ($usdCents !== null) {
+                        $existing->update(['wholesale_usd_cents' => $usdCents]);
+                    }
                     if ($addStock && (int) ($r['stock'] ?? 0) > 0) {
                         $this->stock->applyMovement($existing->id, (int) $r['stock'], 'purchase', $actor, ['refType' => 'receipt', 'refId' => $receipt, 'note' => 'Excel import']);
                         $received += (int) $r['stock'];
@@ -333,7 +338,7 @@ class CatalogService
                     'id' => (string) Str::uuid7(), 'product_id' => $product->id,
                     'label' => trim((string) $r['size_label']) ?: Size::label($size, $unit), 'size' => $size, 'unit' => $unit, 'ml' => Size::toMl($size, $unit), 'sku' => $sku,
                     'barcode' => $barcode !== '' ? $barcode : $this->nextBarcode(), 'cost_iqd' => $cost, 'retail_iqd' => $retail,
-                    'wholesale_iqd' => $wholesale, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : 5,
+                    'wholesale_iqd' => $wholesale, 'wholesale_usd_cents' => $usdCents ?? 0, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : 5,
                 ]);
                 if (($r['stock'] ?? 0) > 0) {
                     $this->stock->applyMovement($variant->id, (int) $r['stock'], 'opening', $actor, ['note' => 'CSV import']);

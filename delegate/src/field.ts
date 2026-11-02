@@ -76,8 +76,16 @@ export function usdListPrice(iqd: number, rate: number): number {
   return Math.round(Math.max(0.5, Math.round((iqd / rate) * 2) / 2) * rate)
 }
 
-/** A size's price on this bill, in dinars: the list price, or its rounded dollar price on a dollar bill. */
+/**
+ * A size's price on this bill, in dinars.
+ *
+ * A dollar bill at the wholesale list uses the shop's **dollar price list** when that size has one (set in the product
+ * sheet, exact to the cent, the same price for every shop). Without one it falls back to the dinar price at the day's
+ * rate, to the nearest 50 cents — how every dollar bill worked before the list existed.
+ */
 export function unitPrice(v: Variant, list: PriceList, currency: Currency = 'IQD', rate = 0): number {
+  const usd = v.wholesaleUSDCents ?? 0
+  if (currency === 'USD' && list === 'wholesale' && usd > 0 && rate > 0) return Math.round((usd / 100) * rate)
   const iqd = list === 'wholesale' ? v.wholesaleIQD || v.retailIQD : v.retailIQD
   return currency === 'USD' ? usdListPrice(iqd, rate) : iqd
 }
@@ -116,7 +124,9 @@ export async function priceDelegateCart(cart: DelegateCart) {
     taxPct: 0,
   })
   let priced = price(currency === 'USD' ? 0 : rounding)
-  if (currency === 'USD') {
+  // a price the shop set itself ($23.70) is exact: a bill of those is left to the cent, never nudged to half a dollar
+  const exact = cart.priceList === 'wholesale' && cart.lines.some((l) => (variants.get(l.variantId)?.wholesaleUSDCents ?? 0) > 0)
+  if (currency === 'USD' && !exact) {
     // a dollar bill is rounded to 50 cents (like a dinar bill to 250), so a discount never leaves e.g. $24.66. Rounded
     // in dollars: at an odd rate (1,475) half a dollar isn't a whole number of dinars. Under half a dollar keeps the cents.
     const usd = Math.round(iqdToUsd(priced.total, rate) * 2) / 2

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\Sale;
 use App\Models\Variant;
+use App\Services\SaleService;
 use Illuminate\Support\Str;
 use Tests\ApiTestCase;
 
@@ -160,6 +161,26 @@ class DelegateTest extends ApiTestCase
         $r = $this->push([['entity' => 'sale', 'id' => $odd['id'], 'data' => $odd], ['entity' => 'sale', 'id' => $bad['id'], 'data' => $bad]]);
         $this->assertContains('price_mismatch', $r[0]['flags']);
         $this->assertSame([null, null], [Sale::find($odd['id'])->lat, Sale::find($bad['id'])->lat]);
+    }
+
+    public function test_a_size_with_its_own_dollar_price_sells_at_exactly_that_price(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $v->update(['wholesale_usd_cents' => 2370]); // the shop's dollar price list: $23.70 to shops
+        $this->asDelegate($id);
+
+        // $23.70 × 1,460 = 34,602 a bottle — exact to the cent, not nudged to the nearest half dollar
+        $sale = $this->delegateSale($id, $v, 2, 34602, ['currency' => 'USD',
+            'payments' => [['method' => 'cash_usd', 'amountIQD' => 69204, 'tendered' => 47.4, 'currency' => 'USD', 'rate' => 1460, 'reference' => '']]]);
+        $r = $this->push([['entity' => 'sale', 'id' => $sale['id'], 'data' => $sale]]);
+        $this->assertSame(['ok', []], [$r[0]['status'], $r[0]['flags']]);
+
+        // the converted price still works for sizes with no dollar price of their own
+        $plain = $this->variantOf('Asad');
+        $old = $this->delegateSale($id, $plain, 1, SaleService::usdListPrice($plain->wholesale_iqd, 1460), ['currency' => 'USD']);
+        $this->assertSame([], $this->push([['entity' => 'sale', 'id' => $old['id'], 'data' => $old]])[0]['flags']);
     }
 
     public function test_the_delegate_sales_report_shows_what_where_and_for_how_much(): void

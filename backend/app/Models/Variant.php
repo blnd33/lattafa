@@ -15,7 +15,7 @@ class Variant extends Model
     protected function casts(): array
     {
         return [
-            'ml' => 'integer', 'size' => 'float', 'cost_iqd' => 'integer', 'retail_iqd' => 'integer', 'wholesale_iqd' => 'integer',
+            'ml' => 'integer', 'size' => 'float', 'cost_iqd' => 'integer', 'retail_iqd' => 'integer', 'wholesale_iqd' => 'integer', 'wholesale_usd_cents' => 'integer',
             'min_stock' => 'integer', 'is_tester' => 'boolean', 'active' => 'boolean',
         ];
     }

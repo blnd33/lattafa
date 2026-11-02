@@ -114,6 +114,11 @@ export interface Variant {
   costIQD: number
   retailIQD: number
   wholesaleIQD: number
+  /**
+   * The dollar price the delegate sells this size to shops for, in cents (1250 = $12.50). Missing or 0 = none set:
+   * the bill falls back to the dinar price at the day's rate. Optional because rows saved before it existed lack it.
+   */
+  wholesaleUSDCents?: number
   minStock: number
   isTester: boolean
   active: boolean
