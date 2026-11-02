@@ -1,6 +1,6 @@
 import { db, nextCounter } from '@/data/db'
 import { STORE_LOCATION_ID, type Product, type Variant } from '@/data/types'
-import { internalEan13 } from '@/lib/code128'
+import { cleanCode, internalEan13, sameBarcode } from '@/lib/code128'
 import { uuid } from '@/lib/id'
 import { isSizeUnit, sizeLabel, toMl } from '@/lib/size'
 import { AppError, assertCan, can, requireActor } from './context'
@@ -30,15 +30,25 @@ export async function listCatalog(opts: { includeInactive?: boolean } = {}): Pro
     .filter((p) => opts.includeInactive || p.active)
     .map((p) => ({ product: p, variants: (byProduct.get(p.id) ?? []).sort((a, b) => b.ml - a.ml) }))
     .filter((c) => opts.includeInactive || c.variants.length > 0)
-    .sort((a, b) => a.product.name.en.localeCompare(b.product.name.en))
+    .sort((a, b) => nameOf(a.product).localeCompare(nameOf(b.product)))
 }
+
+/** Whichever name it has: a product may be named in Arabic or Kurdish only, and one bad row must never blank the list. */
+const nameOf = (p: Product) => p.name.en || p.name.ar || p.name.ku || ''
 
 export async function findByBarcode(code: string): Promise<{ product: Product; variant: CatalogVariant } | null> {
   assertCan('products.view')
   const c = code.trim()
   if (!c) return null
-  const v = (await db.variants.where('barcode').equals(c).first()) ?? (await db.variants.where('sku').equals(c).first())
-  if (!v || !v.active) return null
+  const clean = cleanCode(c)
+  const exact = [...(await db.variants.where('barcode').equals(clean).toArray()), ...(await db.variants.where('sku').anyOf([c, clean]).toArray())]
+  let v = exact.find((x) => x.active)
+  if (!v && !exact.length) {
+    // never a guess: only when exactly one size on sale can be meant
+    const close = (await db.variants.toArray()).filter((x) => x.active && sameBarcode(x.barcode, clean))
+    if (close.length === 1) v = close[0]
+  }
+  if (!v) return null
   const [product, stock] = await Promise.all([db.products.get(v.productId), db.stock.get([v.id, STORE_LOCATION_ID])])
   if (!product || !product.active) return null
   return { product, variant: { ...v, stock: stock?.qty ?? 0 } }
@@ -61,8 +71,9 @@ export async function saveProduct(input: { product: ProductInput; variants: Vari
   const isNew = !input.product.id
   const actor = assertCan(isNew ? 'products.create' : 'products.edit')
   const p = input.product
-  if (!p.name.en.trim() && !p.name.ar.trim() && !p.name.ku.trim()) throw new AppError('required_fields')
+  if (!nameOf(p as Product).trim()) throw new AppError('required_fields')
   if (!input.variants.length) throw new AppError('variant_required')
+  input = { ...input, variants: input.variants.map((v) => ({ ...v, barcode: cleanCode(v.barcode) })) } // kept the way a scanner reads it
 
   const skus = new Set<string>()
   for (const v of input.variants) {

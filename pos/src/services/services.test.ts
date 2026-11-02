@@ -3,7 +3,7 @@ import { backfillSizes, db } from '@/data/db'
 import { completeSetup, loginWithPassword, loginWithPin, listLoginUsers, verifyApproval, ensureSystemRoles } from './auth'
 import { setActor, isAppError, getActor } from './context'
 import { saveUser, saveRole, deleteUser, listUsers, resetCredentials } from './users'
-import { listCatalog, saveProduct } from './catalog'
+import { findByBarcode, listCatalog, saveProduct } from './catalog'
 import { exportCatalogCsv, importCatalog, previewImport } from './csv'
 import { completeSale, voidSale, listSales } from './sales'
 import { createReturn, unitRefund } from './returns'
@@ -454,6 +454,79 @@ describe('bottle sizes in ml or oz', () => {
     const row = lines.find((l) => l.startsWith('RT-1'))!
     expect(row).toContain(',1.7 oz,1.7,oz,')
     expect(previewImport(csv).errors).toEqual([])
+  })
+
+  describe('a product with no English name', () => {
+    const named = (ar: string) => ({ ...baseProduct(), name: { en: '', ar, ku: '' } })
+    const saved = async (sku: string) => (await db.variants.where('sku').equals(sku).first())!.productId
+
+    it('one saved with an empty (null) name does not blank the whole catalogue', async () => {
+      await saveProduct({ product: named('ب'), variants: [variant('AR-1', 100, 'ml')] })
+      await db.products.update(await saved('AR-1'), { name: { en: null, ar: 'ب', ku: null } as never })
+      const before = (await db.products.count())
+      expect(await listCatalog()).toHaveLength(before)
+      expect(await listCatalog({ includeInactive: true })).toHaveLength(before)
+    })
+
+    it('sorts by whichever name it has, among the others', async () => {
+      await saveProduct({ product: named('ي'), variants: [variant('AR-2', 100, 'ml')] })
+      await saveProduct({ product: named('ا'), variants: [variant('AR-3', 100, 'ml')] })
+      const order = (await listCatalog()).map((c) => c.product.name.ar).filter((n) => n === 'ا' || n === 'ي')
+      expect(order).toEqual(['ا', 'ي'])
+    })
+
+    it('can still be edited and saved', async () => {
+      await saveProduct({ product: named('ب'), variants: [variant('AR-4', 100, 'ml')] })
+      const id = await saved('AR-4')
+      await db.products.update(id, { name: { en: null, ar: 'ب', ku: null } as never })
+      await expect(saveProduct({ product: { ...named('ب'), id, name: { en: null, ar: 'ب', ku: null } as never }, variants: [{ ...variant('AR-4', 100, 'ml'), id: (await db.variants.where('sku').equals('AR-4').first())!.id }] })).resolves.toBe(id)
+    })
+  })
+
+  describe('finding a size by its barcode', () => {
+    const BOX = '6111111111116' // made up
+    const stock = (sku: string, barcode: string) => saveProduct({ product: baseProduct(), variants: [{ ...variant(sku, 100, 'ml'), barcode }] })
+    const found = async (code: string) => (await findByBarcode(code))?.variant.sku
+
+    it('the code as the box prints it, with Arabic digits, or with the first digit left out', async () => {
+      await stock('BC-1', BOX)
+      expect(await found(BOX)).toBe('BC-1')
+      expect(await found('6 111111 111116')).toBe('BC-1')
+      expect(await found('٦١١١١١١١١١١١٦')).toBe('BC-1')
+      expect(await found('111111111116')).toBe('BC-1')
+    })
+
+    it('a barcode typed in with the gaps from the box is saved the way a scanner reads it', async () => {
+      await stock('BC-2', '6 111111 111116')
+      expect((await db.variants.where('sku').equals('BC-2').first())?.barcode).toBe(BOX)
+    })
+
+    it('one saved with gaps or without its first digit before this fix still scans', async () => {
+      await stock('BC-3', BOX)
+      const v = (await db.variants.where('sku').equals('BC-3').first())!
+      await db.variants.update(v.id, { barcode: '6 111111 111116' })
+      expect(await found(BOX)).toBe('BC-3')
+      await db.variants.update(v.id, { barcode: '111111111116' })
+      expect(await found(BOX)).toBe('BC-3')
+    })
+
+    it('never guesses: two sizes that differ only in the first digit, or a short code, find nothing', async () => {
+      await stock('BC-4', BOX)
+      await stock('BC-5', '7111111111116')
+      expect(await found('111111111116')).toBeUndefined()
+      expect(await found(BOX)).toBe('BC-4')
+      expect(await found('1116')).toBeUndefined()
+    })
+
+    it('a hidden size does not hide the size on sale with the same barcode', async () => {
+      await stock('BC-6', BOX)
+      await stock('BC-7', '6222222222222')
+      const a = (await db.variants.where('sku').equals('BC-6').first())!
+      const b = (await db.variants.where('sku').equals('BC-7').first())!
+      await db.variants.update(b.id, { barcode: BOX })
+      await db.variants.update(a.id, { active: false })
+      expect(await found(BOX)).toBe('BC-7')
+    })
   })
 
   it('old bottles (saved before units existed) are upgraded to ml', async () => {

@@ -8,6 +8,7 @@
 import { db } from '@/data/db'
 import type { Gender, Lang, SizeUnit } from '@/data/types'
 import { DICTS, translate } from '@/i18n'
+import { cleanCode } from '@/lib/code128'
 import { trimNum } from '@/lib/size'
 import { readXlsx, writeXlsx } from '@/lib/xlsx'
 import { AppError, assertCan } from './context'
@@ -259,7 +260,8 @@ export function invoiceToPatches(table: string[][]): { patches: Partial<SheetRow
       const cost = readNumber(cell(r, cols.cost)) ?? (typeof usd === 'number' && rate ? usd * rate : null)
       const sell = readNumber(cell(r, cols.sell))
       // a note in the barcode cell ("الباركود مكرر في …") is not a barcode: the item gets one of ours
-      const barcode = /^[0-9A-Za-z-]{4,32}$/.test(cell(r, cols.barcode)) ? cell(r, cols.barcode) : ''
+      const code = cleanCode(cell(r, cols.barcode))
+      const barcode = /^[0-9A-Za-z-]{4,32}$/.test(code) ? code : ''
       const p: Partial<SheetRow> = {
         ...readInvoiceName(raw), barcode, stock: typeof qty === 'number' && qty > 0 ? String(Math.round(qty)) : '',
         cost_iqd: typeof cost === 'number' && cost > 0 ? String(Math.round(cost)) : '', retail_iqd: typeof sell === 'number' && sell > 0 ? String(Math.round(sell)) : '',
@@ -291,7 +293,7 @@ async function matchCatalogue(patches: Partial<SheetRow>[]): Promise<{ patches: 
   const pmap = new Map(products.map((p) => [p.id, p]))
   const byBarcode = new Map(variants.filter((v) => v.barcode).map((v) => [v.barcode, v]))
   const nameKey = (ar: string, brand: string) => `${ar.trim().toLowerCase()}|${brand.trim().toLowerCase()}`
-  const byName = new Map(products.filter((p) => p.name.ar.trim()).map((p) => [nameKey(p.name.ar, p.brand), p]))
+  const byName = new Map(products.filter((p) => p.name.ar?.trim()).map((p) => [nameKey(p.name.ar, p.brand), p]))
   const byNameAndSize = (p: Partial<SheetRow>) => {
     const prod = byName.get(nameKey(p.name_ar ?? '', p.brand ?? ''))
     if (!prod) return undefined
@@ -426,7 +428,7 @@ export function checkRow(r: SheetRow, need: readonly SheetCol[] = []): CellError
   for (const [col, list] of Object.entries(CHOICE_COLUMNS) as [SheetCol, readonly string[]][]) {
     if (!list.includes(r[col])) e[col] = { key: `sheet.err_${col}` }
   }
-  if (r.barcode.trim() && !/^[0-9A-Za-z\-]{4,32}$/.test(r.barcode.trim())) e.barcode = { key: 'sheet.err_barcode' }
+  if (cleanCode(r.barcode) && !/^[0-9A-Za-z\-]{4,32}$/.test(cleanCode(r.barcode))) e.barcode = { key: 'sheet.err_barcode' }
   return e
 }
 
@@ -482,7 +484,7 @@ export async function saveSheetRows(rows: SheetRow[], need: (readonly SheetCol[]
     const existing = bySku.get(sku.toLowerCase())
 
     // a barcode belongs to one size only
-    const barcode = r.barcode.trim()
+    const barcode = cleanCode(r.barcode)
     if (barcode && !errors.barcode) {
       const owner = variants.find((v) => v.barcode === barcode && v.id !== existing?.id)
       if (owner) errors.barcode = { key: 'sheet.err_barcode_taken', vars: { name: `${nameOf(owner.productId)} ${owner.label}`.trim() } }

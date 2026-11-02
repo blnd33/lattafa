@@ -107,9 +107,11 @@ class CatalogService
         return DB::transaction(function () use ($actor, $product, $variants, $id, $isNew, $name) {
             $existing = $isNew ? null : (Product::find($id) ?? throw AppException::notFound());
             $model = $existing ?? new Product(['id' => $id ?: (string) Str::uuid7()]);
+            // the request turns an empty box into null: every language stays text, or the apps can't sort or show the product
+            $text = fn (?array $t) => array_replace(['en' => '', 'ar' => '', 'ku' => ''], array_filter($t ?? [], fn ($x) => $x !== null));
             $attrs = [
-                'name' => $name + ['en' => '', 'ar' => '', 'ku' => ''],
-                'description' => ($product['description'] ?? []) + ['en' => '', 'ar' => '', 'ku' => ''],
+                'name' => $text($name),
+                'description' => $text($product['description'] ?? null),
                 'brand' => trim($product['brand'] ?? ''),
                 'category' => $product['category'] ?? 'perfume',
                 'gender' => $product['gender'] ?? 'unisex',

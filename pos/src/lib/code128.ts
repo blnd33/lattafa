@@ -98,6 +98,26 @@ export function ean13CheckDigit(body12: string): number {
 }
 
 /** Generate an internal EAN-13 (prefix 200 = in-store use range) from a running number. */
+/** A code as it really is: Arabic and Kurdish digits become 0–9, and the gaps printed on a box ("6 111111 111116") go. */
+export function cleanCode(raw: string): string {
+  return raw
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/[\s‎‏‪-‮⁦-⁩]/g, '') // spaces, and the invisible direction marks Excel and RTL text carry
+}
+
+/**
+ * The same barcode written differently: identical once cleaned, or one digit short at the front. Some scanners are set
+ * to leave out the first digit, and a UPC-A code is an EAN-13 without its leading 0.
+ */
+export function sameBarcode(a: string, b: string): boolean {
+  const x = cleanCode(a), y = cleanCode(b)
+  if (!x || !y) return false
+  if (x === y) return true
+  const [long, short] = x.length > y.length ? [x, y] : [y, x]
+  return short.length >= 11 && long.length === short.length + 1 && /^\d+$/.test(long) && long.endsWith(short)
+}
+
 export function internalEan13(seq: number): string {
   const body = ('200' + String(seq).padStart(9, '0')).slice(0, 12)
   return body + ean13CheckDigit(body)

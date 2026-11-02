@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\Variant;
+use Illuminate\Support\Facades\DB;
 use Tests\ApiTestCase;
 
 /** Products, barcodes, prices, cost visibility, stock movements and stock counts. */
@@ -47,6 +48,39 @@ class CatalogStockTest extends ApiTestCase
         $this->assertSame(25000, $res->json('product.variants.0.retailIQD'));
         $this->assertSame(7, $res->json('product.variants.0.stock')); // editing a product never re-applies opening stock
         $this->assertSame('Renamed', $res->json('product.name.en'));
+    }
+
+    public function test_an_arabic_only_product_keeps_text_in_every_language_when_edited(): void
+    {
+        $this->shop();
+        $empty = ['en' => '', 'ar' => 'عطر', 'ku' => ''];
+        $body = $this->payload('AR-1', ['name' => $empty, 'description' => ['en' => '', 'ar' => '', 'ku' => '']]);
+        $p = $this->api('POST', 'products', $body)->assertCreated()->json('product');
+        $this->assertSame($empty, $p['name']);
+
+        $body['product']['id'] = $p['id'];
+        $body['variants'][0]['id'] = $p['variants'][0]['id'];
+        $saved = $this->api('PUT', "products/{$p['id']}", $body)->assertOk()->json('product');
+        $this->assertSame($empty, $saved['name']);
+        $this->assertSame(['en' => '', 'ar' => '', 'ku' => ''], $saved['description']);
+    }
+
+    public function test_products_already_saved_with_empty_names_are_repaired_and_reach_the_tills(): void
+    {
+        $this->shop();
+        foreach (['products', 'variants', 'stock'] as $table) {
+            DB::table($table)->update(['updated_at' => now()->subDay()]); // nothing else counts as changed
+        }
+        $v = Variant::first();
+        DB::table('products')->where('id', $v->product_id)->update(['name' => json_encode(['en' => null, 'ar' => 'عطر', 'ku' => null]), 'description' => json_encode(['en' => null, 'ar' => null, 'ku' => null])]);
+        $since = \App\Support\Time::nowMs() - 60000;
+
+        (require database_path('migrations/2026_11_02_100004_repair_empty_product_names.php'))->up();
+
+        $changed = $this->api('GET', "sync/pull?since={$since}")->assertOk()->json('products');
+        $this->assertCount(1, $changed, 'only the repaired product is sent again');
+        $this->assertSame(['en' => '', 'ar' => 'عطر', 'ku' => ''], $changed[0]['name']);
+        $this->assertSame(['en' => '', 'ar' => '', 'ku' => ''], $changed[0]['description']);
     }
 
     public function test_duplicate_sku_or_barcode_is_refused(): void
