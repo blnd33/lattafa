@@ -6,6 +6,7 @@ import { fmt } from '@/lib/money'
 import { useUI } from '@/store/ui'
 import { menuSettings, orderNumber, soldOut, type MenuData, type MenuProduct } from './api'
 import { useMenuT } from './i18n'
+import { AddSize } from './OrderBar'
 
 /**
  * One perfume, in full: notes pyramid, longevity/sillage, season, sizes with prices, and "Order via WhatsApp"
@@ -95,12 +96,16 @@ export function ProductSheet({ product: p, data, onClose }: { product: MenuProdu
                   : <div className="font-serif text-xl font-semibold text-gold-light">{t('ask_price')}</div>}
                 <div className="num text-xs text-fg-2">{size.label}{!size.available && ` · ${t('sold_out')}`}</div>
               </div>
-              {wa && !soldOut(p) && (
-                <a href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-gradient-to-b from-gold-light to-gold px-5 font-semibold text-ink hover:brightness-105">
-                  <MessageCircle className="size-5" />{t('order')}
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* put this size in the order the shop is building; WhatsApp stays for a quick question */}
+                <AddSize variantId={size.id} disabled={!size.available} />
+                {wa && !soldOut(p) && (
+                  <a href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-gradient-to-b from-gold-light to-gold px-5 font-semibold text-ink hover:brightness-105">
+                    <MessageCircle className="size-5" />{t('order')}
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>

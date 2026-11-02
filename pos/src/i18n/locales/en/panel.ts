@@ -66,6 +66,8 @@ export const panel: Record<string, string> = {
   'ap.sec_system': 'System',
   'ap.nav_review': 'Sales to check',
   'ap.nav_activity': 'Activity',
+  'ap.orders_subtitle': 'What shops ordered from the customer menu, and which delegate took it.',
+  'ap.nav_orders': 'Orders',
   'ap.activity_subtitle': 'What happened in the system — who did what, newest first.',
   'ap.view_all': 'View all',
   'ap.rev_sub': 'Bills the system kept but flagged, usually because they were made while a till or phone was offline. Look at each one, put right what needs it, then mark it as checked.',

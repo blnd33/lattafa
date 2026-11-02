@@ -39,6 +39,7 @@ const UsersPage = lazyPage(() => import('@/features/users/UsersPage'), 'UsersPag
 const SettingsPage = lazyPage(() => import('@/features/settings/SettingsPage'), 'SettingsPage')
 const AccountPage = lazyPage(() => import('@/features/account/AccountPage'), 'AccountPage')
 const ActivityPage = lazyPage(() => import('./activity/ActivityPage'), 'ActivityPage')
+const OrdersPage = lazyPage(() => import('./orders/OrdersPage'), 'OrdersPage')
 const ReviewPage = lazyPage(() => import('./review/ReviewPage'), 'ReviewPage')
 const PurchasingPage = lazyPage(() => import('./purchasing/PurchasingPage'), 'PurchasingPage')
 const ExpensesPage = lazyPage(() => import('./expenses/ExpensesPage'), 'ExpensesPage')
@@ -155,6 +156,7 @@ function Gate() {
           <Route path="/customers" element={can(['customers.view'])(<CustomersPage />)} />
           <Route path="/delegates" element={can(['delegates.manage'])(<DelegatesSection />)} />
           <Route path="/users/*" element={can(['users.view'])(<UsersPage />)} />
+          <Route path="/orders" element={can(['delegate.sell', 'delegates.manage'])(<OrdersPage />)} />
           <Route path="/activity" element={can(['audit.view'])(<ActivityPage />)} />
           <Route path="/settings" element={can(['settings.view'])(<SettingsPage />)} />
           <Route path="/account" element={<AccountPage />} />

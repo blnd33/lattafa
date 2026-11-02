@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DelegateController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\MenuController;
+use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PurchasingController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -37,6 +38,8 @@ Route::get('/health', fn () => ['ok' => true, 'app' => 'lattafa', 'time' => (int
 
 // ── public perfume menu (QR code in the shop) — no sign-in, customer-safe fields only ──
 Route::get('/menu', [MenuController::class, 'index'])->middleware('throttle:120,1');
+// a shop ordering from the menu: no sign-in either, so it is held to a few an hour per address
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:10,60');
 
 // ── first run + sign-in (no token yet) ──
 Route::get('/setup/status', [SetupController::class, 'status']);
@@ -161,6 +164,12 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::post('expenses', [ExpenseController::class, 'store']);
     Route::put('expenses/{id}', [ExpenseController::class, 'store']);
     Route::delete('expenses/{id}', [ExpenseController::class, 'destroy']);
+
+    // orders shops sent from the menu — delegates work them, managers watch them
+    Route::get('orders', [OrderController::class, 'index']);
+    Route::get('orders/waiting', [OrderController::class, 'waiting']);
+    Route::post('orders/{id}/accept', [OrderController::class, 'accept']);
+    Route::post('orders/{id}/refuse', [OrderController::class, 'refuse']);
 
     // field sales (delegates)
     Route::get('delegates', [DelegateController::class, 'index']);

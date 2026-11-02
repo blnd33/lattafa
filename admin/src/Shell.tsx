@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BarChart3, BookOpen, Boxes, ClipboardList, FileSpreadsheet, History, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
+  BarChart3, BookOpen, Boxes, ClipboardList, FileSpreadsheet, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
   ShieldAlert, ShieldCheck, Sun, Truck, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Brand'
@@ -45,6 +45,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/purchasing', icon: ClipboardList, label: 'ap.nav_purchasing', perms: ['purchasing.view'], section: 'catalogue' },
   { to: '/expenses', icon: Wallet, label: 'ap.nav_expenses', perms: ['expenses.view'], section: 'money' },
   { to: '/customers', icon: Users, label: 'nav.customers', perms: ['customers.view'], section: 'people' },
+  { to: '/orders', icon: Inbox, label: 'ap.nav_orders', perms: ['delegate.sell', 'delegates.manage'], section: 'people' },
   { to: '/delegates', icon: Truck, label: 'nav.delegates', perms: ['delegates.manage'], section: 'people' },
   { to: '/users', icon: ShieldCheck, label: 'nav.users', perms: ['users.view'], section: 'people' },
   { to: '/activity', icon: History, label: 'ap.nav_activity', perms: ['audit.view'], section: 'system' },

@@ -18,6 +18,7 @@ const en = {
   foot1: 'Duhok, Kurdistan Region — Iraq', foot2: 'Prices in Iraqi Dinar. Availability may vary.', close: 'Close',
   sold_out: 'Sold out', loading: 'Loading the menu…', offline: 'Showing the last saved menu — you are offline.', error: 'The menu could not be loaded.', retry: 'Try again',
   empty: 'Our perfume menu is being prepared. Please ask in the shop.', call: 'Call us', lang: 'Language', ask_price: 'Ask us for the price', slide: 'Picture {n} of {total}', bg_pause: 'Pause the background', bg_play: 'Play the background',
+  add: 'Add', in_basket: 'In your order: {n}', basket: 'Your order', basket_n: 'Order · {n} item(s)', send_order: 'Send the order', shop_name: 'Shop name', shop_name_ph: 'Al-Noor Perfumes', your_phone: 'Phone number', your_phone_ph: '0750 000 0000', order_note: 'Anything to add? (optional)', order_note_ph: 'Before Thursday please', remove: 'Remove', empty_basket: 'Nothing chosen yet. Tap Add on a perfume.', sent_title: 'Order sent', sent_body: 'Your order number is #{n}. We will call you to confirm.', sent_done: 'Done', need_name: 'Please write the shop name.', need_phone: 'Please write a phone number we can call.', order_busy: 'Too many orders from here just now. Please try again later.', order_gone: 'Something in your order is no longer available. Please remove it and try again.', order_failed: 'The order could not be sent. Please check your connection and try again.',
 }
 type Key = keyof typeof en
 
@@ -34,6 +35,7 @@ const ar: Record<Key, string> = {
   foot1: 'دهوك، إقليم كردستان — العراق', foot2: 'الأسعار بالدينار العراقي. التوفر قد يختلف.', close: 'إغلاق',
   sold_out: 'نفد', loading: 'جارٍ تحميل القائمة…', offline: 'تُعرض آخر قائمة محفوظة — أنت غير متصل.', error: 'تعذّر تحميل القائمة.', retry: 'حاول مجدداً',
   empty: 'قائمة العطور قيد التحضير. يرجى السؤال في المتجر.', call: 'اتصل بنا', lang: 'اللغة', ask_price: 'اسألنا عن السعر', slide: 'الصورة {n} من {total}', bg_pause: 'إيقاف الخلفية مؤقتاً', bg_play: 'تشغيل الخلفية',
+  add: 'أضف', in_basket: 'في طلبك: {n}', basket: 'طلبك', basket_n: 'الطلب · {n} صنف', send_order: 'إرسال الطلب', shop_name: 'اسم المحل', shop_name_ph: 'عطور النور', your_phone: 'رقم الهاتف', your_phone_ph: '0750 000 0000', order_note: 'هل تريد إضافة شيء؟ (اختياري)', order_note_ph: 'قبل الخميس من فضلك', remove: 'إزالة', empty_basket: 'لم تختر شيئاً بعد. اضغط «أضف» على أي عطر.', sent_title: 'تم إرسال الطلب', sent_body: 'رقم طلبك #{n}. سنتصل بك للتأكيد.', sent_done: 'تم', need_name: 'يرجى كتابة اسم المحل.', need_phone: 'يرجى كتابة رقم هاتف يمكننا الاتصال به.', order_busy: 'طلبات كثيرة من هنا الآن. يرجى المحاولة لاحقاً.', order_gone: 'أحد الأصناف في طلبك لم يعد متوفراً. يرجى إزالته والمحاولة مجدداً.', order_failed: 'تعذّر إرسال الطلب. تحقق من الاتصال وحاول مجدداً.',
 }
 
 const ku: Record<Key, string> = {
@@ -49,6 +51,7 @@ const ku: Record<Key, string> = {
   foot1: 'دهۆک، هەرێمی کوردستان — عێراق', foot2: 'نرخەکان بە دیناری عێراقین. بەردەستبوون دەشێت جیاواز بێت.', close: 'داخستن',
   sold_out: 'نەماوە', loading: 'لیستەکە بار دەکرێت…', offline: 'دوایین لیستی پاشەکەوتکراو پیشان دەدرێت — ئۆفلاینیت.', error: 'لیستەکە بار نەکرا.', retry: 'دووبارە هەوڵ بدەوە',
   empty: 'لیستی عەترەکان ئامادە دەکرێت. تکایە لە فرۆشگاکە بپرسە.', call: 'پەیوەندیمان پێوە بکە', lang: 'زمان', ask_price: 'نرخەکەمان لێ بپرسە', slide: 'وێنەی {n} لە {total}', bg_pause: 'پاشبنەماکە ڕابگرە', bg_play: 'پاشبنەماکە لێبدە',
+  add: 'زیادی بکە', in_basket: 'لە داواکاریەکەتدا: {n}', basket: 'داواکاریەکەت', basket_n: 'داواکاری · {n} شت', send_order: 'داواکاریەکە بنێرە', shop_name: 'ناوی دوکان', shop_name_ph: 'عەترەکانی نوور', your_phone: 'ژمارەی تەلەفۆن', your_phone_ph: '٠٧٥٠ ٠٠٠ ٠٠٠٠', order_note: 'شتێکی تر هەیە؟ (ئارەزوومەندانە)', order_note_ph: 'پێش پێنجشەممە تکایە', remove: 'لابردن', empty_basket: 'هێشتا هیچت هەڵنەبژاردووە. لەسەر عەترێک «زیادی بکە» دابگرە.', sent_title: 'داواکاری نێردرا', sent_body: 'ژمارەی داواکاریەکەت #{n}ە. پەیوەندیت پێوە دەکەین بۆ دڵنیابوون.', sent_done: 'تەواو', need_name: 'تکایە ناوی دوکانەکە بنووسە.', need_phone: 'تکایە ژمارەیەک بنووسە کە پەیوەندیت پێوە بکەین.', order_busy: 'ئێستا داواکاری زۆر لێرەوە هاتووە. تکایە دواتر هەوڵ بدەوە.', order_gone: 'شتێک لە داواکاریەکەتدا چیتر بەردەست نییە. تکایە لایببە و دووبارە هەوڵ بدەوە.', order_failed: 'داواکاریەکە نەنێردرا. پەیوەندیەکەت بپشکنە و دووبارە هەوڵ بدەوە.',
 }
 
 const DICT: Record<Lang, Record<Key, string>> = { en, ar, ku }

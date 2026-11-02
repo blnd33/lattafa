@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Collection;
 use App\Models\Customer;
 use App\Models\Device;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\Sale;
@@ -65,6 +66,17 @@ final class Present
     public static function device(Device $d): array
     {
         return ['id' => $d->id, 'name' => $d->name, 'code' => $d->code, 'registeredAt' => self::ms($d->created_at), 'revoked' => $d->revoked, 'lastSeenAt' => $d->last_seen_at];
+    }
+
+    /** A shop's order from the menu, as the delegate app and the admin panel show it. */
+    public static function order(Order $o, string $handledByName = ''): array
+    {
+        return [
+            'id' => $o->id, 'number' => $o->number, 'shopName' => $o->shop_name, 'phone' => $o->phone, 'note' => $o->note,
+            'customerId' => $o->customer_id, 'items' => $o->items, 'units' => $o->units, 'status' => $o->status,
+            'handledBy' => $o->handled_by, 'handledByName' => $handledByName, 'handledAt' => $o->handled_at,
+            'refuseReason' => $o->refuse_reason, 'saleId' => $o->sale_id, 'placedAt' => $o->placed_at,
+        ];
     }
 
     public static function variant(Variant $v, bool $showCost = true): array

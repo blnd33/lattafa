@@ -1,5 +1,5 @@
 /** The activity log's wording. The filter's groups: every area that writes to the log (an action's code starts with its group). */
-export const AUDIT_GROUPS = ['auth', 'device', 'sale', 'return', 'shift', 'stock', 'product', 'prices', 'customer', 'delegate', 'purchase', 'supplier', 'expense', 'user', 'role', 'settings', 'menu']
+export const AUDIT_GROUPS = ['auth', 'device', 'sale', 'return', 'shift', 'stock', 'product', 'prices', 'customer', 'delegate', 'order', 'purchase', 'supplier', 'expense', 'user', 'role', 'settings', 'menu']
 
 const auditValue = (v: unknown) => (typeof v === 'number' ? v.toLocaleString('en-US') : v === '' ? '—' : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v))
 

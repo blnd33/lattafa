@@ -7,6 +7,7 @@ import { fmt } from '@/lib/money'
 import { useUI } from '@/store/ui'
 import { cachedMenu, DEFAULT_MENU, fetchMenu, fromPrice, isPreview, menuSettings, PREVIEW, priceBands, soldOut, type HeroMedia, type MenuData, type MenuProduct, type MenuSettings, type PreviewMessage } from './api'
 import { htmlLangOf, isRtlLang, useMenuT, type MenuT } from './i18n'
+import { OrderBar } from './OrderBar'
 import { ProductSheet } from './ProductSheet'
 
 const FAMILIES = ['all', 'oud', 'woody', 'floral', 'oriental', 'fresh', 'sweet'] as const
@@ -126,6 +127,7 @@ export function MenuApp() {
       </main>
       <Footer t={t} store={data?.store} />
       {open && data && <ProductSheet product={open} data={data} onClose={() => setOpen(null)} />}
+      {data && <OrderBar products={data.products} lang={lang} />}
     </div>
   )
 }

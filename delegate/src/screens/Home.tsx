@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Boxes, ChevronRight, HandCoins, MapPin, MapPinOff, ShoppingBag } from 'lucide-react'
+import { Boxes, ChevronRight, ClipboardList, HandCoins, MapPin, MapPinOff, ShoppingBag } from 'lucide-react'
 import { Badge } from '@/components/ui/Controls'
 import { cn } from '@/components/ui/cn'
 import { useT } from '@/i18n'
@@ -8,11 +8,31 @@ import { useSession } from '../auth'
 import { distanceKm, getPosition, today, type Position } from '../field'
 import { useClosings, useCustomers, useMyDay, useShop } from '../hooks'
 import { InstallBanner } from '../Install'
+import { useWaitingOrders } from '../orders'
 import { CheckInSheet } from './Customers'
 import { IQD, LocationPill, SectionTitle, SyncPill, USD } from '../ui'
 import { useTracker } from '../tracker'
 
 const LOW = 2
+
+/** Shops waiting for an answer — the first thing the delegate sees when he opens the app. */
+function OrdersBanner() {
+  const t = useT()
+  const nav = useNavigate()
+  const { data: waiting = 0 } = useWaitingOrders()
+  if (!waiting) return null
+  return (
+    <button type="button" onClick={() => nav('/orders')}
+      className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 rounded-2xl border border-gold bg-gold-soft p-3.5 text-start dark:bg-gold/15">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gold text-ink"><ClipboardList className="size-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">{t('dl.orders_waiting', { n: waiting })}</span>
+        <span className="block text-xs text-fg-2">{t('dl.orders_waiting_hint')}</span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-fg-2 rtl:rotate-180" />
+    </button>
+  )
+}
 
 export function HomeScreen() {
   const t = useT()
@@ -56,6 +76,7 @@ export function HomeScreen() {
         <div className="flex shrink-0 items-center gap-2"><LocationPill /><SyncPill /></div>
       </header>
 
+      <OrdersBanner />
       <InstallBanner />
       {(locState === 'denied' || locState === 'unavailable') && (
         <p role="alert" className="mx-4 mt-2 flex items-start gap-2 rounded-2xl bg-danger-bg p-3 text-sm text-danger-fg"><MapPinOff className="mt-0.5 size-4 shrink-0" />{t(locState === 'denied' ? 'dl.loc_denied' : 'dl.loc_unavailable')}</p>
