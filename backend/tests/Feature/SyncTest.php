@@ -408,6 +408,18 @@ class SyncTest extends ApiTestCase
         $this->assertSame([0], $costs);
     }
 
+    public function test_every_pull_says_how_big_the_whole_catalogue_is_so_a_device_can_spot_a_gap(): void
+    {
+        $this->shop();
+        $full = $this->api('GET', 'sync/pull')->json();
+        $this->assertSame(['products' => count($full['products']), 'variants' => collect($full['products'])->sum(fn ($p) => count($p['variants']))], $full['catalog']);
+
+        // a pull with nothing new still gives the totals, not the size of the (empty) list of changes
+        $none = $this->api('GET', 'sync/pull?since='.($full['serverTime'] + 3600000))->json();
+        $this->assertSame([], $none['products']);
+        $this->assertSame($full['catalog'], $none['catalog']);
+    }
+
     public function test_incremental_pull_only_returns_what_changed_including_edits_in_the_same_second(): void
     {
         $this->shop();

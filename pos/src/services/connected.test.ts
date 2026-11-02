@@ -10,7 +10,7 @@ import { setApiDevice, setApiToken, getApiToken } from './api'
 import { setActor, isAppError } from './context'
 import { applyPull, type PullPayload, type ServerProduct, type ServerUser } from './mirror'
 import { setServerMode } from './mode'
-import { pushOutbox, queueOutbox, pendingCount } from './sync'
+import { pullNow, pushOutbox, queueOutbox, pendingCount } from './sync'
 import { loginWithPin } from './auth'
 import { listSales } from './sales'
 import { DEFAULT_SETTINGS } from './settings'
@@ -125,6 +125,73 @@ describe('mirror (pull)', () => {
     await db.creds.put({ userId: 'u-ali', actor: {} as Actor, token: 't', pinHash: pin.hash, pinSalt: pin.salt, passwordHash: null, passwordSalt: null, failedAttempts: 0, lockedUntil: null, updatedAt: now })
     await applyPull(payload({ since: now, users: [user('u-owner', 'Owner', 'role-super_admin'), { ...user('u-ali', 'Ali', 'role-cashier'), active: false }] }))
     expect(await db.creds.get('u-ali')).toBeUndefined()
+  })
+})
+
+describe('mirror repairs itself', () => {
+  const sku = (p: ServerProduct, s: string): ServerProduct => ({ ...p, variants: p.variants.map((v) => ({ ...v, sku: s })) })
+  const khamrah = product('p-kh', 'Khamrah', [{ id: 'v-kh', stock: 10, retail: 45000 }])
+  const asad = product('p-as', 'Asad', [{ id: 'v-as', stock: 7, retail: 42000 }])
+  const pulls = () => calls.filter((c) => c.path.startsWith('/sync/pull')).map((c) => c.path)
+  /** The server answers a full pull with `all`, and anything else with `changes`. */
+  const serve = (all: Partial<PullPayload>, changes: Partial<PullPayload>) => {
+    handler = (_m, path) => ({ status: 200, body: payload({ serverTime: now + 5000, ...(path.endsWith('since=0') ? all : { since: now, ...changes }) }) })
+  }
+  beforeEach(async () => { await applyPull(payload({ products: [khamrah, asad] })) })
+
+  it('a product deleted and added again with the same SKU comes through in one pull', async () => {
+    const again = sku(product('p-new', 'Khamrah', [{ id: 'v-new', stock: 6, retail: 45000 }]), 'SKU-v-kh')
+    serve({}, { products: [again], deleted: { products: ['p-kh'], users: [], roles: [] } })
+    await pullNow()
+    expect(pulls()).toHaveLength(1)
+    expect((await db.variants.where('sku').equals('SKU-v-kh').first())?.id).toBe('v-new')
+    expect((await db.stock.get(['v-new', 'loc-store']))?.qty).toBe(6)
+    expect(await db.stock.get(['v-kh', 'loc-store'])).toBeUndefined()
+  })
+
+  it('changes that break the SKU index fetch everything, once, and later pulls work again', async () => {
+    const swapped = [sku(khamrah, 'SKU-v-as'), sku(asad, 'SKU-v-kh')]
+    serve({ products: swapped }, { products: swapped })
+    await pullNow()
+    expect(pulls()).toEqual([`/sync/pull?since=${now}`, '/sync/pull?since=0'])
+    expect((await db.variants.get('v-kh'))?.sku).toBe('SKU-v-as')
+    expect((await db.stock.get(['v-as', 'loc-store']))?.qty).toBe(7)
+    expect((await db.settings.get('app'))?.sync.lastPullAt).toBe(now + 5000)
+    await pullNow()
+    expect(pulls()[2]).toBe(`/sync/pull?since=${now + 5000}`)
+  })
+
+  it('a copy that lost its catalogue gets it back without clearing anything by hand', async () => {
+    await db.products.clear(); await db.variants.clear(); await db.stock.clear()
+    const catalog = { products: 2, variants: 2 }
+    serve({ products: [khamrah, asad], catalog }, { products: [], catalog })
+    await pullNow()
+    expect(await db.products.count()).toBe(2)
+    expect((await db.stock.get(['v-kh', 'loc-store']))?.qty).toBe(10)
+  })
+
+  it('a copy in step with the server is not downloaded again', async () => {
+    serve({}, { products: [], catalog: { products: 2, variants: 2 } })
+    await pullNow()
+    expect(pulls()).toHaveLength(1)
+  })
+
+  it('a repair keeps sales still waiting to be sent', async () => {
+    const sale = { id: 's-pending', number: 'ST7-000042', items: [{ variantId: 'v-kh', qty: 3 }], customerId: null, dueIQD: 0, status: 'completed' } as unknown as Sale
+    await db.sales.put(sale)
+    await queueOutbox('sale', sale.id)
+    const swapped = [sku(khamrah, 'SKU-v-as'), sku(asad, 'SKU-v-kh')]
+    serve({ products: swapped }, { products: swapped })
+    await pullNow()
+    expect(await pendingCount()).toBe(1)
+    expect((await db.stock.get(['v-kh', 'loc-store']))?.qty).toBe(7)
+  })
+
+  it('no connection: the copy stays as it is, with no full download', async () => {
+    handler = () => 'offline'
+    await expectCode(pullNow(), 'offline')
+    expect(pulls()).toHaveLength(1)
+    expect(await db.products.count()).toBe(2)
   })
 })
 

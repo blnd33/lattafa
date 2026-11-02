@@ -4,7 +4,7 @@ import { isAppError, setActor } from '@/services/context'
 import { DEFAULT_SETTINGS } from '@/services/settings'
 import { ddb } from './data'
 import { addCustomer, collect, completeSale, myDay, requestStock, shopItems, submitClosing, usdListPrice, type DelegateCart } from './field'
-import { applyPull } from './sync'
+import { applyPull, pull } from './sync'
 
 const now = Date.now()
 const actor: Actor = {
@@ -206,5 +206,24 @@ describe('pull', () => {
     expect(await ddb.requests.count()).toBe(1)
     expect((await ddb.customers.get('c-noor'))?.balanceIQD).toBe(100000)
     expect((await ddb.counters.get('sale:DL1'))?.value).toBe(7)
+  })
+
+  it('a phone that lost its catalogue gets it back by itself, and keeps sales not sent yet', async () => {
+    await completeSale(cart()) // −2, not pushed
+    await ddb.products.clear(); await ddb.variants.clear(); await ddb.stock.clear()
+    const paths: string[] = []
+    vi.stubGlobal('fetch', async (url: string) => {
+      paths.push(url.replace('/api/v1', ''))
+      const body = {
+        serverTime: now + 1, since: url.endsWith('since=0') ? 0 : 1, settings: { ...settings, setupDone: true }, roles: [], users: [],
+        products: url.endsWith('since=0') ? [{ ...product, variants: [{ ...variant, stock: 10 }] }] : [], customers: [], deleted: { products: [], users: [], roles: [] },
+        catalog: { products: 1, variants: 1 }, device: null, counters: null, van: null,
+      }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    await pull(false, 'u-ahmed')
+    expect(paths).toEqual(['/sync/pull?since=1', '/sync/pull?since=0'])
+    expect((await ddb.stock.get('v-kh'))?.qty).toBe(8)
+    expect(await ddb.outbox.count()).toBeGreaterThan(0)
   })
 })

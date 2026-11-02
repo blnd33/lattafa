@@ -79,17 +79,18 @@ export async function applyPull(p: PullPayload): Promise<void> {
 
     // catalogue + stock
     if (full) { await db.products.clear(); await db.variants.clear(); await db.stock.where('locationId').equals(STORE_LOCATION_ID).delete() }
-    for (const sp of p.products) {
-      const { product, variants, stock } = splitProduct(sp)
-      await db.products.put(product)
-      await db.variants.bulkPut(variants)
-      await db.stock.bulkPut(variants.map((v) => ({ variantId: v.id, locationId: STORE_LOCATION_ID, qty: (stock[v.id] ?? 0) + (effects.stock.get(v.id) ?? 0) })))
-    }
+    // deleted first: a product added again with the same SKU must not collide with the row it replaces
     for (const id of p.deleted.products) {
       const vids = (await db.variants.where('productId').equals(id).toArray()).map((v) => v.id)
       await db.stock.where('variantId').anyOf(vids).delete()
       await db.variants.bulkDelete(vids)
       await db.products.delete(id)
+    }
+    for (const sp of p.products) {
+      const { product, variants, stock } = splitProduct(sp)
+      await db.products.put(product)
+      await db.variants.bulkPut(variants)
+      await db.stock.bulkPut(variants.map((v) => ({ variantId: v.id, locationId: STORE_LOCATION_ID, qty: (stock[v.id] ?? 0) + (effects.stock.get(v.id) ?? 0) })))
     }
 
     // customers (balances are the server's, plus whatever is still waiting to be pushed)

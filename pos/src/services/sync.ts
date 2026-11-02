@@ -90,12 +90,24 @@ export async function pushOutbox(): Promise<{ pushed: number; failed: number }> 
   return { pushed, failed }
 }
 
-/** Pulls what changed since the last pull (or everything, the first time) into the local mirror. */
+/**
+ * Pulls what changed since the last pull (or everything, the first time) into the local mirror.
+ *
+ * The mirror repairs itself with a full pull when the changes can't be written (e.g. a SKU that moved to another row
+ * would break the unique index again on every later pull) or when it no longer holds what the server holds. The outbox
+ * is left alone, so nothing waiting to be sent is lost.
+ */
 export async function pullNow(full = false): Promise<void> {
   const s = await getSettings()
   const since = full ? 0 : s.sync.lastPullAt || 0
   const payload = await api<PullPayload>('GET', `/sync/pull?since=${since}`, undefined, { timeoutMs: 60_000 })
-  await applyPull(payload)
+  try {
+    await applyPull(payload)
+  } catch (e) {
+    if (!since) throw e
+    return pullNow(true)
+  }
+  if (since && payload.catalog && ((await db.products.count()) !== payload.catalog.products || (await db.variants.count()) !== payload.catalog.variants)) await pullNow(true)
 }
 
 let running: Promise<SyncResult> | null = null

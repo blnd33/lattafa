@@ -129,7 +129,14 @@ export async function pull(full = false, forUserId: string | null = null): Promi
   const meta = await getMeta()
   const since = full || meta.pulledFor !== forUserId ? 0 : meta.lastPullAt
   const p = await api<DelegatePull>('GET', `/sync/pull?since=${since}`, undefined, { timeoutMs: 60_000 })
-  await applyPull(p, forUserId)
+  // same self-repair as the POS mirror: changes that can't be written, or a copy out of step with the server → fetch it all
+  try {
+    await applyPull(p, forUserId)
+  } catch (e) {
+    if (!since) throw e
+    return pull(true, forUserId)
+  }
+  if (since && p.catalog && ((await ddb.products.count()) !== p.catalog.products || (await ddb.variants.count()) !== p.catalog.variants)) await pull(true, forUserId)
 }
 
 export type SyncResult = { ok: true; pushed: number; failed: number } | { ok: false; reason: 'offline' | 'not_signed_in' | 'error' }

@@ -21,6 +21,8 @@ export interface PullPayload {
   products: ServerProduct[]
   customers: Customer[]
   deleted: { products: string[]; users: string[]; roles: string[] }
+  /** How many products and sizes the shop has in all, so a device can tell its copy has fallen out of step. */
+  catalog?: { products: number; variants: number }
   device: ServerDevice | null
   counters: { sale: number; return: number } | null
 }

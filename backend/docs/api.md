@@ -235,7 +235,7 @@ A till can never set a customer's balance or points, or a product's cost — tho
 
 ### `GET /sync/pull?since=<ms>`
 
-`since=0` (or omitted) = full snapshot. Returns `{serverTime, since, settings, roles, users, products, customers, deleted:{products,users,roles}, device, counters, van}`.
+`since=0` (or omitted) = full snapshot. Returns `{serverTime, since, settings, roles, users, products, customers, deleted:{products,users,roles}, catalog:{products,variants}, device, counters, van}`. `catalog` counts the whole catalogue (not just the changes): a device whose copy holds a different number fetches everything again.
 `device` is this till/phone (its `code`), `counters` the highest receipt number the server holds for it (a device whose
 browser storage was wiped must not reuse `ST1-000001`). `van` is only set for a delegate: `{locationId, stock:{variantId:qty}, requests[], closings[]}`.
 Store `serverTime` and send it as `since` next time. **Push before you pull.**

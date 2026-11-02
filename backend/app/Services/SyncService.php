@@ -284,6 +284,8 @@ class SyncService
             'products' => $products->map(fn (Product $p) => Present::product($p, $showCost))->values()->all(),
             'customers' => Customer::where('updated_at', '>', $after)->get()->map(fn (Customer $c) => Present::customer($c))->values()->all(),
             'deleted' => ['products' => $tomb['product'] ?? [], 'users' => $tomb['user'] ?? [], 'roles' => $tomb['role'] ?? []],
+            // the whole catalogue's size: a device whose copy holds anything else fetches it all again
+            'catalog' => ['products' => Product::count(), 'variants' => Variant::count()],
             // this till's identity (its code prefixes receipt numbers) and the highest receipt numbers the server already
             // holds for it — a till whose browser storage was wiped must not reuse ST1-000001
             'device' => $device ? Present::device($device) : null,
