@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ExternalLink, MapPin, Navigation, Route, Store, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -21,19 +21,26 @@ import { useUI } from '@/store/ui'
 type Tab = 'sales' | 'location' | 'closings' | 'visits'
 const IQD = ({ v, className }: { v: number; className?: string }) => <span className={cn('num whitespace-nowrap', className)}>{fmt(v)} <small className="text-fg-2">IQD</small></span>
 
-/** Managers: every delegate's sales (and where), live location, visits and daily closings. */
-export function DelegatesPage() {
+/**
+ * Managers: every delegate's sales (and where), live location, visits and daily closings.
+ * `reports` (the admin panel passes it in): their own reports, as a second tab of this section.
+ */
+export function DelegatesPage({ reports }: { reports?: ReactNode }) {
   const t = useT()
   const [selected, setSelected] = useState<string | null>(null)
+  const [section, setSection] = useState<'team' | 'reports'>('team')
   const list = useQuery({ queryKey: ['delegates'], queryFn: listDelegates, enabled: isServer(), refetchInterval: 30_000 })
   if (!isServer()) return <div className="p-4"><PageHeader title={t('dlg.title')} /><EmptyState title={t('dlg.needs_server')} /></div>
   const rows = list.data ?? []
   const current = rows.find((d) => d.id === selected) ?? rows[0]
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-4">
-      <PageHeader title={t('dlg.title')} subtitle={t('dlg.subtitle')} />
-      {list.isLoading ? <Spinner className="mx-auto size-8" /> : rows.length === 0 ? <EmptyState title={t('dlg.none')} hint={t('dlg.none_hint')} /> : (
+    <div className={cn('mx-auto space-y-4 p-4', section === 'reports' ? 'max-w-[1400px]' : 'max-w-6xl')}>
+      <PageHeader title={t('dlg.title')} subtitle={t('dlg.subtitle')} actions={reports
+        ? <Segmented value={section} onChange={setSection} options={(['team', 'reports'] as const).map((x) => ({ value: x, label: t(`dlg.sec_${x}`) }))} />
+        : undefined} />
+      {reports && section === 'reports' ? reports
+        : list.isLoading ? <Spinner className="mx-auto size-8" /> : rows.length === 0 ? <EmptyState title={t('dlg.none')} hint={t('dlg.none_hint')} /> : (
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
           <ul className="space-y-2">
             {rows.map((d) => (

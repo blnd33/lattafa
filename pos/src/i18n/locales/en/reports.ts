@@ -7,6 +7,7 @@ export const reports: Record<string, string> = {
   'rx.g_money': 'Money',
   'rx.g_stock': 'Stock',
   'rx.g_staff': 'Staff',
+  'rx.g_delegate': 'Delegates',
   'rx.r_sales-by-day': 'Sales by day',
   'rx.d_sales-by-day': 'Bills, takings, refunds and profit for every day of the period.',
   'rx.r_sales-by-product': 'Sales by product',

@@ -7,6 +7,7 @@ export const reports: Record<string, string> = {
   'rx.g_money': 'المال',
   'rx.g_stock': 'المخزون',
   'rx.g_staff': 'الموظفون',
+  'rx.g_delegate': 'المندوبون',
   'rx.r_sales-by-day': 'المبيعات حسب اليوم',
   'rx.d_sales-by-day': 'الفواتير والإيرادات والمرتجعات والربح لكل يوم من الفترة.',
   'rx.r_sales-by-product': 'المبيعات حسب المنتج',

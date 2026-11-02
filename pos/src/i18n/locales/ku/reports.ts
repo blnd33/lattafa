@@ -7,6 +7,7 @@ export const reports: Record<string, string> = {
   'rx.g_money': 'پارە',
   'rx.g_stock': 'کۆگا',
   'rx.g_staff': 'کارمەندان',
+  'rx.g_delegate': 'نوێنەرەکان',
   'rx.r_sales-by-day': 'فرۆشتن بە پێی ڕۆژ',
   'rx.d_sales-by-day': 'پسوولە، داهات، گەڕاندنەوە و قازانج بۆ هەر ڕۆژێکی ماوەکە.',
   'rx.r_sales-by-product': 'فرۆشتن بە پێی بەرهەم',

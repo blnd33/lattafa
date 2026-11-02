@@ -28,7 +28,7 @@ export type Preset = 'today' | 'yesterday' | '7' | '30' | '90' | 'month' | 'last
 
 export interface ReportDef {
   id: ReportId
-  group: 'sales' | 'money' | 'stock' | 'staff'
+  group: 'sales' | 'money' | 'stock' | 'staff' | 'delegate'
   icon: LucideIcon
   /** the permission the server checks */
   perm: string
@@ -43,10 +43,10 @@ export const REPORTS: ReportDef[] = [
   { id: 'sales-by-brand', group: 'sales', icon: Tags, perm: 'reports.view', preset: '30' },
   { id: 'sales-by-category', group: 'sales', icon: Layers, perm: 'reports.view', preset: '30' },
   { id: 'sales-by-seller', group: 'sales', icon: UserRound, perm: 'reports.view', preset: '30' },
-  { id: 'delegate-sales', group: 'sales', icon: MapPinned, perm: 'delegates.manage', preset: '7' },
+  { id: 'delegate-sales', group: 'delegate', icon: MapPinned, perm: 'delegates.manage', preset: '7' },
   { id: 'profit-loss', group: 'money', icon: Landmark, perm: 'reports.financial', preset: 'month' },
   { id: 'expenses', group: 'money', icon: Wallet, perm: 'expenses.view', preset: 'month' },
-  { id: 'delegate-commission', group: 'money', icon: HandCoins, perm: 'delegates.manage', preset: 'month' },
+  { id: 'delegate-commission', group: 'delegate', icon: HandCoins, perm: 'delegates.manage', preset: 'month' },
   { id: 'debt-aging', group: 'money', icon: Hourglass, perm: 'customers.view', preset: 'today', asOf: true },
   { id: 'stock-valuation', group: 'stock', icon: BarChart3, perm: 'reports.financial', preset: 'today', asOf: true },
   { id: 'slow-movers', group: 'stock', icon: Clock, perm: 'inventory.view', preset: '90' },
@@ -54,7 +54,9 @@ export const REPORTS: ReportDef[] = [
   { id: 'shifts', group: 'staff', icon: Receipt, perm: 'shifts.view_all', preset: '7' },
 ]
 
-export const GROUPS = ['sales', 'money', 'stock', 'staff'] as const
+export const GROUPS = ['sales', 'money', 'stock', 'staff', 'delegate'] as const
+/** The delegate's own reports — gathered in the Delegates section as well as here. */
+export const DELEGATE_REPORTS = REPORTS.filter((r) => r.group === 'delegate')
 
 export const runReport = (type: ReportId, from: number, to: number) => api<ReportTable>('GET', `/reports/table/${type}?from=${from}&to=${to}`)
 export const setCommission = async (delegateId: string, pct: number) => { await api('PUT', `/delegates/${delegateId}/commission`, { pct }) }

@@ -61,7 +61,8 @@ export function ReportsPage() {
   )
 }
 
-function ReportView({ def }: { def: ReportDef }) {
+/** One report: the period picker, the table, and taking it away as Excel or PDF. Also used by the Delegates section. */
+export function ReportView({ def }: { def: ReportDef }) {
   const t = useT()
   const lang = useUI((s) => s.lang)
   const actor = useSession((s) => s.actor)

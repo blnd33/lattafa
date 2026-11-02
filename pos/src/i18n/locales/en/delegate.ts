@@ -253,6 +253,8 @@ export const delegate: Dict = {
   'dl.place_ph': 'e.g. Zakho, main market',
   'dl.place_saved': 'Place saved',
   'dlg.tab_sales': 'Sales',
+  'dlg.sec_team': 'Team',
+  'dlg.sec_reports': 'Reports',
   'dlg.sales_n': 'Sales: {n}',
   'dlg.no_sales': 'No sales on this day.',
   'dlg.on_debt': 'On debt',
