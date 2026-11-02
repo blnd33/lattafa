@@ -16,7 +16,7 @@ import { importCatalog, parseCsv, productKey, type CsvRow } from './csv'
 
 export const SHEET_COLUMNS = [
   'name_en', 'name_ar', 'name_ku', 'brand', 'category', 'gender', 'concentration', 'size', 'unit',
-  'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'wholesale_usd', 'stock', 'min_stock', 'barcode', 'sku',
+  'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'stock', 'min_stock', 'barcode', 'sku',
 ] as const
 export type SheetCol = (typeof SHEET_COLUMNS)[number]
 export type SheetRow = Record<SheetCol, string>
@@ -31,11 +31,11 @@ export const CHOICE_COLUMNS: Partial<Record<SheetCol, readonly string[]>> = { ca
 /** A new row: empty, but with brand / category / gender / concentration / unit carried over from the row above. */
 export const blankRow = (from?: Partial<SheetRow>): SheetRow => ({
   name_en: '', name_ar: '', name_ku: '', brand: from?.brand ?? 'Lattafa', category: from?.category ?? 'perfume', gender: from?.gender ?? 'unisex',
-  concentration: from?.concentration ?? 'EDP', size: '', unit: from?.unit ?? 'ml', cost_iqd: '', retail_iqd: '', wholesale_iqd: '', wholesale_usd: '',
+  concentration: from?.concentration ?? 'EDP', size: '', unit: from?.unit ?? 'ml', cost_iqd: '', retail_iqd: '', wholesale_iqd: '',
   stock: '', min_stock: '', barcode: '', sku: '',
 })
 
-const TYPED: SheetCol[] = ['name_en', 'name_ar', 'name_ku', 'size', 'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'wholesale_usd', 'stock', 'min_stock', 'barcode', 'sku']
+const TYPED: SheetCol[] = ['name_en', 'name_ar', 'name_ku', 'size', 'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'stock', 'min_stock', 'barcode', 'sku']
 /** Nobody has typed in this row yet (only the carried-over choices). */
 export const isBlank = (r: SheetRow) => TYPED.every((c) => !r[c].trim())
 
@@ -116,7 +116,6 @@ const HEADER_ALIASES: Record<SheetCol, string[]> = {
   cost_iqd: ['cost_iqd', 'cost', 'buy price', 'purchase price', 'التكلفة', 'سعر الشراء', 'تێچوو', 'نرخی کڕین'],
   retail_iqd: ['retail_iqd', 'retail', 'price', 'retail price', 'sell price', 'السعر', 'سعر البيع', 'سعر المفرد', 'نرخ', 'نرخی فرۆشتن', 'نرخی تاک'],
   wholesale_iqd: ['wholesale_iqd', 'wholesale', 'wholesale price', 'الجملة', 'سعر الجملة', 'نرخی کۆ', 'کۆ'],
-  wholesale_usd: ['wholesale_usd', 'wholesale $', 'dollar', 'dollar price', 'usd', 'price usd', '$', 'سعر الدولار', 'بالدولار', 'دولار', 'نرخی دۆلار', 'دۆلار'],
   stock: ['stock', 'qty', 'quantity', 'opening stock', 'الكمية', 'المخزون', 'الكمية الافتتاحية', 'بڕ', 'کۆگا', 'بڕی سەرەتا'],
   min_stock: ['min_stock', 'min', 'min stock', 'minimum', 'low stock', 'الحد الأدنى', 'کەمترین'],
   barcode: ['barcode', 'ean', 'upc', 'الباركود', 'باركود', 'بارکۆد'],
@@ -311,7 +310,7 @@ async function matchCatalogue(patches: Partial<SheetRow>[]): Promise<{ patches: 
       ...p, sku: v.sku, name_en: prod.name.en, name_ar: prod.name.ar || p.name_ar, name_ku: prod.name.ku, brand: prod.brand, category: prod.category,
       gender: prod.gender, concentration: prod.concentration, size: v.size > 0 ? trimNum(v.size) : '', unit: v.unit,
       cost_iqd: p.cost_iqd || (v.costIQD ? String(v.costIQD) : ''), retail_iqd: p.retail_iqd || String(v.retailIQD),
-      wholesale_iqd: String(v.wholesaleIQD), wholesale_usd: v.wholesaleUSDCents ? trimNum(v.wholesaleUSDCents / 100) : '', min_stock: String(v.minStock),
+      wholesale_iqd: String(v.wholesaleIQD), min_stock: String(v.minStock),
     }
   })
   return { patches: out, known }
@@ -355,7 +354,7 @@ export async function readSheetFile(file: File): Promise<SheetFile> {
 const tr = (lang: Lang, key: string) => translate(lang, key)
 const WIDTHS: Record<SheetCol, number> = {
   name_en: 26, name_ar: 24, name_ku: 24, brand: 14, category: 16, gender: 12, concentration: 14, size: 9, unit: 8,
-  cost_iqd: 13, retail_iqd: 18, wholesale_iqd: 15, wholesale_usd: 14, stock: 13, min_stock: 15, barcode: 18, sku: 24,
+  cost_iqd: 13, retail_iqd: 18, wholesale_iqd: 15, stock: 13, min_stock: 15, barcode: 18, sku: 24,
 }
 /** How a choice is written in the file: the label in the user's language (any language is read back). */
 const choiceText = (lang: Lang, col: SheetCol, code: string) =>
@@ -367,12 +366,12 @@ export async function sheetWorkbook(rows: SheetRow[], lang: Lang): Promise<Blob>
   const body = rows.map((r) => SHEET_COLUMNS.map((c) => {
     const v = r[c]
     if (CHOICE_COLUMNS[c]) return choiceText(lang, c, v)
-    if (['cost_iqd', 'retail_iqd', 'wholesale_iqd', 'wholesale_usd', 'stock', 'min_stock', 'size'].includes(c) && v !== '' && Number.isFinite(Number(v))) return Number(v)
+    if (['cost_iqd', 'retail_iqd', 'wholesale_iqd', 'stock', 'min_stock', 'size'].includes(c) && v !== '' && Number.isFinite(Number(v))) return Number(v)
     return v
   }))
   const lists = Object.fromEntries(SHEET_COLUMNS.map((c, i) => [i, CHOICE_COLUMNS[c]?.map((code) => choiceText(lang, c, code))]).filter(([, l]) => l))
-  const ex = (en: string, ar: string, ku: string, size: number, unit: string, cost: number, retail: number, whole: number, usd: number, stock: number) =>
-    [en, ar, ku, 'Lattafa', choiceText(lang, 'category', 'perfume'), choiceText(lang, 'gender', 'unisex'), 'EDP', size, unit, cost, retail, whole, usd, stock, 5, '', '']
+  const ex = (en: string, ar: string, ku: string, size: number, unit: string, cost: number, retail: number, whole: number, stock: number) =>
+    [en, ar, ku, 'Lattafa', choiceText(lang, 'category', 'perfume'), choiceText(lang, 'gender', 'unisex'), 'EDP', size, unit, cost, retail, whole, stock, 5, '', '']
   return writeXlsx([
     {
       name: tr(lang, 'sheet.file_products'), rtl: lang !== 'en', rows: [header, ...body], lists,
@@ -383,12 +382,12 @@ export async function sheetWorkbook(rows: SheetRow[], lang: Lang): Promise<Blob>
       columns: [{ width: 110 }, ...SHEET_COLUMNS.slice(1).map((c) => ({ width: WIDTHS[c] }))],
       rows: [
         [tr(lang, 'sheet.help_title')],
-        ...[1, 2, 3, 4, 5, 6, 7].map((n) => [`${n}. ${tr(lang, `sheet.help_${n}`)}`]),
+        ...[1, 2, 3, 4, 5, 6].map((n) => [`${n}. ${tr(lang, `sheet.help_${n}`)}`]),
         [],
         [tr(lang, 'sheet.help_example')],
         header,
-        ex('Khamrah', 'خمرة', 'خەمرە', 100, 'ml', 22000, 36000, 30000, 20.5, 12),
-        ex('Khamrah', 'خمرة', 'خەمرە', 3.4, 'oz', 25000, 39000, 33000, 22.5, 6),
+        ex('Khamrah', 'خمرة', 'خەمرە', 100, 'ml', 22000, 36000, 30000, 12),
+        ex('Khamrah', 'خمرة', 'خەمرە', 3.4, 'oz', 25000, 39000, 33000, 6),
       ],
     },
   ])
@@ -404,7 +403,7 @@ export async function catalogueSheetRows(): Promise<SheetRow[]> {
     return {
       name_en: p.name.en, name_ar: p.name.ar, name_ku: p.name.ku, brand: p.brand, category: p.category, gender: p.gender, concentration: p.concentration,
       size: v.size > 0 ? trimNum(v.size) : '', unit: v.unit, cost_iqd: v.costIQD ? String(v.costIQD) : '', retail_iqd: String(v.retailIQD),
-      wholesale_iqd: String(v.wholesaleIQD), wholesale_usd: v.wholesaleUSDCents ? trimNum(v.wholesaleUSDCents / 100) : '', stock: '', min_stock: String(v.minStock), barcode: v.barcode, sku: v.sku,
+      wholesale_iqd: String(v.wholesaleIQD), stock: '', min_stock: String(v.minStock), barcode: v.barcode, sku: v.sku,
     }
   }).sort((a, b) => (a.name_en || a.name_ar).localeCompare(b.name_en || b.name_ar) || Number(b.size) - Number(a.size))
 }
@@ -423,7 +422,6 @@ export function checkRow(r: SheetRow, need: readonly SheetCol[] = []): CellError
   for (const c of ['cost_iqd', 'retail_iqd', 'wholesale_iqd', 'stock', 'min_stock'] as const) {
     if (!e[c] && Number.isNaN(readNumber(r[c]))) e[c] = { key: 'sheet.err_number' }
   }
-  if (Number.isNaN(readNumber(r.wholesale_usd, true))) e.wholesale_usd = { key: 'sheet.err_number' }
   if (Number.isNaN(readNumber(r.size, true))) e.size = { key: 'sheet.err_number' }
   for (const [col, list] of Object.entries(CHOICE_COLUMNS) as [SheetCol, readonly string[]][]) {
     if (!list.includes(r[col])) e[col] = { key: `sheet.err_${col}` }
@@ -494,14 +492,12 @@ export async function saveSheetRows(rows: SheetRow[], need: (readonly SheetCol[]
 
     if (Object.keys(errors).length) { out[i] = { ok: false, errors }; return }
     const n = (s: string) => { const v = readNumber(s); return v === null ? '' : String(Math.round(v)) }
-    // "12.5" dollars → 1250 cents (kept whole so the price is exact)
-    const cents = (s: string) => { const v = readNumber(s, true); return v === null ? '' : String(Math.round(v * 100)) }
     good.push({
       i, existing: !!existing,
       row: {
         sku, barcode, name_en: name.en, name_ar: name.ar, name_ku: name.ku, brand, category: r.category, gender: r.gender, concentration: r.concentration,
         size_label: '', size: size > 0 ? String(size) : '', unit, ml: '', cost_iqd: n(r.cost_iqd), retail_iqd: n(r.retail_iqd),
-        wholesale_iqd: n(r.wholesale_iqd), wholesale_usd: cents(r.wholesale_usd), min_stock: n(r.min_stock), stock: n(r.stock),
+        wholesale_iqd: n(r.wholesale_iqd), min_stock: n(r.min_stock), stock: n(r.stock),
       },
     })
   })

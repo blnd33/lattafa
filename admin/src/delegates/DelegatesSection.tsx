@@ -1,7 +1,8 @@
 import { DelegatesPage } from '@/features/delegates/DelegatesPage'
+import { DelegatePrices } from './DelegatePrices'
 import { DelegateReports } from './DelegateReports'
 
-/** The Delegates section of the admin panel: the team (sales, location, closings, visits) and their reports in one place. */
+/** The Delegates section: the team, the dollar price list they sell shops at, and their reports. */
 export function DelegatesSection() {
-  return <DelegatesPage reports={<DelegateReports />} />
+  return <DelegatesPage prices={<DelegatePrices />} reports={<DelegateReports />} />
 }

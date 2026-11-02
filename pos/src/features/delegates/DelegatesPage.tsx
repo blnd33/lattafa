@@ -25,10 +25,10 @@ const IQD = ({ v, className }: { v: number; className?: string }) => <span class
  * Managers: every delegate's sales (and where), live location, visits and daily closings.
  * `reports` (the admin panel passes it in): their own reports, as a second tab of this section.
  */
-export function DelegatesPage({ reports }: { reports?: ReactNode }) {
+export function DelegatesPage({ reports, prices }: { reports?: ReactNode; prices?: ReactNode }) {
   const t = useT()
   const [selected, setSelected] = useState<string | null>(null)
-  const [section, setSection] = useState<'team' | 'reports'>('team')
+  const [section, setSection] = useState<'team' | 'prices' | 'reports'>('team')
   const list = useQuery({ queryKey: ['delegates'], queryFn: listDelegates, enabled: isServer(), refetchInterval: 30_000 })
   if (!isServer()) return <div className="p-4"><PageHeader title={t('dlg.title')} /><EmptyState title={t('dlg.needs_server')} /></div>
   const rows = list.data ?? []
@@ -37,9 +37,10 @@ export function DelegatesPage({ reports }: { reports?: ReactNode }) {
   return (
     <div className={cn('mx-auto space-y-4 p-4', section === 'reports' ? 'max-w-[1400px]' : 'max-w-6xl')}>
       <PageHeader title={t('dlg.title')} subtitle={t('dlg.subtitle')} actions={reports
-        ? <Segmented value={section} onChange={setSection} options={(['team', 'reports'] as const).map((x) => ({ value: x, label: t(`dlg.sec_${x}`) }))} />
+        ? <Segmented value={section} onChange={setSection} options={(['team', 'prices', 'reports'] as const).filter((x) => x !== 'prices' || prices).map((x) => ({ value: x, label: t(`dlg.sec_${x}`) }))} />
         : undefined} />
-      {reports && section === 'reports' ? reports
+      {prices && section === 'prices' ? prices
+        : reports && section === 'reports' ? reports
         : list.isLoading ? <Spinner className="mx-auto size-8" /> : rows.length === 0 ? <EmptyState title={t('dlg.none')} hint={t('dlg.none_hint')} /> : (
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
           <ul className="space-y-2">

@@ -111,28 +111,6 @@ describe('Enter adds the row to the products', () => {
     expect((await stockMap())[sizes.find((v) => v.unit === 'ml')!.id]).toBe(6)
   })
 
-  it('the dollar price list: cents are kept exactly, and an empty cell leaves the old price alone', async () => {
-    const [a] = await saveSheetRows([row({ name_en: 'Dollar One', size: '100', retail_iqd: '45000', wholesale_iqd: '36000', wholesale_usd: '23.70' })])
-    expect(a).toMatchObject({ ok: true, status: 'added' })
-    const sku = (a as { sku: string }).sku
-    const saved = () => db.variants.where('sku').equals(sku).first()
-    expect((await saved())!.wholesaleUSDCents).toBe(2370)
-
-    // it comes back out of the sheet as dollars, not cents
-    const sheet = (await catalogueSheetRows()).find((r) => r.sku === sku)!
-    expect(sheet.wholesale_usd).toBe('23.7')
-
-    // uploading the same row with that cell empty keeps the dollar price
-    await saveSheetRows([row({ ...sheet, retail_iqd: '46000', wholesale_usd: '' })])
-    expect((await saved())!.wholesaleUSDCents).toBe(2370)
-    expect((await saved())!.retailIQD).toBe(46000)
-
-    // a new price replaces it; letters are refused before anything is saved
-    await saveSheetRows([row({ ...sheet, wholesale_usd: '19' })])
-    expect((await saved())!.wholesaleUSDCents).toBe(1900)
-    expect(checkRow(row({ name_en: 'X', retail_iqd: '1000', wholesale_usd: 'cheap' }))).toMatchObject({ wholesale_usd: { key: 'sheet.err_number' } })
-  })
-
   it('the same perfume and size again updates its prices instead of adding a copy', async () => {
     const before = await db.variants.count()
     const [r] = await saveSheetRows([row({ name_en: 'Khamrah', size: '100', retail_iqd: '47000', wholesale_iqd: '38000' })])

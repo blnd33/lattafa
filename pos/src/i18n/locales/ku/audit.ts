@@ -11,6 +11,7 @@ export const audit: Record<string, string> = {
   'act.device.restore': 'ئامێر دووبارە ڕێگەپێدرا',
   'act.sale.create': 'فرۆشتن',
   'act.sale.void': 'فرۆشتن هەڵوەشێنرایەوە',
+  'act.delegate.prices': 'نرخەکانی دۆلاری نوێنەر گۆڕدران',
   'act.order.placed': 'داواکاری لە دوکانێکەوە',
   'act.order.accepted': 'داواکاری وەرگیرا',
   'act.order.refused': 'داواکاری ڕەتکرایەوە',

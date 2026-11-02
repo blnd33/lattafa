@@ -277,6 +277,7 @@ export const delegate: Dict = {
   'dl.place_saved': 'شوێنەکە پاشەکەوت کرا',
   'dlg.tab_sales': 'فرۆشتن',
   'dlg.sec_team': 'تیم',
+  'dlg.sec_prices': 'نرخەکان',
   'dlg.sec_reports': 'ڕاپۆرتەکان',
   'dlg.sales_n': 'فرۆشتن: {n}',
   'dlg.no_sales': 'لەم ڕۆژەدا هیچ فرۆشتنێک نییە.',

@@ -277,6 +277,7 @@ export const delegate: Dict = {
   'dl.place_saved': 'Place saved',
   'dlg.tab_sales': 'Sales',
   'dlg.sec_team': 'Team',
+  'dlg.sec_prices': 'Prices',
   'dlg.sec_reports': 'Reports',
   'dlg.sales_n': 'Sales: {n}',
   'dlg.no_sales': 'No sales on this day.',

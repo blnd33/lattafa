@@ -139,6 +139,55 @@ class OrderService
         });
     }
 
+    /* ───────── the delegate's dollar price list ───────── */
+
+    /**
+     * Every size the delegate can sell, with the dollar price he sells it for. The perfumes are the shop's own — one
+     * list, one stock — but the dollar price belongs to the delegate side and is set only there.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function prices(User $actor): array
+    {
+        $this->needOrders($actor);
+
+        return Variant::with('product')->where('active', true)->get()
+            ->filter(fn (Variant $v) => $v->product?->active)
+            ->sortBy(fn (Variant $v) => [($v->product->name['en'] ?? '') ?: ($v->product->name['ar'] ?? ''), -$v->ml])
+            ->map(fn (Variant $v) => [
+                'variantId' => $v->id, 'sku' => $v->sku, 'name' => $v->product->name, 'brand' => $v->product->brand,
+                'label' => $v->label, 'retailIQD' => $v->retail_iqd, 'usdCents' => $v->wholesale_usd_cents,
+            ])->values()->all();
+    }
+
+    /**
+     * Sets those dollar prices. Only the dollar price moves — the shop's own dinar prices are never touched here,
+     * and the till cannot change these.
+     *
+     * @param array<int, array{variantId: string, usdCents: int}> $rows
+     */
+    public function setPrices(User $actor, array $rows): int
+    {
+        $this->needOrders($actor);
+        $changed = 0;
+        DB::transaction(function () use ($actor, $rows, &$changed) {
+            foreach ($rows as $row) {
+                $cents = max(0, (int) ($row['usdCents'] ?? 0));
+                $v = Variant::whereKey($row['variantId'] ?? '')->first();
+                if (! $v || $v->wholesale_usd_cents === $cents) {
+                    continue;
+                }
+                $v->update(['wholesale_usd_cents' => $cents]);
+                $changed++;
+            }
+            if ($changed) {
+                $this->audit->log($actor, 'delegate.prices', 'variant', '*', ['changed' => $changed]);
+            }
+        });
+
+        return $changed;
+    }
+
     /** Delegates work the orders; managers watch them. */
     private function needOrders(User $actor): void
     {

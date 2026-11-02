@@ -11,6 +11,7 @@ export const audit: Record<string, string> = {
   'act.device.restore': 'إعادة تفعيل جهاز',
   'act.sale.create': 'بيع',
   'act.sale.void': 'إلغاء بيع',
+  'act.delegate.prices': 'تغيير أسعار المندوب بالدولار',
   'act.order.placed': 'طلب من محل',
   'act.order.accepted': 'استُلم الطلب',
   'act.order.refused': 'رُفض الطلب',

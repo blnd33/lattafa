@@ -109,6 +109,36 @@ class OrderTest extends ApiTestCase
         $this->assertSame(0, count($this->api('GET', 'orders?status=new')->json('orders')));
     }
 
+    public function test_the_dollar_price_list_is_set_on_the_delegate_side_only(): void
+    {
+        $this->shop();
+        $kham = Variant::where('sku', 'LTF-KHAM-100')->first();
+        $retailBefore = $kham->retail_iqd;
+
+        // the shop's perfumes are the list; none of them has a dollar price to begin with
+        $prices = $this->api('GET', 'delegate-prices')->assertOk()->json('prices');
+        $mine = collect($prices)->firstWhere('sku', 'LTF-KHAM-100');
+        $this->assertSame([0, $retailBefore], [$mine['usdCents'], $mine['retailIQD']]);
+
+        $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'usdCents' => 2370]]])->assertOk()->assertJsonPath('changed', 1);
+        $this->assertSame(2370, $kham->fresh()->wholesale_usd_cents);
+        $this->assertSame($retailBefore, $kham->fresh()->retail_iqd);   // the shop's dinar price never moves
+        $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'usdCents' => 2370]]])->assertOk()->assertJsonPath('changed', 0);
+
+        // the delegate can set them too; a cashier at the till cannot even look
+        $ahmed = $this->delegate();
+        $this->asDelegate($ahmed);
+        $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'usdCents' => 2500]]])->assertOk();
+        $this->assertSame(2500, $kham->fresh()->wholesale_usd_cents);
+
+        $this->asOwner();
+        $cashier = $this->makeUser('Ali', 'alii', 'cashier', '3333');
+        $this->asUser($cashier, '3333');
+        $this->api('GET', 'delegate-prices')->assertStatus(403);
+        $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'usdCents' => 1]]])->assertStatus(403);
+        $this->assertSame(2500, $kham->fresh()->wholesale_usd_cents);
+    }
+
     public function test_only_delegates_and_managers_may_see_or_work_orders(): void
     {
         $this->shop();

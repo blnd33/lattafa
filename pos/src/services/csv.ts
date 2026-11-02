@@ -14,7 +14,7 @@ import { nextBarcode } from './catalog'
 import { isServer } from './mode'
 import * as remote from './remote'
 
-export const CSV_COLUMNS = ['sku', 'barcode', 'name_en', 'name_ar', 'name_ku', 'brand', 'category', 'gender', 'concentration', 'size_label', 'size', 'unit', 'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'wholesale_usd', 'min_stock', 'stock'] as const
+export const CSV_COLUMNS = ['sku', 'barcode', 'name_en', 'name_ar', 'name_ku', 'brand', 'category', 'gender', 'concentration', 'size_label', 'size', 'unit', 'cost_iqd', 'retail_iqd', 'wholesale_iqd', 'min_stock', 'stock'] as const
 /** Files made before ml/oz units existed have an `ml` column instead of `size` + `unit`; still accepted on import. */
 const READ_COLUMNS = [...CSV_COLUMNS, 'ml'] as const
 export type CsvRow = Record<(typeof READ_COLUMNS)[number], string>
@@ -51,7 +51,7 @@ export async function exportCatalogCsv(): Promise<string> {
   for (const v of variants.filter((x) => x.active)) {
     const p = pmap.get(v.productId)
     if (!p || !p.active) continue
-    lines.push([v.sku, v.barcode, p.name.en, p.name.ar, p.name.ku, p.brand, p.category, p.gender, p.concentration, v.label, v.size, v.unit, v.costIQD, v.retailIQD, v.wholesaleIQD, v.wholesaleUSDCents ?? 0, v.minStock, stock[v.id] ?? 0].map(esc).join(','))
+    lines.push([v.sku, v.barcode, p.name.en, p.name.ar, p.name.ku, p.brand, p.category, p.gender, p.concentration, v.label, v.size, v.unit, v.costIQD, v.retailIQD, v.wholesaleIQD, v.minStock, stock[v.id] ?? 0].map(esc).join(','))
   }
   return '﻿' + lines.join('\r\n')
 }
@@ -117,7 +117,7 @@ export async function importCatalog(rows: CsvRow[], opts: { addStock?: boolean }
       if (r.barcode && (await db.variants.where('barcode').equals(r.barcode).toArray()).some((x) => x.id !== existing?.id)) throw new AppError('barcode_taken', { barcode: r.barcode, sku: r.sku })
       const retail = num(r.retail_iqd), cost = num(r.cost_iqd), wholesale = num(r.wholesale_iqd, retail)
       if (existing) {
-        await db.variants.update(existing.id, { retailIQD: retail, costIQD: cost, wholesaleIQD: wholesale, wholesaleUSDCents: num(r.wholesale_usd, existing.wholesaleUSDCents ?? 0), minStock: num(r.min_stock, existing.minStock), ...(r.barcode ? { barcode: r.barcode } : {}) })
+        await db.variants.update(existing.id, { retailIQD: retail, costIQD: cost, wholesaleIQD: wholesale, minStock: num(r.min_stock, existing.minStock), ...(r.barcode ? { barcode: r.barcode } : {}) })
         const pieces = num(r.stock)
         if (opts.addStock && pieces > 0) {
           await applyMovement({ variantId: existing.id, delta: pieces, type: 'purchase', refType: 'receipt', refId: receipt, note: 'Excel import', userId: actor.id })
@@ -145,7 +145,7 @@ export async function importCatalog(rows: CsvRow[], opts: { addStock?: boolean }
       const size = Math.round(Number(r.size || r.ml || 0) * 100) / 100
       const v: Variant = {
         id: uuid(), productId: p.id, label: r.size_label || sizeLabel(size, unit), size, unit, ml: toMl(size, unit), sku: r.sku,
-        barcode: r.barcode || (await nextBarcode()), costIQD: cost, retailIQD: retail, wholesaleIQD: wholesale, wholesaleUSDCents: num(r.wholesale_usd),
+        barcode: r.barcode || (await nextBarcode()), costIQD: cost, retailIQD: retail, wholesaleIQD: wholesale,
         minStock: num(r.min_stock, 5), isTester: false, active: true,
       }
       await db.variants.add(v)

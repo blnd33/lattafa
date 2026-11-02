@@ -277,6 +277,7 @@ export const delegate: Dict = {
   'dl.place_saved': 'تم حفظ المكان',
   'dlg.tab_sales': 'المبيعات',
   'dlg.sec_team': 'الفريق',
+  'dlg.sec_prices': 'الأسعار',
   'dlg.sec_reports': 'التقارير',
   'dlg.sales_n': 'عدد المبيعات: {n}',
   'dlg.no_sales': 'لا توجد مبيعات في هذا اليوم.',

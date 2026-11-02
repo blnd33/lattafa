@@ -100,10 +100,12 @@ their header row. SKU and barcode are generated when left empty. **Excel files:*
 the grid to be checked before "Add all rows" (rows with an existing SKU update that size and add their quantity to its
 stock). The Excel reading/writing is built in (`pos/src/lib/xlsx.ts`, no library) and works offline.
 
-**Dollar price list (to shops):** the product sheet has a **Wholesale $** column. Fill it in and the delegate's dollar
-bills use that exact price for the size, cents and all — no converting, no rounding to half a dollar. Leave a cell
-empty and that size bills as before (the dinar price at the day's rate); re-uploading with the cell empty keeps the
-price already set.
+**Dollar price list (to shops):** admin panel → **Delegates → Prices**. The perfumes are the shop's own — one
+list, one stock — and this is where each size gets the dollar price the delegate sells it to shops for. Type them in,
+or take the list out as Excel and put it back (matched by SKU). The delegate's dollar bills then use that exact
+price, cents and all; a size left at 0 bills as before (the dinar price at the day's rate, to the nearest 50 cents).
+Set **only here**: the till cannot change these, and the shop's own dinar prices never move. Change the exchange rate
+and the dinars these come to follow it by themselves, because the dollar price is the one that is stored.
 
 **Orders from the menu:** a shop opens the customer menu, taps **Add** on the sizes it wants, writes its name and
 phone, and sends. It is a request, not a sale — no price is agreed and no stock moves; the delegate makes the real

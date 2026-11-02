@@ -50,6 +50,23 @@ class OrderController extends Controller
         return response()->json(['waiting' => $this->orders->waiting($r->user())]);
     }
 
+    /** The delegate's dollar price list — the shop's perfumes, priced for shops. */
+    public function prices(Request $r): JsonResponse
+    {
+        return response()->json(['prices' => $this->orders->prices($r->user())]);
+    }
+
+    public function setPrices(Request $r): JsonResponse
+    {
+        $d = $r->validate([
+            'prices' => ['required', 'array', 'min:1', 'max:3000'],
+            'prices.*.variantId' => ['required', 'uuid'],
+            'prices.*.usdCents' => ['required', 'integer', 'min:0', 'max:10000000'],
+        ]);
+
+        return response()->json(['changed' => $this->orders->setPrices($r->user(), $d['prices'])]);
+    }
+
     public function accept(Request $r, string $id): JsonResponse
     {
         return response()->json(['order' => Present::order($this->orders->accept($r->user(), $id), $r->user()->name)]);

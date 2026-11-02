@@ -174,6 +174,9 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     // orders shops sent from the menu — delegates work them, managers watch them
     Route::get('orders', [OrderController::class, 'index']);
     Route::get('orders/waiting', [OrderController::class, 'waiting']);
+    // the delegate's own dollar prices for the shop's perfumes (never set from the till)
+    Route::get('delegate-prices', [OrderController::class, 'prices']);
+    Route::put('delegate-prices', [OrderController::class, 'setPrices']);
     Route::post('orders/{id}/accept', [OrderController::class, 'accept']);
     Route::post('orders/{id}/refuse', [OrderController::class, 'refuse']);
 
