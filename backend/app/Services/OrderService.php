@@ -27,7 +27,7 @@ class OrderService
     public const MAX_LINES = 60;
     public const MAX_QTY = 500;
 
-    public function __construct(private AuditService $audit) {}
+    public function __construct(private AuditService $audit, private PushService $push) {}
 
     /**
      * A shop's order from the menu. Public: the sender is whoever opened the menu, so everything is checked here —
@@ -74,6 +74,20 @@ class OrderService
 
             return $order;
         });
+    }
+
+    /**
+     * Wakes the phones of everyone who asked to be told. Called after the order is safely saved, never inside the
+     * transaction — a push service being slow or down must not lose the shop's order.
+     */
+    public function announce(Order $order): void
+    {
+        $this->push->notify([
+            'title' => $order->shop_name,
+            'body' => $order->units === 1 ? '1 bottle ordered' : "{$order->units} bottles ordered",
+            'url' => '/delegate/#/orders',
+            'tag' => 'order-'.$order->id,
+        ]);
     }
 
     /** New orders first, then the handled ones. Delegates and managers see the same list. */

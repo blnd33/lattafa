@@ -100,6 +100,21 @@ their header row. SKU and barcode are generated when left empty. **Excel files:*
 the grid to be checked before "Add all rows" (rows with an existing SKU update that size and add their quantity to its
 stock). The Excel reading/writing is built in (`pos/src/lib/xlsx.ts`, no library) and works offline.
 
+**Dollar price list (to shops):** the product sheet has a **Wholesale $** column. Fill it in and the delegate's dollar
+bills use that exact price for the size, cents and all — no converting, no rounding to half a dollar. Leave a cell
+empty and that size bills as before (the dinar price at the day's rate); re-uploading with the cell empty keeps the
+price already set.
+
+**Orders from the menu:** a shop opens the customer menu, taps **Add** on the sizes it wants, writes its name and
+phone, and sends. It is a request, not a sale — no price is agreed and no stock moves; the delegate makes the real
+sale when he hands the goods over. Every delegate sees the waiting orders (a banner on the delegate app's Home, the
+**Orders** screen, and **Orders** in the admin panel) and the **first to accept takes it** — the next one is told who
+got there first. Refusing takes a short reason. The public endpoint is held to 10 orders an hour per address.
+
+**Notifications:** the bell and counts inside the apps work out of the box. For a phone to ring with the app closed,
+run `php artisan lattafa:push-keys` once on the server, paste the two lines into `.env`, `php artisan optimize`, then
+each delegate turns it on in the delegate app under **More**. Without the keys everything simply carries on without push.
+
 **Supplier invoices:** the supplier's .xlsx (الباركود · القيمة · الحسم · السعر · الكمية · المادة, plus the shop's own
 "cost price in dinnar" and selling-price columns and the rate next to "Rate" in the title row) is uploaded as it is.
 Free pieces (الحسم = 100%) are left out, so stock counts what was bought; the name gives the size, brand (لطافة →

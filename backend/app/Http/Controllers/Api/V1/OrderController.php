@@ -26,6 +26,7 @@ class OrderController extends Controller
             'items.*.qty' => ['required', 'integer', 'min:1', 'max:'.OrderService::MAX_QTY],
         ]);
         $order = $this->orders->place($d);
+        $this->orders->announce($order); // the order is saved; waking the phones can safely fail
 
         // the shop only needs to know it arrived, and its number to quote on the phone
         return response()->json(['order' => ['number' => $order->number, 'placedAt' => $order->placed_at]], 201);

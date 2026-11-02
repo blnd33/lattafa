@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\DelegateController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\MenuController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\PushController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PurchasingController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -164,6 +165,11 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::post('expenses', [ExpenseController::class, 'store']);
     Route::put('expenses/{id}', [ExpenseController::class, 'store']);
     Route::delete('expenses/{id}', [ExpenseController::class, 'destroy']);
+
+    // being told about new orders with the app closed
+    Route::get('push/key', [PushController::class, 'key']);
+    Route::post('push/subscribe', [PushController::class, 'subscribe']);
+    Route::post('push/unsubscribe', [PushController::class, 'unsubscribe']);
 
     // orders shops sent from the menu — delegates work them, managers watch them
     Route::get('orders', [OrderController::class, 'index']);

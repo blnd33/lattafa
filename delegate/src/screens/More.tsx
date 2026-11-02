@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, ChevronRight, Circle, ClipboardList, LogOut, Moon, RefreshCw, Send, Sun, SunMoon } from 'lucide-react'
@@ -12,6 +12,7 @@ import { fmt, parseAmount } from '@/lib/money'
 import { AppError } from '@/services/context'
 import { toast } from '@/store/toast'
 import { useWaitingOrders } from '../orders'
+import { pushState, turnOffPush, turnOnPush, type PushState } from '../push'
 import { useUI, type ThemeChoice } from '@/store/ui'
 import { useSession } from '../auth'
 import { submitClosing, today } from '../field'
@@ -44,6 +45,7 @@ export function MoreScreen() {
       <SectionTitle>{t('dl.settings')}</SectionTitle>
       <div className="mb-3"><InstallCard /></div>
       <Card className="mx-4 space-y-4">
+        <PushRow />
         <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{t('dl.language')}</span><LangSwitch /></div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-medium">{t('dl.theme')}</span>
@@ -58,6 +60,32 @@ export function MoreScreen() {
 
 /** End of day: what the phone recorded, the cash counted, sent for a manager's approval. */
 /** Orders shops sent from the menu, with how many are still waiting. */
+/** Ring this phone when an order comes in, even with the app closed. */
+function PushRow() {
+  const t = useT()
+  const [state, setState] = useState<PushState | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { void pushState().then(setState) }, [])
+  if (state === null || state === 'unsupported') return null
+  const flip = async () => {
+    setBusy(true)
+    try { setState(state === 'on' ? await turnOffPush() : await turnOnPush()) } finally { setBusy(false) }
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{t('dl.push')}</span>
+        <span className="block text-xs text-fg-2">{t(state === 'blocked' ? 'dl.push_blocked' : state === 'no-keys' ? 'dl.push_off_shop' : 'dl.push_hint')}</span>
+      </span>
+      {state !== 'blocked' && state !== 'no-keys' && (
+        <Button size="sm" variant={state === 'on' ? 'secondary' : 'primary'} loading={busy} onClick={() => void flip()}>
+          {t(state === 'on' ? 'dl.push_off' : 'dl.push_on')}
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function OrdersLink() {
   const t = useT()
   const nav = useNavigate()

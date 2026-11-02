@@ -62,6 +62,8 @@ export default defineConfig({
         directoryIndex: 'index.html',
         // never let the service worker answer API or uploaded-image requests from its cache
         navigateFallbackDenylist: [/^\/api\//, /^\/storage\//],
+        // notifications that arrive with the app closed (public/push-sw.js — a plain script, copied as it is)
+        importScripts: ['/push-sw.js'],
       },
     }),
   ],
