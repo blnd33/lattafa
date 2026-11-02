@@ -1,0 +1,3 @@
+Laravel's view cache wants this folder to exist. The Lattafa apps are React, so there are no Blade views —
+but without this file git would not carry the empty folder to the server, and `php artisan optimize` would
+fail on its "views" step (and exit 1, which breaks a deploy chain joined with &&).
