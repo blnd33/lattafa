@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Exceptions\AppException;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Variant;
 use App\Services\Concerns\RequiresPermission;
+use App\Support\Size;
 use App\Support\Time;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -186,6 +188,74 @@ class OrderService
         });
 
         return $changed;
+    }
+
+    /**
+     * A perfume the delegate adds himself, from his phone. It joins the shop's one list — that is what keeps stock a
+     * single number for both sides — with the dollar price he sells it at. The shop's dinar price starts from that
+     * dollar price at today's rate and is the shop's own from then on; changing it never touches his.
+     *
+     * @param array{nameEn?: string, nameAr?: string, brand?: string, size?: float, unit?: string, usdCents: int, openingStock?: int} $in
+     */
+    public function addProduct(User $actor, array $in, SettingsService $settings, CatalogService $catalog, StockService $stock): Variant
+    {
+        $this->needOrders($actor);
+        $nameEn = trim($in['nameEn'] ?? '');
+        $nameAr = trim($in['nameAr'] ?? '');
+        if ($nameEn === '' && $nameAr === '') {
+            throw new AppException('required_fields');
+        }
+        $cents = max(0, (int) $in['usdCents']);
+        $rate = (int) (($settings->get()['currency']['rate'] ?? 0) ?: 1460);
+        $size = (float) ($in['size'] ?? 0);
+        $unit = ($in['unit'] ?? 'ml') === 'oz' ? 'oz' : 'ml';
+
+        return DB::transaction(function () use ($actor, $in, $nameEn, $nameAr, $cents, $rate, $size, $unit, $catalog, $stock) {
+            $brand = trim($in['brand'] ?? '') ?: 'Lattafa';
+            $product = Product::create([
+                'id' => (string) Str::uuid7(),
+                'name' => ['en' => $nameEn, 'ar' => $nameAr, 'ku' => ''],
+                'description' => ['en' => '', 'ar' => '', 'ku' => ''],
+                'brand' => $brand, 'category' => 'perfume', 'gender' => 'unisex', 'concentration' => 'EDP',
+                'scent_families' => [], 'notes' => ['top' => [], 'heart' => [], 'base' => []],
+                'season' => 'all', 'longevity' => 3, 'sillage' => 3,
+                'art' => ['c1' => '#8B4A2B', 'c2' => '#1A1714', 'shape' => 'rect'],
+            ]);
+            $variant = Variant::create([
+                'id' => (string) Str::uuid7(), 'product_id' => $product->id,
+                'label' => Size::label($size, $unit), 'size' => $size, 'unit' => $unit, 'ml' => Size::toMl($size, $unit),
+                'sku' => $this->freeSku($nameEn ?: $nameAr, $size, $unit),
+                'barcode' => $catalog->nextBarcode(),
+                'cost_iqd' => 0,
+                // a starting dinar price so the till can sell it too; the shop may change it, his dollar price stays
+                'retail_iqd' => (int) round($cents / 100 * $rate),
+                'wholesale_iqd' => (int) round($cents / 100 * $rate),
+                'wholesale_usd_cents' => $cents,
+                'min_stock' => 5,
+            ]);
+            $opening = max(0, (int) ($in['openingStock'] ?? 0));
+            if ($opening > 0) {
+                $stock->applyMovement($variant->id, $opening, 'opening', $actor, ['note' => 'Added by the delegate']);
+            }
+            $this->audit->log($actor, 'delegate.product_added', 'variant', $variant->id, [
+                'name' => $nameEn ?: $nameAr, 'size' => $variant->label, 'usd' => $cents / 100, 'opening' => $opening,
+            ]);
+
+            return $variant;
+        });
+    }
+
+    /** A SKU nobody is using: DLG-KHAMRAH-100ML, then -2, -3… */
+    private function freeSku(string $name, float $size, string $unit): string
+    {
+        $part = Str::upper(preg_replace('/[^A-Za-z0-9]+/', '-', Str::ascii($name)) ?: 'ITEM');
+        $base = trim('DLG-'.Str::limit(trim($part, '-'), 14, '').($size > 0 ? '-'.rtrim(rtrim(number_format($size, 2, '.', ''), '0'), '.').Str::upper($unit) : ''), '-');
+        $sku = $base;
+        for ($n = 2; Variant::where('sku', $sku)->exists(); $n++) {
+            $sku = $base.'-'.$n;
+        }
+
+        return $sku;
     }
 
     /** Delegates work the orders; managers watch them. */

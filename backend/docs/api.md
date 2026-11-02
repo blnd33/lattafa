@@ -131,6 +131,7 @@ A delegate = an account whose role allows the `delegate` app and holds `delegate
 
 | Perm | Endpoint | Notes |
 |---|---|---|
+| `delegate.sell` or `delegates.manage` | `POST /delegate-products` `{nameEn?,nameAr?,brand?,size?,unit?,usdCents,openingStock?}` | a perfume the delegate adds: joins the shop's list (so stock is shared) with his dollar price, a generated SKU `DLG-…` and barcode; the dinar price starts at `usdCents` × today's rate and is the shop's from then on |
 | `delegate.sell` or `delegates.manage` | `GET /delegate-prices` · `PUT /delegate-prices` `{prices:[{variantId,usdCents}]}` | the delegate's dollar price for each of the shop's sizes (`usdCents`, 2370 = $23.70) → `{changed}`. Only the dollar price moves; the till has no access. |
 | `delegate.sell` or `delegates.manage` | `GET /orders?status=&limit=` · `GET /orders/waiting` | the shops' orders (waiting ones first) and `{waiting}` for the bell |
 | `delegate.sell` or `delegates.manage` | `POST /orders/{id}/accept` · `POST /orders/{id}/refuse` `{reason?}` | first to accept takes it; the next gets `409 order_taken {by,status}` |

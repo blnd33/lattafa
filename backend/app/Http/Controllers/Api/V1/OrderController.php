@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Present;
 use App\Models\User;
+use App\Services\CatalogService;
 use App\Services\OrderService;
+use App\Services\SettingsService;
+use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -65,6 +68,23 @@ class OrderController extends Controller
         ]);
 
         return response()->json(['changed' => $this->orders->setPrices($r->user(), $d['prices'])]);
+    }
+
+    /** A perfume the delegate adds from his phone: it joins the shop's list, with his dollar price. */
+    public function addProduct(Request $r, SettingsService $settings, CatalogService $catalog, StockService $stock): JsonResponse
+    {
+        $d = $r->validate([
+            'nameEn' => ['nullable', 'string', 'max:120'],
+            'nameAr' => ['nullable', 'string', 'max:120'],
+            'brand' => ['nullable', 'string', 'max:60'],
+            'size' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'unit' => ['nullable', 'in:ml,oz'],
+            'usdCents' => ['required', 'integer', 'min:0', 'max:10000000'],
+            'openingStock' => ['nullable', 'integer', 'min:0', 'max:100000'],
+        ]);
+        $variant = $this->orders->addProduct($r->user(), $d, $settings, $catalog, $stock);
+
+        return response()->json(['variant' => Present::variant($variant->fresh())], 201);
     }
 
     public function accept(Request $r, string $id): JsonResponse

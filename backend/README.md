@@ -104,7 +104,9 @@ stock). The Excel reading/writing is built in (`pos/src/lib/xlsx.ts`, no library
 list, one stock — and this is where each size gets the dollar price the delegate sells it to shops for. Type them in,
 or take the list out as Excel and put it back (matched by SKU). The delegate's dollar bills then use that exact
 price, cents and all; a size left at 0 bills as before (the dinar price at the day's rate, to the nearest 50 cents).
-Set **only here**: the till cannot change these, and the shop's own dinar prices never move. Change the exchange rate
+The delegate can do the same from his phone — **More → My prices** — where he can also **add a perfume** the shop's
+list does not have yet (it joins that list with his dollar price, a scannable barcode and the bottles he is carrying,
+so stock stays one number). Set **only on the delegate side**: the till cannot change these, and the shop's own dinar prices never move. Change the exchange rate
 and the dinars these come to follow it by themselves, because the dollar price is the one that is stored.
 
 **Orders from the menu:** a shop opens the customer menu, taps **Add** on the sizes it wants, writes its name and

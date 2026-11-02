@@ -12,6 +12,7 @@ export const audit: Record<string, string> = {
   'act.sale.create': 'بيع',
   'act.sale.void': 'إلغاء بيع',
   'act.delegate.prices': 'تغيير أسعار المندوب بالدولار',
+  'act.delegate.product_added': 'عطر أضافه المندوب',
   'act.order.placed': 'طلب من محل',
   'act.order.accepted': 'استُلم الطلب',
   'act.order.refused': 'رُفض الطلب',

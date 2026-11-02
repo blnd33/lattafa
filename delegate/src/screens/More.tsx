@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, ChevronRight, Circle, ClipboardList, LogOut, Moon, RefreshCw, Send, Sun, SunMoon } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Circle, ClipboardList, Tags, LogOut, Moon, RefreshCw, Send, Sun, SunMoon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, Segmented } from '@/components/ui/Controls'
 import { Field, Input, Textarea } from '@/components/ui/Field'
@@ -40,6 +40,7 @@ export function MoreScreen() {
     <div>
       <TopBar title={actor.name} subtitle={`${actor.roleName}${meta?.deviceCode ? ` · ${meta.deviceCode}` : ''}`} />
       <OrdersLink />
+      <PricesLink />
       <Closing />
       <SyncCard />
       <SectionTitle>{t('dl.settings')}</SectionTitle>
@@ -95,6 +96,19 @@ function OrdersLink() {
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-gold-text"><ClipboardList className="size-5" /></span>
       <span className="min-w-0 flex-1 font-semibold">{t('dl.orders')}</span>
       {waiting > 0 && <Badge tone="gold">{waiting}</Badge>}
+      <ChevronRight className="size-5 shrink-0 text-fg-2 rtl:rotate-180" />
+    </button>
+  )
+}
+
+/** His own dollar prices, and adding a perfume the shop has not entered yet. */
+function PricesLink() {
+  const t = useT()
+  const nav = useNavigate()
+  return (
+    <button type="button" onClick={() => nav('/prices')} className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 rounded-3xl border border-line bg-surface p-4 text-start shadow-soft">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2 text-gold-text"><Tags className="size-5" /></span>
+      <span className="min-w-0 flex-1 font-semibold">{t('dl.prices')}</span>
       <ChevronRight className="size-5 shrink-0 text-fg-2 rtl:rotate-180" />
     </button>
   )

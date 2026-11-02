@@ -20,6 +20,7 @@ import { SellScreen } from './screens/Sell'
 import { CustomersScreen } from './screens/Customers'
 import { MoreScreen } from './screens/More'
 import { OrdersScreen } from './screens/Orders'
+import { PricesScreen } from './screens/Prices'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false, staleTime: 2_000 } } })
 
@@ -66,6 +67,7 @@ function Gate() {
         <Route path="/sell" element={<SellScreen />} />
         <Route path="/customers" element={<CustomersScreen />} />
         <Route path="/orders" element={<OrdersScreen />} />
+        <Route path="/prices" element={<PricesScreen />} />
         <Route path="/more" element={<MoreScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

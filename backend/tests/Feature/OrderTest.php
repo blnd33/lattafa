@@ -139,6 +139,37 @@ class OrderTest extends ApiTestCase
         $this->assertSame(2500, $kham->fresh()->wholesale_usd_cents);
     }
 
+    public function test_the_delegate_adds_a_perfume_from_his_phone_and_it_shares_the_shop_s_stock(): void
+    {
+        $this->shop();
+        $ahmed = $this->delegate();
+        $this->asDelegate($ahmed);
+
+        $v = $this->api('POST', 'delegate-products', ['nameEn' => 'Road Special', 'nameAr' => 'خاص الطريق', 'size' => 100, 'unit' => 'ml', 'usdCents' => 1850, 'openingStock' => 12])
+            ->assertCreated()->json('variant');
+        $this->assertSame(['1850 cents', '100 ml'], [$v['wholesaleUSDCents'].' cents', $v['label']]);
+        $this->assertStringStartsWith('DLG-ROAD-SPECIAL', $v['sku']);
+        $this->assertNotSame('', $v['barcode']);                       // it can be scanned like any other
+
+        // it is the shop's one list and one stock: the till sees it, with 12 bottles
+        $this->asOwner();
+        $stored = Variant::whereKey($v['id'])->first();
+        $this->assertSame(12, $this->stockOf($stored));
+        $onTill = collect($this->api('GET', 'products')->json('products'))->flatMap(fn ($p) => $p['variants'])->firstWhere('sku', $v['sku']);
+        $this->assertSame(12, $onTill['stock']);
+        // the shop may reprice it in dinars without touching the delegate's dollar price
+        $stored->update(['retail_iqd' => 40000]);
+        $this->assertSame([40000, 1850], [$stored->fresh()->retail_iqd, $stored->fresh()->wholesale_usd_cents]);
+
+        // a cashier still cannot add one this way
+        $cashier = $this->makeUser('Ali', 'alii', 'cashier', '3333');
+        $this->asUser($cashier, '3333');
+        $this->api('POST', 'delegate-products', ['nameEn' => 'Nope', 'usdCents' => 100])->assertStatus(403);
+        // and a nameless one is refused
+        $this->asDelegate($ahmed);
+        $this->api('POST', 'delegate-products', ['usdCents' => 100])->assertStatus(422)->assertJsonPath('error.code', 'required_fields');
+    }
+
     public function test_only_delegates_and_managers_may_see_or_work_orders(): void
     {
         $this->shop();
