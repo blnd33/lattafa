@@ -64,7 +64,8 @@ class OrderController extends Controller
         $d = $r->validate([
             'prices' => ['required', 'array', 'min:1', 'max:3000'],
             'prices.*.variantId' => ['required', 'uuid'],
-            'prices.*.usdCents' => ['required', 'integer', 'min:0', 'max:10000000'],
+            'prices.*.usdCents' => ['sometimes', 'integer', 'min:0', 'max:10000000'],
+            'prices.*.costCents' => ['sometimes', 'integer', 'min:0', 'max:10000000'],
         ]);
 
         return response()->json(['changed' => $this->orders->setPrices($r->user(), $d['prices'])]);
@@ -80,6 +81,7 @@ class OrderController extends Controller
             'size' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'unit' => ['nullable', 'in:ml,oz'],
             'usdCents' => ['required', 'integer', 'min:0', 'max:10000000'],
+            'costCents' => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'openingStock' => ['nullable', 'integer', 'min:0', 'max:100000'],
         ]);
         $variant = $this->orders->addProduct($r->user(), $d, $settings, $catalog, $stock);

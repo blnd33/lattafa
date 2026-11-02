@@ -20,6 +20,7 @@ export function PricesScreen() {
   const lang = useUI((s) => s.lang)
   const qc = useQueryClient()
   const q = usePrices()
+  // one box per figure, keyed "<variantId>:sell" / "<variantId>:cost"
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,15 +33,23 @@ export function PricesScreen() {
     return rows.filter((r) => `${r.name.en} ${r.name.ar} ${r.brand} ${r.sku} ${r.label}`.toLowerCase().includes(needle))
   }, [rows, search])
 
-  const valueOf = (r: PriceRow) => edits[r.variantId] ?? toDollars(r.usdCents)
+  const valueOf = (r: PriceRow, what: 'sell' | 'cost') => edits[`${r.variantId}:${what}`] ?? toDollars(what === 'sell' ? r.usdCents : r.costCents)
   const bad = Object.values(edits).some((v) => toCents(v) === null)
-  const changed = rows.filter((r) => edits[r.variantId] !== undefined && toCents(edits[r.variantId]) !== null && toCents(edits[r.variantId]) !== r.usdCents)
+  const moved = (r: PriceRow, what: 'sell' | 'cost') => {
+    const typed = edits[`${r.variantId}:${what}`]
+    const cents = typed === undefined ? null : toCents(typed)
+    return cents !== null && cents !== (what === 'sell' ? r.usdCents : r.costCents) ? cents : null
+  }
+  const changed = rows.filter((r) => moved(r, 'sell') !== null || moved(r, 'cost') !== null)
 
   const save = async () => {
     if (bad) return toast.error(t('dlp.bad_number'))
     setBusy(true)
     try {
-      const n = await savePrices(changed.map((r) => ({ variantId: r.variantId, usdCents: toCents(edits[r.variantId])! })))
+      const n = await savePrices(changed.map((r) => {
+        const sell = moved(r, 'sell'), cost = moved(r, 'cost')
+        return { variantId: r.variantId, ...(sell !== null ? { usdCents: sell } : {}), ...(cost !== null ? { costCents: cost } : {}) }
+      }))
       setEdits({})
       await qc.invalidateQueries()
       toast.success(t('dlp.saved', { n }))
@@ -61,7 +70,7 @@ export function PricesScreen() {
           if (!sku) continue
           const usd = [...line].reverse().find((c) => String(c).trim() !== '' && String(c).trim() !== sku)
           const cents = toCents(String(usd ?? ''))
-          if (cents !== null) next[bySku.get(sku.toLowerCase())!.variantId] = toDollars(cents)
+          if (cents !== null) next[`${bySku.get(sku.toLowerCase())!.variantId}:sell`] = toDollars(cents)
         }
       }
       const n = Object.keys(next).length
@@ -90,19 +99,33 @@ export function PricesScreen() {
               : (
                 <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
                   {shown.map((r) => {
-                    const v = valueOf(r)
+                    const sell = valueOf(r, 'sell'), cost = valueOf(r, 'cost')
+                    const sellC = toCents(sell), costC = toCents(cost)
+                    const profit = sellC !== null && costC !== null && sellC > 0 && costC > 0 ? (sellC - costC) / 100 : null
+                    const box = (what: 'sell' | 'cost', value: string, label: string) => (
+                      <label className="flex items-center gap-1">
+                        <span className="text-[11px] text-fg-2">{label}</span>
+                        <span className="text-fg-2">$</span>
+                        <Input dir="ltr" inputMode="decimal" aria-label={`${pick(r.name, lang)} ${r.label} — ${label}`}
+                          className={cn('num !h-11 !w-20 text-end', toCents(value) === null && 'ring-2 ring-inset ring-danger')}
+                          value={value} placeholder="0" onChange={(e) => setEdits((x) => ({ ...x, [`${r.variantId}:${what}`]: e.target.value }))} />
+                      </label>
+                    )
                     return (
-                      <li key={r.variantId} className="flex items-center gap-3 p-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{pick(r.name, lang)}</p>
-                          <p className="num text-xs text-fg-2">{r.label} · {t('dlp.col_retail')} {fmt(r.retailIQD)}</p>
+                      <li key={r.variantId} className="space-y-2 p-3">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="min-w-0 truncate text-sm font-semibold">{pick(r.name, lang)} <span className="num font-normal text-fg-2">{r.label}</span></p>
+                          {profit !== null && (
+                            <span className={cn('num shrink-0 text-xs font-semibold', profit > 0 ? 'text-success' : 'text-danger')}>
+                              {t('dlp.profit', { n: `${profit > 0 ? '+' : ''}${Math.round(profit * 100) / 100}` })}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <span className="text-fg-2">$</span>
-                          <Input dir="ltr" inputMode="decimal" aria-label={`${pick(r.name, lang)} ${r.label} — ${t('dlp.col_usd')}`}
-                            className={cn('num !h-11 !w-24 text-end', toCents(v) === null && 'ring-2 ring-inset ring-danger')}
-                            value={v} placeholder="0" onChange={(e) => setEdits((x) => ({ ...x, [r.variantId]: e.target.value }))} />
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          {box('cost', cost, t('dlp.col_cost'))}
+                          {box('sell', sell, t('dlp.col_sell'))}
                         </div>
+                        <p className="num text-[11px] text-fg-2">{t('dlp.col_retail')} {fmt(r.retailIQD)}</p>
                       </li>
                     )
                   })}
@@ -131,6 +154,7 @@ function AddPerfume({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [brand, setBrand] = useState('')
   const [size, setSize] = useState('100')
   const [usd, setUsd] = useState('')
+  const [cost, setCost] = useState('')
   const [stock, setStock] = useState('')
   const [busy, setBusy] = useState(false)
   const cents = toCents(usd)
@@ -143,11 +167,12 @@ function AddPerfume({ open, onClose }: { open: boolean; onClose: () => void }) {
       const isArabic = /[؀-ۿ]/.test(name)
       await addProduct({
         nameEn: isArabic ? '' : name.trim(), nameAr: isArabic ? name.trim() : '', brand: brand.trim(),
-        size: Number(size) || 0, unit: 'ml', usdCents: cents, openingStock: Math.max(0, Math.round(Number(stock) || 0)),
+        size: Number(size) || 0, unit: 'ml', usdCents: cents, costCents: toCents(cost) ?? 0,
+        openingStock: Math.max(0, Math.round(Number(stock) || 0)),
       })
       await qc.invalidateQueries()
       toast.success(t('dl.add_done', { name: name.trim() }))
-      setName(''); setBrand(''); setUsd(''); setStock(''); setSize('100')
+      setName(''); setBrand(''); setUsd(''); setCost(''); setStock(''); setSize('100')
       onClose()
     } catch (e) { toast.error(errorMessage(e, t)) } finally { setBusy(false) }
   }
@@ -161,6 +186,7 @@ function AddPerfume({ open, onClose }: { open: boolean; onClose: () => void }) {
           <Field label={t('dl.add_size')}>{(id) => <Input id={id} className="num" dir="ltr" inputMode="decimal" value={size} onChange={(e) => setSize(e.target.value)} placeholder="100" />}</Field>
           <Field label={t('dl.add_price')}>{(id) => <Input id={id} className="num" dir="ltr" inputMode="decimal" value={usd} onChange={(e) => setUsd(e.target.value)} placeholder="20.5" />}</Field>
         </div>
+        <Field label={t('dl.add_cost')} hint={t('dl.add_cost_hint')}>{(id) => <Input id={id} className="num" dir="ltr" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="14.5" />}</Field>
         <Field label={t('dl.add_stock')} hint={t('dl.add_stock_hint')}>{(id) => <Input id={id} className="num" dir="ltr" inputMode="numeric" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />}</Field>
         <Button variant="primary" size="lg" block loading={busy} onClick={() => void submit()}>{t('dl.add_perfume')}</Button>
       </div>

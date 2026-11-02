@@ -125,6 +125,13 @@ class OrderTest extends ApiTestCase
         $this->assertSame($retailBefore, $kham->fresh()->retail_iqd);   // the shop's dinar price never moves
         $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'usdCents' => 2370]]])->assertOk()->assertJsonPath('changed', 0);
 
+        // what it costs us, in dollars, sits beside the selling price — and only that figure moves
+        $costBefore = $kham->fresh()->cost_iqd;
+        $this->api('PUT', 'delegate-prices', ['prices' => [['variantId' => $kham->id, 'costCents' => 1454]]])->assertOk()->assertJsonPath('changed', 1);
+        $this->assertSame([1454, 2370, $costBefore], [$kham->fresh()->cost_usd_cents, $kham->fresh()->wholesale_usd_cents, $kham->fresh()->cost_iqd]);
+        $row = collect($this->api('GET', 'delegate-prices')->json('prices'))->firstWhere('sku', 'LTF-KHAM-100');
+        $this->assertSame([1454, 2370], [$row['costCents'], $row['usdCents']]);   // he sees both
+
         // the delegate can set them too; a cashier at the till cannot even look
         $ahmed = $this->delegate();
         $this->asDelegate($ahmed);

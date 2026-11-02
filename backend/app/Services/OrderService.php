@@ -158,15 +158,16 @@ class OrderService
             ->sortBy(fn (Variant $v) => [($v->product->name['en'] ?? '') ?: ($v->product->name['ar'] ?? ''), -$v->ml])
             ->map(fn (Variant $v) => [
                 'variantId' => $v->id, 'sku' => $v->sku, 'name' => $v->product->name, 'brand' => $v->product->brand,
-                'label' => $v->label, 'retailIQD' => $v->retail_iqd, 'usdCents' => $v->wholesale_usd_cents,
+                'label' => $v->label, 'retailIQD' => $v->retail_iqd,
+                'usdCents' => $v->wholesale_usd_cents, 'costCents' => $v->cost_usd_cents,
             ])->values()->all();
     }
 
     /**
-     * Sets those dollar prices. Only the dollar price moves — the shop's own dinar prices are never touched here,
-     * and the till cannot change these.
+     * Sets the dollar selling price, and what the size costs the shop in dollars. Only these two move — the shop's
+     * own dinar prices and dinar cost are never touched here, and the till cannot change them.
      *
-     * @param array<int, array{variantId: string, usdCents: int}> $rows
+     * @param array<int, array{variantId: string, usdCents?: int, costCents?: int}> $rows
      */
     public function setPrices(User $actor, array $rows): int
     {
@@ -174,12 +175,22 @@ class OrderService
         $changed = 0;
         DB::transaction(function () use ($actor, $rows, &$changed) {
             foreach ($rows as $row) {
-                $cents = max(0, (int) ($row['usdCents'] ?? 0));
                 $v = Variant::whereKey($row['variantId'] ?? '')->first();
-                if (! $v || $v->wholesale_usd_cents === $cents) {
+                if (! $v) {
                     continue;
                 }
-                $v->update(['wholesale_usd_cents' => $cents]);
+                $patch = [];
+                // a figure left out is left alone, so one screen may send prices and another costs
+                if (array_key_exists('usdCents', $row) && (int) $row['usdCents'] !== $v->wholesale_usd_cents) {
+                    $patch['wholesale_usd_cents'] = max(0, (int) $row['usdCents']);
+                }
+                if (array_key_exists('costCents', $row) && (int) $row['costCents'] !== $v->cost_usd_cents) {
+                    $patch['cost_usd_cents'] = max(0, (int) $row['costCents']);
+                }
+                if (! $patch) {
+                    continue;
+                }
+                $v->update($patch);
                 $changed++;
             }
             if ($changed) {
@@ -226,7 +237,8 @@ class OrderService
                 'label' => Size::label($size, $unit), 'size' => $size, 'unit' => $unit, 'ml' => Size::toMl($size, $unit),
                 'sku' => $this->freeSku($nameEn ?: $nameAr, $size, $unit),
                 'barcode' => $catalog->nextBarcode(),
-                'cost_iqd' => 0,
+                'cost_usd_cents' => max(0, (int) ($in['costCents'] ?? 0)),
+                'cost_iqd' => (int) round(max(0, (int) ($in['costCents'] ?? 0)) / 100 * $rate),
                 // a starting dinar price so the till can sell it too; the shop may change it, his dollar price stays
                 'retail_iqd' => (int) round($cents / 100 * $rate),
                 'wholesale_iqd' => (int) round($cents / 100 * $rate),

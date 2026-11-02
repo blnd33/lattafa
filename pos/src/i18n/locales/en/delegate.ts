@@ -33,6 +33,8 @@ export const delegate: Dict = {
   'dl.add_brand': 'Brand',
   'dl.add_size': 'Size (ml)',
   'dl.add_price': 'My price ($)',
+  'dl.add_cost': 'What it costs us ($)',
+  'dl.add_cost_hint': 'Leave empty if you do not know it.',
   'dl.add_stock': 'Bottles you have',
   'dl.add_stock_hint': 'Goes into the shop’s stock, so both sides show the same number.',
   'dl.add_need_name': 'Write the perfume’s name.',

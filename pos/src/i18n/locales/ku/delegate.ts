@@ -33,6 +33,8 @@ export const delegate: Dict = {
   'dl.add_brand': 'براند',
   'dl.add_size': 'قەبارە (مل)',
   'dl.add_price': 'نرخی من ($)',
+  'dl.add_cost': 'چەندمان تێدەچێت ($)',
+  'dl.add_cost_hint': 'ئەگەر نایزانیت بەتاڵی بهێڵەوە.',
   'dl.add_stock': 'ژمارەی شووشەکانت',
   'dl.add_stock_hint': 'دەچێتە کۆگای فرۆشگا، بۆیە هەردوولا هەمان ژمارە پیشان دەدەن.',
   'dl.add_need_name': 'ناوی عەترەکە بنووسە.',

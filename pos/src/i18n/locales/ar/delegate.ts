@@ -33,6 +33,8 @@ export const delegate: Dict = {
   'dl.add_brand': 'الماركة',
   'dl.add_size': 'الحجم (مل)',
   'dl.add_price': 'سعري ($)',
+  'dl.add_cost': 'كم يكلّفنا ($)',
+  'dl.add_cost_hint': 'اتركه فارغاً إن كنت لا تعرفه.',
   'dl.add_stock': 'عدد القناني لديك',
   'dl.add_stock_hint': 'تدخل مخزون المتجر، فيظهر نفس الرقم على الجهتين.',
   'dl.add_need_name': 'اكتب اسم العطر.',

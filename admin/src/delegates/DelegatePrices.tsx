@@ -14,7 +14,7 @@ import { api } from '@/services/api'
 import { toast } from '@/store/toast'
 import { useUI } from '@/store/ui'
 
-interface PriceRow { variantId: string; sku: string; name: Record<'en' | 'ar' | 'ku', string>; brand: string; label: string; retailIQD: number; usdCents: number }
+interface PriceRow { variantId: string; sku: string; name: Record<'en' | 'ar' | 'ku', string>; brand: string; label: string; retailIQD: number; usdCents: number; costCents: number }
 
 const toCents = (text: string): number | null => {
   const s = text.replace(/[\s$,٬]/g, '').replace('٫', '.')
@@ -43,16 +43,25 @@ export function DelegatePrices() {
     return rows.filter((r) => `${r.name.en} ${r.name.ar} ${r.name.ku} ${r.brand} ${r.sku} ${r.label}`.toLowerCase().includes(needle))
   }, [rows, search])
 
-  const valueOf = (r: PriceRow) => edits[r.variantId] ?? toDollars(r.usdCents)
+  const valueOf = (r: PriceRow, what: 'sell' | 'cost') => edits[`${r.variantId}:${what}`] ?? toDollars(what === 'sell' ? r.usdCents : r.costCents)
   const badCells = Object.entries(edits).filter(([, v]) => toCents(v) === null).map(([id]) => id)
-  const changed = rows.filter((r) => edits[r.variantId] !== undefined && toCents(edits[r.variantId]) !== null && toCents(edits[r.variantId]) !== r.usdCents)
+  /** What this box now says, when it is a number and really different; null otherwise. */
+  const moved = (r: PriceRow, what: 'sell' | 'cost') => {
+    const typed = edits[`${r.variantId}:${what}`]
+    const cents = typed === undefined ? null : toCents(typed)
+    return cents !== null && cents !== (what === 'sell' ? r.usdCents : r.costCents) ? cents : null
+  }
+  const changed = rows.filter((r) => moved(r, 'sell') !== null || moved(r, 'cost') !== null)
 
   const save = async () => {
     if (badCells.length) return toast.error(t('dlp.bad_number'))
     if (!changed.length) return
     setBusy(true)
     try {
-      const prices = changed.map((r) => ({ variantId: r.variantId, usdCents: toCents(edits[r.variantId])! }))
+      const prices = changed.map((r) => {
+        const sell = moved(r, 'sell'), cost = moved(r, 'cost')
+        return { variantId: r.variantId, ...(sell !== null ? { usdCents: sell } : {}), ...(cost !== null ? { costCents: cost } : {}) }
+      })
       const { changed: n } = await api<{ changed: number }>('PUT', '/delegate-prices', { prices })
       setEdits({})
       await q.refetch()
@@ -61,11 +70,11 @@ export function DelegatePrices() {
   }
 
   const toExcel = async () => {
-    const header = [t('dlp.col_name'), t('dlp.col_size'), t('sheet.col_sku'), t('dlp.col_retail'), t('dlp.col_usd')]
-    const body = rows.map((r) => [pick(r.name, lang), r.label, r.sku, r.retailIQD, r.usdCents ? r.usdCents / 100 : ''])
+    const header = [t('dlp.col_name'), t('dlp.col_size'), t('sheet.col_sku'), t('dlp.col_retail'), t('dlp.col_cost'), t('dlp.col_sell')]
+    const body = rows.map((r) => [pick(r.name, lang), r.label, r.sku, r.retailIQD, r.costCents ? r.costCents / 100 : '', r.usdCents ? r.usdCents / 100 : ''])
     const blob = await writeXlsx([{
       name: t('dlp.file'), rtl: lang !== 'en', rows: [header, ...body],
-      columns: [{ width: 30 }, { width: 12 }, { width: 24, text: true }, { width: 16, number: true }, { width: 16 }],
+      columns: [{ width: 30 }, { width: 12 }, { width: 24, text: true }, { width: 16, number: true }, { width: 14 }, { width: 14 }],
     }])
     downloadBlob(`lattafa-delegate-prices-${new Date().toISOString().slice(0, 10)}.xlsx`, blob)
   }
@@ -84,11 +93,14 @@ export function DelegatePrices() {
           const sku = (line.find((c) => bySku.has(String(c).trim().toLowerCase())) ?? '').trim()
           if (!sku) continue
           const r = bySku.get(sku.toLowerCase())!
-          // the dollar price is the last filled cell on the line; a blank one means "leave it alone"
-          const usd = [...line].reverse().find((c) => String(c).trim() !== '' && String(c).trim() !== sku)
-          const cents = toCents(String(usd ?? ''))
-          if (cents === null) { unknown++; continue }
-          next[r.variantId] = toDollars(cents)
+          // after the SKU come the money columns: the last is the selling price, the one before it the cost
+          const after = line.slice(line.findIndex((c) => String(c).trim().toLowerCase() === sku.toLowerCase()) + 1).map((c) => String(c).trim())
+          const money = after.filter((c) => c !== '' && toCents(c) !== null)
+          const sell = money.at(-1)
+          const cost = money.length > 2 ? money.at(-2) : undefined
+          if (sell === undefined) { unknown++; continue }
+          next[`${r.variantId}:sell`] = toDollars(toCents(sell)!)
+          if (cost !== undefined) next[`${r.variantId}:cost`] = toDollars(toCents(cost)!)
         }
       }
       const n = Object.keys(next).length
@@ -115,31 +127,39 @@ export function DelegatePrices() {
 
       {shown.length === 0 ? <Card><EmptyState title={t('dlp.none')} hint={search ? undefined : t('dlp.none_hint')} /></Card> : (
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
-          <table className="w-full min-w-[40rem] text-sm">
+          <table className="w-full min-w-[52rem] text-sm">
             <thead className="bg-surface-2 text-xs text-fg-2">
               <tr>
                 <th className="px-3 py-2.5 text-start font-semibold">{t('dlp.col_name')}</th>
                 <th className="px-3 py-2.5 text-start font-semibold">{t('dlp.col_size')}</th>
                 <th className="px-3 py-2.5 text-end font-semibold">{t('dlp.col_retail')}</th>
-                <th className="w-40 px-3 py-2.5 text-end font-semibold text-gold-text">{t('dlp.col_usd')}</th>
+                <th className="w-36 px-3 py-2.5 text-end font-semibold">{t('dlp.col_cost')}</th>
+                <th className="w-36 px-3 py-2.5 text-end font-semibold text-gold-text">{t('dlp.col_sell')}</th>
+                <th className="w-24 px-3 py-2.5 text-end font-semibold">{t('dlp.col_profit')}</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((r) => {
-                const v = valueOf(r)
-                const bad = toCents(v) === null
+                const sell = valueOf(r, 'sell'), cost = valueOf(r, 'cost')
+                const sellC = toCents(sell), costC = toCents(cost)
+                const profit = sellC !== null && costC !== null && sellC > 0 && costC > 0 ? (sellC - costC) / 100 : null
+                const box = (what: 'sell' | 'cost', value: string, label: string) => (
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-fg-2">$</span>
+                    <Input dir="ltr" inputMode="decimal" aria-label={`${pick(r.name, lang)} ${r.label} — ${label}`}
+                      className={cn('num !h-10 !w-20 text-end', toCents(value) === null && 'ring-2 ring-inset ring-danger')}
+                      value={value} placeholder="0" onChange={(e) => setEdits((x) => ({ ...x, [`${r.variantId}:${what}`]: e.target.value }))} />
+                  </div>
+                )
                 return (
                   <tr key={r.variantId} className="border-t border-line">
                     <td className="px-3 py-2"><span className="font-medium">{pick(r.name, lang)}</span> <span className="text-xs text-fg-2">{r.brand}</span></td>
                     <td className="num px-3 py-2 text-fg-2">{r.label}</td>
                     <td className="num px-3 py-2 text-end text-fg-2">{fmt(r.retailIQD)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="text-fg-2">$</span>
-                        <Input dir="ltr" inputMode="decimal" aria-label={`${pick(r.name, lang)} ${r.label} — ${t('dlp.col_usd')}`}
-                          className={cn('num !h-10 !w-24 text-end', bad && 'ring-2 ring-inset ring-danger')}
-                          value={v} placeholder="0" onChange={(e) => setEdits((x) => ({ ...x, [r.variantId]: e.target.value }))} />
-                      </div>
+                    <td className="px-3 py-2">{box('cost', cost, t('dlp.col_cost'))}</td>
+                    <td className="px-3 py-2">{box('sell', sell, t('dlp.col_sell'))}</td>
+                    <td className={cn('num px-3 py-2 text-end text-sm font-semibold', profit === null ? 'text-fg-2' : profit > 0 ? 'text-success' : 'text-danger')}>
+                      {profit === null ? '—' : `${profit > 0 ? '+' : ''}$${Math.round(profit * 100) / 100}`}
                     </td>
                   </tr>
                 )

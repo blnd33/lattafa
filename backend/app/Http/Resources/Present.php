@@ -83,7 +83,7 @@ final class Present
     {
         return [
             'id' => $v->id, 'productId' => $v->product_id, 'label' => $v->label, 'size' => (float) $v->size, 'unit' => $v->unit, 'ml' => $v->ml, 'sku' => $v->sku, 'barcode' => $v->barcode,
-            'costIQD' => $showCost ? $v->cost_iqd : 0, 'retailIQD' => $v->retail_iqd, 'wholesaleIQD' => $v->wholesale_iqd, 'wholesaleUSDCents' => $v->wholesale_usd_cents, 'minStock' => $v->min_stock,
+            'costIQD' => $showCost ? $v->cost_iqd : 0, 'retailIQD' => $v->retail_iqd, 'wholesaleIQD' => $v->wholesale_iqd, 'wholesaleUSDCents' => $v->wholesale_usd_cents, 'costUSDCents' => $showCost ? $v->cost_usd_cents : 0, 'minStock' => $v->min_stock,
             'isTester' => $v->is_tester, 'active' => $v->active, 'stock' => (int) ($v->getAttribute('stock_qty') ?? 0),
         ];
     }

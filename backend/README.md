@@ -104,6 +104,10 @@ stock). The Excel reading/writing is built in (`pos/src/lib/xlsx.ts`, no library
 list, one stock — and this is where each size gets the dollar price the delegate sells it to shops for. Type them in,
 or take the list out as Excel and put it back (matched by SKU). The delegate's dollar bills then use that exact
 price, cents and all; a size left at 0 bills as before (the dinar price at the day's rate, to the nearest 50 cents).
+Beside the selling price sits **what it costs us in dollars**, with the profit a bottle, so the delegate can see
+his room before he bargains. That dollar cost is its own figure: it does not change the shop's dinar cost or its
+profit reports.
+
 The delegate can do the same from his phone — **More → My prices** — where he can also **add a perfume** the shop's
 list does not have yet (it joins that list with his dollar price, a scannable barcode and the bottles he is carrying,
 so stock stays one number). Set **only on the delegate side**: the till cannot change these, and the shop's own dinar prices never move. Change the exchange rate
