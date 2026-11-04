@@ -31,6 +31,8 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
   const rate = settings?.currency.rate ?? 1
   const usdOn = settings?.currency.usdEnabled ?? false
 
+  // Most sales are cash in dinars: ask once and be done. The keypad is one tap away for anything else.
+  const [step, setStep] = useState<'ask' | 'keypad'>('ask')
   const [method, setMethod] = useState<PaymentMethod>('cash_iqd')
   const [input, setInput] = useState('')
   const [reference, setReference] = useState('')
@@ -40,7 +42,7 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
   // A fresh payment session each time the modal opens (exchange credit is pre-applied).
   useEffect(() => {
     if (!open) return
-    setMethod('cash_iqd'); setInput(''); setReference('')
+    setStep('ask'); setMethod('cash_iqd'); setInput(''); setReference('')
     const credit = cart.returnCredit
     setPays(credit && credit.amountIQD > 0 ? [{ method: 'return_credit', tendered: Math.min(credit.amountIQD, total) }] : [])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,8 +95,9 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
     setInput(''); setReference('')
   }
 
-  const complete = async () => {
-    if (remaining > 0 || !actor) return
+  /** Finishes the bill with these payments. Shared by the quick "yes" and the full keypad. */
+  const submit = async (payments: CheckoutPayment[], redeemPoints: number) => {
+    if (!actor) return
     // Over-limit discounts need a supervisor's PIN (asked once, remembered for this bill)
     let approvedBy = cart.approvedBy
     const over = priced.effectiveDiscountPct > actor.limits.maxDiscountPct + 1e-9 && !hasPerm(actor.permissions, 'sales.discount.above_limit')
@@ -108,8 +111,8 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
       customerId: cart.customerId,
       orderDiscount: cart.orderDiscount,
       giftWrap: cart.giftWrap,
-      redeemPoints: redeem,
-      payments: pays,
+      redeemPoints,
+      payments,
       note: cart.note,
       approvedBy,
       returnCreditIQD: cart.returnCredit?.amountIQD,
@@ -117,11 +120,44 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
     if (sale) onDone(sale)
   }
 
+  const complete = async () => {
+    if (remaining > 0) return
+    await submit(pays, redeem)
+  }
+
+  /** The ordinary sale: the whole bill in cash dinars, no keypad. Any exchange credit still comes off first. */
+  const completeCash = async () => {
+    const credit = pays.filter((p) => p.method === 'return_credit')
+    const owed = Math.max(0, total - credit.reduce((a, p) => a + Math.round(p.tendered), 0))
+    await submit(owed > 0 ? [...credit, { method: 'cash_iqd', tendered: owed }] : credit, 0)
+  }
+
   const methods = METHODS.filter((m) => m.id !== 'cash_usd' || usdOn)
   const disabledReason = (id: PaymentMethod): string | null => {
     if (id === 'debt' && !customer) return t('pay.debt_needs_customer')
     if (id === 'debt' && !canCredit) return t('err.forbidden')
     return null
+  }
+
+  if (step === 'ask') {
+    return (
+      <Modal open={open} onClose={onClose} title={t('pay.confirm_title')} size="sm">
+        <div className="space-y-5 text-center">
+          <div>
+            <p className="text-sm text-fg-2">{t('pay.confirm_q')}</p>
+            <Amt n={total} className="font-serif text-4xl font-semibold text-gold-text" unitClassName="font-sans text-sm text-fg-2" />
+            {usdOn && <p className="text-sm text-fg-2">≈ <UsdAmt n={total / rate} /></p>}
+          </div>
+          <div className="flex gap-3">
+            <Button size="xl" variant="secondary" className="flex-1" onClick={onClose}>{t('common.no')}</Button>
+            <Button size="xl" variant="primary" className="flex-1" icon={<Check className="size-6" />} loading={run.busy} onClick={() => void completeCash()}>{t('common.yes')}</Button>
+          </div>
+          <button type="button" onClick={() => setStep('keypad')} className="min-h-11 w-full rounded-xl text-sm font-semibold text-fg-2 underline-offset-4 hover:text-fg hover:underline">
+            {t('pay.other_method')}
+          </button>
+        </div>
+      </Modal>
+    )
   }
 
   return (

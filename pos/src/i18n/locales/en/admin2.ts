@@ -110,6 +110,7 @@ export const admin2: Dict = {
   'settings.show_logo': 'Print logo',
   'settings.show_qr': 'Print QR code',
   'settings.auto_print': 'Print automatically after a sale',
+  'settings.kiosk_hint': 'To print without the browser asking each time, start the browser once with this switch added to its shortcut — then the receipt goes straight to the default printer:',
   'settings.currency': 'Currency',
   'settings.rate': 'Dollar rate',
   'settings.rounding': 'Round totals to',

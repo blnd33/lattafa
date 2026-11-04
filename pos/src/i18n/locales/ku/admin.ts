@@ -382,6 +382,7 @@ export const admin: Dict = {
   'settings.show_logo': 'چاپکردنی لۆگۆ',
   'settings.show_qr': 'چاپکردنی QR کۆد',
   'settings.auto_print': 'چاپکردنی خۆکار دوای فرۆش',
+  'settings.kiosk_hint': 'بۆ چاپکردن بەبێ ئەوەی وێبگەڕەکە هەر جارەی بپرسێت، جارێک وێبگەڕەکە لەگەڵ ئەم هەڵبژاردنە لە شۆرتکەتەکەیدا بکەرەوە — ئینجا پسوولەکە ڕاستەوخۆ بۆ چاپکەری بنەڕەت دەچێت:',
   'settings.currency': 'دراو',
   'settings.rate': 'نرخی دۆلار',
   'settings.rounding': 'خرکردنەوەی کۆ بۆ',

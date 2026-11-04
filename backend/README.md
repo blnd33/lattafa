@@ -123,6 +123,11 @@ got there first. Refusing takes a short reason. The public endpoint is held to 1
 run `php artisan lattafa:push-keys` once on the server, paste the two lines into `.env`, `php artisan optimize`, then
 each delegate turns it on in the delegate app under **More**. Without the keys everything simply carries on without push.
 
+**Taking the money:** **Pay** asks one question — "take this in cash and print the receipt?" — and that is the
+whole sale. **Other payment…** in that box opens the keypad for dollars, card, FIB, Zain Cash, a split, or putting it
+on a customer's account. Turn on **Settings → Receipt → print automatically** and the receipt prints itself; to stop
+the browser asking each time, start it with `--kiosk-printing` added to its shortcut (the setting explains this).
+
 **Supplier invoices:** the supplier's .xlsx (الباركود · القيمة · الحسم · السعر · الكمية · المادة, plus the shop's own
 "cost price in dinnar" and selling-price columns and the rate next to "Rate" in the title row) is uploaded as it is.
 Free pieces (الحسم = 100%) are left out, so stock counts what was bought; the name gives the size, brand (لطافة →

@@ -8,6 +8,8 @@ export const common: Dict = {
   'common.ok': 'OK',
   'common.save': 'Save',
   'common.back': 'Back',
+  'common.yes': 'Yes',
+  'common.no': 'No',
   'common.next': 'Next',
   'common.done': 'Done',
   'common.apply': 'Apply',

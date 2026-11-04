@@ -67,6 +67,9 @@ export const sell: Dict = {
   'sell.resume': 'Resume',
 
   'pay.title': 'Payment',
+  'pay.confirm_title': 'Finish the sale',
+  'pay.confirm_q': 'Take this in cash and print the receipt?',
+  'pay.other_method': 'Other payment…',
   'pay.due': 'Amount due',
   'pay.payments': 'Payments',
   'pay.none_yet': 'No payments yet',

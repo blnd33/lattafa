@@ -59,8 +59,10 @@ describe('Store POS — full scenario in the DOM', () => {
     await user.click(screen.getByRole('button', { name: 'Add Asad 100 ml' }))
     const bill = screen.getByRole('region', { name: 'Current sale' })
     expect(within(bill).getByText('Asad')).toBeInTheDocument()
+    // Pay asks once and is done — the keypad is only for anything that isn't plain cash
     await user.click(within(bill).getByRole('button', { name: /^Pay/ }))
     const pay = await screen.findByRole('dialog', {}, wait)
+    await user.click(within(pay).getByRole('button', { name: 'Other payment…' }))
     await user.click(within(pay).getByRole('button', { name: '45,000' })) // customer hands over 45,000 for a 42,000 bill
     await user.click(within(pay).getByRole('button', { name: 'Add payment' }))
     expect(within(pay).getAllByText('3,000').length).toBeGreaterThan(0) // change to give back
@@ -68,6 +70,19 @@ describe('Store POS — full scenario in the DOM', () => {
     expect(await screen.findByText('Sale completed', { selector: 'div' }, wait)).toBeInTheDocument()
     expect(await db.sales.count()).toBe(1)
     expect((await db.sales.toArray())[0].changeIQD).toBe(3000)
+    await user.click(screen.getByRole('button', { name: /New sale/ }))
+
+    /* ---------- the ordinary sale: Pay → Yes, no keypad ---------- */
+    await user.click(screen.getByRole('button', { name: 'Add Asad 100 ml' }))
+    await user.click(within(screen.getByRole('region', { name: 'Current sale' })).getByRole('button', { name: /^Pay/ }))
+    const quick = await screen.findByRole('dialog', {}, wait)
+    expect(within(quick).getByText('Take this in cash and print the receipt?')).toBeInTheDocument()
+    await user.click(within(quick).getByRole('button', { name: 'Yes' }))
+    expect(await screen.findByText('Sale completed', { selector: 'div' }, wait)).toBeInTheDocument()
+    expect(await db.sales.count()).toBe(2)
+    const quickSale = (await db.sales.toArray()).find((s) => s.changeIQD === 0)!
+    expect(quickSale.payments.map((p) => p.method)).toEqual(['cash_iqd'])   // paid in full, nothing to give back
+    expect([quickSale.paidIQD, quickSale.dueIQD]).toEqual([quickSale.totalIQD, 0])
     await user.click(screen.getByRole('button', { name: /New sale/ }))
 
     /* ---------- Super Admin creates a cashier account ---------- */

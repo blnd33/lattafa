@@ -382,6 +382,7 @@ export const admin: Dict = {
   'settings.show_logo': 'طباعة الشعار',
   'settings.show_qr': 'طباعة رمز QR',
   'settings.auto_print': 'الطباعة تلقائياً بعد كل عملية',
+  'settings.kiosk_hint': 'لطباعة الوصل دون أن يسألك المتصفح في كل مرة، شغّل المتصفح مرة واحدة مع إضافة هذا الخيار إلى الاختصار، فيذهب الوصل مباشرة إلى الطابعة الافتراضية:',
   'settings.currency': 'العملة',
   'settings.rate': 'سعر الدولار',
   'settings.rounding': 'تقريب الإجمالي إلى',

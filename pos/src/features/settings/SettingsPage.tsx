@@ -118,6 +118,13 @@ export function SettingsPage() {
                 <label key={k} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-3.5 text-sm font-medium">{t(l)}<Switch disabled={ro} checked={draft.receipt[k]} onChange={(v) => up((d) => { d.receipt[k] = v })} label={t(l)} /></label>
               ))}
             </div>
+            {/* printing with no dialog is the browser's doing, not ours — say how, where the switch is */}
+            {draft.receipt.autoPrint && (
+              <p className="rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-fg-2">
+                {t('settings.kiosk_hint')}
+                <code className="mx-1 select-all rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[11px] dark:bg-white/10" dir="ltr">--kiosk-printing</code>
+              </p>
+            )}
           </Card>
         </>
       )}
