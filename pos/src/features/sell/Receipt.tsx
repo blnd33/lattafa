@@ -28,12 +28,15 @@ export function ReceiptView({ sale, settings, lang, className }: { sale: Sale; s
   return (
     <div
       dir={dir}
-      className={cn('mx-auto bg-white p-3 font-sans text-black', narrow ? 'w-[58mm] text-[10px]' : 'w-[80mm] text-[11px]', 'leading-snug', className)}
+      className={cn('mx-auto bg-white font-sans font-semibold text-black',
+        // the side padding leaves the roll's unprintable edge alone: ~48 mm of ink on 58 mm paper, ~72 mm on 80 mm
+        narrow ? 'w-[58mm] max-w-full px-[5mm] py-[4mm] text-[11px]' : 'w-[80mm] max-w-full px-[4mm] py-[4mm] text-[12px]',
+        'leading-snug', className)}
       style={{ printColorAdjust: 'exact' }}
     >
       <div className="text-center">
         {r.showLogo && <Logo mono className="mx-auto mb-1 h-16" />}
-        <div className="font-serif text-lg font-semibold tracking-widest">{settings.store.name.toUpperCase()}</div>
+        <div className="font-serif text-xl font-bold tracking-widest">{settings.store.name.toUpperCase()}</div>
         {settings.store.tagline && <div>{settings.store.tagline}</div>}
         {settings.store.address && <div>{settings.store.address}</div>}
         {settings.store.phone && <div className="num">{settings.store.phone}</div>}
@@ -46,8 +49,8 @@ export function ReceiptView({ sale, settings, lang, className }: { sale: Sale; s
       <ul className="space-y-1.5">
         {sale.items.map((it, i) => (
           <li key={i}>
-            <div className="flex justify-between gap-2 font-semibold"><span className="min-w-0">{pick(it.name, lang)} <span className="num font-normal">{it.label}</span></span><span className="num shrink-0">{fmt(it.lineTotalIQD)}</span></div>
-            <div className="num flex justify-between text-[0.92em] opacity-80"><span>{it.qty} × {fmt(it.unitPriceIQD)}</span>{it.discountIQD > 0 && <span>−{it.discountPct}% (−{fmt(it.discountIQD)})</span>}</div>
+            <div className="flex justify-between gap-2 font-semibold"><span className="min-w-0">{pick(it.name, lang)} <span className="num">{it.label}</span></span><span className="num shrink-0">{fmt(it.lineTotalIQD)}</span></div>
+            <div className="num flex justify-between text-[0.92em]"><span>{it.qty} × {fmt(it.unitPriceIQD)}</span>{it.discountIQD > 0 && <span>−{it.discountPct}% (−{fmt(it.discountIQD)})</span>}</div>
           </li>
         ))}
       </ul>
@@ -67,11 +70,11 @@ export function ReceiptView({ sale, settings, lang, className }: { sale: Sale; s
       ))}
       {change > 0 && <Line label={tr('pay.change')} value={fmt(change)} bold />}
       {sale.dueIQD > 0 && <Line label={tr('receipt.on_account')} value={fmt(sale.dueIQD)} bold />}
-      {sale.pointsEarned > 0 && <div className="mt-1 text-center opacity-80">{tr('receipt.points_earned', { n: sale.pointsEarned })}</div>}
-      {sale.note && <div className="mt-1 opacity-80">{tr('sell.note')}: {sale.note}</div>}
+      {sale.pointsEarned > 0 && <div className="mt-1 text-center">{tr('receipt.points_earned', { n: sale.pointsEarned })}</div>}
+      {sale.note && <div className="mt-1">{tr('sell.note')}: {sale.note}</div>}
       <Hr />
       <div className="text-center">
-        <Barcode value={sale.number} height={38} className="w-full max-w-[64mm]" />
+        <Barcode value={sale.number} height={38} className="w-full" />
         {r.showQr && r.qrUrl && (
           <div className="mt-2 flex flex-col items-center gap-1">
             <QrCode value={r.qrUrl} className="size-20" />
@@ -81,16 +84,16 @@ export function ReceiptView({ sale, settings, lang, className }: { sale: Sale; s
         <div className="mt-2 space-y-0.5 font-semibold">
           {(['ar', 'ku', 'en'] as Lang[]).map((l) => r.footer[l] && <div key={l} dir={l === 'en' ? 'ltr' : 'rtl'}>{r.footer[l]}</div>)}
         </div>
-        <div className="mt-2 text-[0.8em] opacity-60" dir="ltr">Developed by Coda Agency · +964 750 730 8005</div>
+        <div className="mt-2 text-[0.85em]" dir="ltr">Developed by Coda Agency · +964 750 730 8005</div>
       </div>
       {sale.status === 'voided' && <div className="mt-2 border-2 border-black py-1 text-center text-base font-bold tracking-widest">{tr('sales.voided').toUpperCase()}</div>}
     </div>
   )
 }
 
-const Hr = () => <div className="my-2 border-t border-dashed border-black/60" />
+const Hr = () => <div className="my-2 border-t border-black" />
 function Line({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
-  return <div className={cn('flex justify-between gap-2', bold && 'font-bold', muted && 'opacity-70')}><span>{label}</span><span className="num shrink-0">{value}</span></div>
+  return <div className={cn('flex justify-between gap-2', bold && 'font-bold', muted && 'text-[0.95em]')}><span>{label}</span><span className="num shrink-0">{value}</span></div>
 }
 
 /** Send a receipt to the printer (58/80 mm roll), honouring the "copies" setting. */
