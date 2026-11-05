@@ -58,6 +58,7 @@ export const errors: Dict = {
   'err.credit_limit_exceeded': 'Credit limit exceeded (limit {limit}, currently owes {balance}).',
   'err.sale_not_voidable': 'This sale cannot be voided.',
   'err.sale_voided': 'This sale was voided.',
+  'err.sale_not_correctable': 'Only a finished sale can be corrected — not one already cancelled or returned.',
   'err.nothing_to_return': 'Choose at least one item to return.',
   'err.no_debt_to_reduce': 'This customer has no debt to reduce.',
   'err.invalid_backup': 'This is not a valid backup file.',

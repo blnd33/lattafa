@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Ban, Undo2 } from 'lucide-react'
+import { Ban, Pencil, Undo2 } from 'lucide-react'
 import { Amt } from '@/components/ui/Amt'
 import { Badge, EmptyState, PageHeader, Segmented, Spinner } from '@/components/ui/Controls'
 import { Button } from '@/components/ui/Button'
@@ -11,11 +11,13 @@ import { useT } from '@/i18n'
 import { APP } from '@/data/app'
 import type { Sale, SaleStatus } from '@/data/types'
 import { fmtDateTime } from '@/lib/date'
+import { isServer } from '@/services/mode'
 import { endOfDay, startOfDay } from '@/services/reports'
 import { keptOf, listReturns } from '@/services/returns'
+import { CorrectModal } from './CorrectModal'
 import { findSaleByNumber, listSales, voidSale } from '@/services/sales'
 import { useAction, useUsers } from '@/hooks/queries'
-import { useCan } from '@/hooks/useAuth'
+import { useActor, useCan } from '@/hooks/useAuth'
 import { useScanner } from '@/hooks/useScanner'
 import { toast } from '@/store/toast'
 import { ReceiptModal } from '@/features/sell/Receipt'
@@ -157,9 +159,11 @@ export function SaleDetail({ sale, onClose }: { sale: Sale | null; onClose: () =
   const t = useT()
   const ask = useApproval()
   const canReturn = useCan('returns.create') && APP !== 'admin'
+  const actor = useActor()
   const canVoid = useCan('sales.void')
   const [returning, setReturning] = useState(false)
   const [voiding, setVoiding] = useState(false)
+  const [correcting, setCorrecting] = useState(false)
   const [reason, setReason] = useState('')
   const run = useAction(voidSale, { success: 'sales.voided_ok' })
 
@@ -173,16 +177,18 @@ export function SaleDetail({ sale, onClose }: { sale: Sale | null; onClose: () =
   return (
     <>
       <ReceiptModal
-        sale={returning || voiding ? null : sale}
+        sale={returning || voiding || correcting ? null : sale}
         mode="view"
         onClose={onClose}
         actions={canAct && (
           <>
+            {sale.status === 'completed' && actor?.isSuperAdmin && isServer() && <Button size="lg" variant="secondary" icon={<Pencil className="size-5" />} onClick={() => setCorrecting(true)}>{t('sales.correct')}</Button>}
             {sale.status === 'completed' && <Button size="lg" variant="secondary" icon={<Ban className="size-5" />} className="text-danger" onClick={() => setVoiding(true)}>{t('sales.void')}</Button>}
             {canReturn && <Button size="lg" variant="secondary" icon={<Undo2 className="size-5" />} onClick={() => setReturning(true)}>{t('ret.title')}</Button>}
           </>
         )}
       />
+      {correcting && <CorrectModal sale={sale} onClose={() => setCorrecting(false)} onDone={() => { setCorrecting(false); onClose() }} />}
       {returning && <ReturnModal sale={sale} onClose={() => setReturning(false)} onDone={onClose} />}
       <Modal open={voiding} onClose={() => setVoiding(false)} title={`${t('sales.void')} · ${sale.number}`} size="sm" footer={<Button size="lg" variant="danger" block icon={<Ban className="size-5" />} loading={run.busy} disabled={!reason.trim()} onClick={doVoid}>{t('sales.void_confirm')}</Button>}>
         <div className="space-y-3">

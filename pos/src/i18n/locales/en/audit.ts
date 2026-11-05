@@ -11,6 +11,7 @@ export const audit: Record<string, string> = {
   'act.device.restore': 'Till/phone allowed again',
   'act.sale.create': 'Sale',
   'act.sale.void': 'Sale cancelled',
+  'act.sale.correct': 'Sale corrected',
   'act.delegate.prices': 'Delegate dollar prices changed',
   'act.delegate.product_added': 'Perfume added by the delegate',
   'act.order.placed': 'Order from a shop',

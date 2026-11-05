@@ -144,7 +144,7 @@ final class Present
             'exchangeRate' => $s->exchange_rate, 'note' => $s->note, 'approvedBy' => $s->approved_by, 'deviceId' => $s->device_id, 'createdAt' => $s->sold_at,
             'voidedAt' => $s->voided_at, 'voidReason' => $s->void_reason, 'flags' => $s->flags ?? [], 'needsReview' => $s->needs_review,
             'reviewedAt' => $s->reviewed_at, 'reviewedBy' => $s->reviewed_by, 'reviewNote' => $s->review_note ?? '',
-            'currency' => $s->currency ?? 'IQD', 'lat' => $s->lat !== null ? (float) $s->lat : null, 'lng' => $s->lng !== null ? (float) $s->lng : null,
+            'correctsSaleId' => $s->corrects_sale_id, 'correctedBySaleId' => $s->corrected_by_sale_id, 'currency' => $s->currency ?? 'IQD', 'lat' => $s->lat !== null ? (float) $s->lat : null, 'lng' => $s->lng !== null ? (float) $s->lng : null,
             'accuracyM' => $s->accuracy_m !== null ? (int) $s->accuracy_m : null,
         ];
     }

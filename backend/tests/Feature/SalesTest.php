@@ -40,6 +40,55 @@ class SalesTest extends ApiTestCase
         $this->assertSame([], $sale['flags']);
     }
 
+    public function test_the_super_admin_corrects_a_slip_and_the_stock_and_takings_follow(): void
+    {
+        $this->shop();
+        $v = $this->variantOf('Khamrah'); // 100 ml · 45,000 · 14 in stock
+        $this->cashierWithShift();
+        // the cashier rings three bottles by mistake; only one was sold
+        $wrong = $this->checkout($v, 3, $this->cash(135000))->assertCreated()->json('sale');
+        $this->assertSame([135000, 11], [$wrong['totalIQD'], $this->stockOf($v)]);
+
+        // a cashier may not correct it
+        $this->api('POST', "sales/{$wrong['id']}/correct", ['reason' => 'rang 3', 'lines' => [['index' => 0, 'qty' => 1]]])->assertStatus(403);
+
+        $this->asOwner();
+        $fixed = $this->api('POST', "sales/{$wrong['id']}/correct", ['reason' => 'rang 3 bottles, sold 1', 'lines' => [['index' => 0, 'qty' => 1]]])
+            ->assertOk()->json('sale');
+
+        // the corrected bill stands on its own, and the two point at each other
+        $this->assertSame([45000, 45000, 'completed', 1], [$fixed['totalIQD'], $fixed['paidIQD'], $fixed['status'], $fixed['items'][0]['qty']]);
+        $this->assertSame($wrong['id'], $fixed['correctsSaleId']);
+        $old = $this->api('GET', "sales/{$wrong['id']}")->json('sale');
+        $this->assertSame(['voided', $fixed['id']], [$old['status'], $old['correctedBySaleId']]);
+
+        // two bottles went back on the shelf, and the day's takings are the corrected sum
+        $this->assertSame(13, $this->stockOf($v));
+        $report = $this->api('GET', 'reports/sales?from=0&to='.(time() + 86400) * 1000)->assertOk()->json('report');
+        $this->assertSame(45000, $report['revenueIQD']);
+    }
+
+    public function test_a_correction_may_change_the_price_and_cannot_touch_a_returned_bill(): void
+    {
+        $this->shop();
+        $v = $this->variantOf('Khamrah');
+        $this->cashierWithShift();
+        $sale = $this->checkout($v, 2, $this->cash(90000))->assertCreated()->json('sale');
+
+        $this->asOwner();
+        // the price was typed wrong: 45,000 should have been 40,000 a bottle
+        $fixed = $this->api('POST', "sales/{$sale['id']}/correct", ['reason' => 'price typed wrong', 'lines' => [['index' => 0, 'qty' => 2, 'unitPriceIQD' => 40000]]])
+            ->assertOk()->json('sale');
+        $this->assertSame([80000, 40000], [$fixed['totalIQD'], $fixed['items'][0]['unitPriceIQD']]);
+        $this->assertSame(12, $this->stockOf($v)); // still two bottles out of the shop, not four
+
+        // the corrected bill is a normal bill: correcting it again is fine, but a cancelled one is not
+        $this->api('POST', "sales/{$sale['id']}/correct", ['reason' => 'again', 'lines' => [['index' => 0, 'qty' => 1]]])
+            ->assertStatus(422)->assertJsonPath('error.code', 'sale_not_correctable');
+        // and a reason is always required
+        $this->api('POST', "sales/{$fixed['id']}/correct", ['reason' => '', 'lines' => [['index' => 0, 'qty' => 1]]])->assertStatus(422);
+    }
+
     public function test_receipt_numbers_are_sequential_per_till(): void
     {
         $this->shop();

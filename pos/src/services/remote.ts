@@ -338,6 +338,14 @@ export async function fetchSale(idOrNumber: string): Promise<Sale | undefined> {
 }
 
 /** Void through the server (it re-checks the approval). Used once the sale has reached the server. */
+/** The Super Admin correcting a slip: the server cancels the bill and writes it again with the right figures. */
+export async function correctSale(saleId: string, lines: { index: number; qty: number; unitPriceIQD?: number }[], reason: string): Promise<Sale> {
+  const s = (await api<{ sale: Sale }>('POST', `/sales/${saleId}/correct`, { reason, lines })).sale
+  await cacheServerSale(s)
+  await pullNow() // stock, the customer's balance and the day's figures all moved
+  return s
+}
+
 export async function voidSale(saleId: string, reason: string, approvedById: string | null): Promise<Sale> {
   const s = (await api<{ sale: Sale }>('POST', `/sales/${saleId}/void`, { reason, approvedBy: approvedById ? { id: approvedById } : undefined })).sale
   await cacheServerSale(s)

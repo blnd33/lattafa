@@ -123,6 +123,13 @@ got there first. Refusing takes a short reason. The public endpoint is held to 1
 run `php artisan lattafa:push-keys` once on the server, paste the two lines into `.env`, `php artisan optimize`, then
 each delegate turns it on in the delegate app under **More**. Without the keys everything simply carries on without push.
 
+**A cashier's mistake:** open the sale in **Sales**. **Void** cancels it outright (stock back, the customer's
+debt and points undone). **Correct** — Super Admin only, and only with the server — changes the quantities or the
+prices, or takes a line off: the bill is cancelled and written again with the right figures, so stock, the customer's
+balance and the day's takings all follow. No money is moved by a correction (it is for a bill rung up wrong, where the
+right amount was handed over); use **Refund** when the customer is owed money back. The two bills point at each other
+and the reason is kept, so the trail stays intact.
+
 **Taking the money:** **Pay** asks one question — "take this in cash and print the receipt?" — and that is the
 whole sale. **Other payment…** in that box opens the keypad for dollars, card, FIB, Zain Cash, a split, or putting it
 on a customer's account. Turn on **Settings → Receipt → print automatically** and the receipt prints itself; to stop

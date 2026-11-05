@@ -52,6 +52,21 @@ class SaleController extends Controller
         return response()->json(['sale' => Present::sale($sale, $this->cost($r))]);
     }
 
+    /** Correct a cashier's slip — Super Admin only. The bill is cancelled and written again with the right figures. */
+    public function correct(Request $r, string $id): JsonResponse
+    {
+        $d = $r->validate([
+            'reason' => ['required', 'string', 'max:255'],
+            'lines' => ['required', 'array', 'min:1', 'max:200'],
+            'lines.*.index' => ['required', 'integer', 'min:0'],
+            'lines.*.qty' => ['required', 'integer', 'min:0', 'max:100000'],
+            'lines.*.unitPriceIQD' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
+        ]);
+        $sale = $this->sales->correct($r->user(), $id, $d['lines'], $d['reason'], $r->attributes->get('device'));
+
+        return response()->json(['sale' => Present::sale($sale, $this->cost($r))]);
+    }
+
     /** Mark a flagged sale as checked (it leaves the review list; the flags stay on it). */
     public function reviewed(Request $r, string $id): JsonResponse
     {

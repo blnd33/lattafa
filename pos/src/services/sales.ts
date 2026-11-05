@@ -286,3 +286,16 @@ export async function findSaleByNumber(number: string): Promise<Sale | undefined
   return s
 }
 
+
+/**
+ * Correcting a cashier's slip — Super Admin only, and only with the shop server: the bill is cancelled and written
+ * again with the right quantities and prices, so stock, the customer's balance and the day's takings all follow.
+ * No money is moved; this is for a bill rung up wrong, where the right amount was handed over at the counter.
+ */
+export async function correctSale(saleId: string, lines: { index: number; qty: number; unitPriceIQD?: number }[], reason: string): Promise<Sale> {
+  const actor = requireActor()
+  if (!actor.isSuperAdmin) throw new AppError('forbidden', { permission: 'sales.correct' })
+  if (!reason.trim()) throw new AppError('required_fields')
+  if (!isServer()) throw new AppError('needs_server')
+  return await remote.correctSale(saleId, lines, reason.trim())
+}

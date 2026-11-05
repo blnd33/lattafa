@@ -478,6 +478,113 @@ class SaleService
         return $sale->fresh(['items', 'payments']);
     }
 
+    /**
+     * Correcting a cashier's slip — Super Admin only.
+     *
+     * The bill is cancelled and written again with the corrected quantities and prices, which is how the stock, the
+     * customer's balance, their points and the day's takings all end up right: both halves run through the same
+     * cancel and sell paths the till uses, inside one transaction, so nothing can be left half-done. The old bill
+     * stays, cancelled and pointing at the new one, so the trail is intact.
+     *
+     * The money is not moved: this is for a bill rung up wrong, where the customer handed over the right amount.
+     * The corrected bill is recorded as paid by the same methods, and a sale on account owes the corrected sum.
+     *
+     * @param array<int, array{index: int, qty: int, unitPriceIQD?: int}> $lines  by position in the original
+     */
+    public function correct(User $actor, string $saleId, array $lines, string $reason, ?Device $device): Sale
+    {
+        if (! $actor->isSuperAdmin()) {
+            throw AppException::forbidden('sales.correct');
+        }
+        if (trim($reason) === '') {
+            throw new AppException('required_fields');
+        }
+        $cfg = $this->settings->get();
+
+        return DB::transaction(function () use ($actor, $saleId, $lines, $reason, $device, $cfg) {
+            $old = Sale::with(['items', 'payments'])->lockForUpdate()->find($saleId) ?? throw AppException::notFound();
+            if ($old->status !== 'completed') {
+                // a bill with goods already given back, or already cancelled, is not a simple slip of the keyboard
+                throw new AppException('sale_not_correctable');
+            }
+            $byIndex = [];
+            foreach ($lines as $l) {
+                $byIndex[(int) ($l['index'] ?? -1)] = $l;
+            }
+            $items = [];
+            foreach ($old->items->values() as $i => $it) {
+                $l = $byIndex[$i] ?? ['qty' => $it->qty];
+                $qty = max(0, (int) ($l['qty'] ?? 0));
+                if ($qty === 0) {
+                    continue; // the line comes off the bill
+                }
+                $unit = isset($l['unitPriceIQD']) ? max(0, (int) $l['unitPriceIQD']) : $it->unit_price_iqd;
+                $items[] = ['item' => $it, 'qty' => $qty, 'unit' => $unit, 'pct' => $it->discount_pct];
+            }
+            if (! $items) {
+                throw new AppException('cart_empty');
+            }
+
+            $priced = Pricing::priceCart([
+                'lines' => array_map(fn ($x, $i) => ['key' => (string) $i, 'unitPriceIQD' => $x['unit'], 'qty' => $x['qty'], 'discountPct' => $x['pct']], $items, array_keys($items)),
+                'orderDiscount' => $old->order_discount,
+                'giftWrapIQD' => $old->gift_wrap_iqd,
+                'rounding' => $cfg['currency']['rounding'],
+                'taxPct' => 0,
+            ]);
+            $total = $priced['total'];
+
+            $saleItems = [];
+            foreach ($items as $i => $x) {
+                $pl = $priced['lines'][$i];
+                $it = $x['item'];
+                $saleItems[] = [
+                    'variant_id' => $it->variant_id, 'product_id' => $it->product_id, 'name' => $it->name, 'brand' => $it->brand, 'label' => $it->label,
+                    'sku' => $it->sku, 'barcode' => $it->barcode, 'qty' => $x['qty'], 'unit_price_iqd' => $x['unit'], 'unit_cost_iqd' => $it->unit_cost_iqd,
+                    'discount_pct' => $x['pct'], 'discount_iqd' => $pl['discount'], 'line_total_iqd' => $pl['net'],
+                ];
+            }
+
+            // paid the same way as before, for the corrected sum (the till took the right money at the counter)
+            $wasOnAccount = $old->due_iqd > 0;
+            $method = $old->payments->first(fn ($p) => $p->method !== 'debt')?->method ?? 'cash_iqd';
+            $payments = $wasOnAccount
+                ? [['method' => 'debt', 'tendered' => $total, 'amount_iqd' => $total, 'currency' => 'IQD', 'rate' => $old->exchange_rate, 'reference' => '']]
+                : [['method' => $method, 'tendered' => $total, 'amount_iqd' => $total, 'currency' => 'IQD', 'rate' => $old->exchange_rate, 'reference' => '']];
+
+            $customer = $old->customer_id ? Customer::lockForUpdate()->find($old->customer_id) : null;
+            $earned = $customer && $cfg['loyalty']['enabled'] ? Pricing::pointsEarned($total, $cfg['loyalty']['pointsPer1000IQD']) : 0;
+
+            // 1. undo the old bill in full (stock back, balance and points reversed)
+            $this->applyVoid($old, $reason, $actor, null);
+            $old->update(['void_reason' => $reason]);
+
+            // 2. write it again, corrected
+            $fresh = $this->persist($actor, [
+                'id' => (string) Str::uuid7(),
+                'number' => $this->nextNumber('sale', $device),
+                'shift_id' => $old->shift_id, 'customer' => $customer, 'items' => $saleItems, 'payments' => $payments,
+                'change' => 0, 'due' => $wasOnAccount ? $total : 0,
+                'points_earned' => $earned, 'points_redeemed' => 0, 'rate' => $old->exchange_rate,
+                'note' => trim($old->note), 'approved_by' => null, 'device_id' => $device?->id, 'sold_at' => $old->sold_at,
+                'totals' => [
+                    'subtotal_iqd' => $priced['subtotal'], 'item_discount_iqd' => $priced['itemDiscount'], 'order_discount_iqd' => $priced['orderDiscount'],
+                    'order_discount' => $old->order_discount, 'gift_wrap_iqd' => $priced['giftWrap'], 'tax_iqd' => $priced['tax'],
+                    'rounding_iqd' => $priced['rounding'], 'points_redeemed_iqd' => 0, 'total_iqd' => $total,
+                ],
+                'flags' => [],
+            ], allowNegativeStock: true);
+
+            $fresh->update(['corrects_sale_id' => $old->id, 'channel' => $old->channel]);
+            $old->update(['corrected_by_sale_id' => $fresh->id]);
+            $this->audit->log($actor, 'sale.correct', 'sale', $fresh->id, [
+                'was' => $old->number, 'now' => $fresh->number, 'from' => $old->total_iqd, 'to' => $total, 'reason' => $reason,
+            ], $device?->id);
+
+            return $fresh->fresh(['items', 'payments']);
+        });
+    }
+
     /** The approver must be an active user who really holds the permission (never trust the client's word). */
     public function verifyApprover(string $userId, string $permission): User
     {

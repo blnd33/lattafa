@@ -128,6 +128,7 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::get('sales/review', [SaleController::class, 'review']);
     Route::get('sales/{id}', [SaleController::class, 'show'])->where('id', '[A-Za-z0-9._-]{1,64}'); // a sale id OR its receipt number (scanned barcode)
     Route::post('sales/{id}/void', [SaleController::class, 'void']);
+    Route::post('sales/{id}/correct', [SaleController::class, 'correct']);
     Route::post('sales/{id}/reviewed', [SaleController::class, 'reviewed'])->whereUuid('id');
     Route::post('returns', [SaleController::class, 'createReturn']);
     Route::get('returns', [SaleController::class, 'returns']);
