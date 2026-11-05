@@ -43,6 +43,14 @@ export function returnableQty(sale: Sale, index: number): number {
   return it.qty - it.returnedQty
 }
 
+/** What has been handed back on this bill — the same sum the refund itself paid out, so the two always agree. */
+export const refundedOf = (sale: Sale): number =>
+  sale.items.reduce((a, it, i) => a + it.returnedQty * unitRefund(sale, i), 0)
+
+/** What the shop actually kept: nothing for a cancelled bill, the rest less whatever went back. */
+export const keptOf = (sale: Sale): number =>
+  sale.status === 'voided' ? 0 : Math.max(0, sale.totalIQD - refundedOf(sale))
+
 export async function createReturn(input: {
   saleId: string
   lines: ReturnLineInput[]

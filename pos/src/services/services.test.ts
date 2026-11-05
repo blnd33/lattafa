@@ -6,7 +6,7 @@ import { saveUser, saveRole, deleteUser, listUsers, resetCredentials } from './u
 import { findByBarcode, listCatalog, saveProduct } from './catalog'
 import { exportCatalogCsv, importCatalog, previewImport } from './csv'
 import { completeSale, voidSale, listSales } from './sales'
-import { createReturn, unitRefund } from './returns'
+import { createReturn, keptOf, refundedOf, unitRefund } from './returns'
 import { openShift, closeShift, computeShiftTotals } from './shifts'
 import { stockMap, adjustStock, applyStockCount, markTester } from './stock'
 import { collectPayment } from './customers'
@@ -303,6 +303,28 @@ describe('selling', () => {
     expect(r2.refundIQD).toBe(90000)
     expect((await db.sales.get(big.id))!.status).toBe('returned')
     await expectCode(createReturn({ saleId: big.id, lines: [{ saleItemIndex: 0, qty: 1, restock: true, reason: '' }], refundMethod: 'cash_iqd', note: '' }), 'invalid_quantity')
+  })
+
+  it('a refunded bill counts only what the shop kept', async () => {
+    await openShift({ openingIQD: 0, openingUSD: 0 })
+    const v = await pick('Khamrah')
+    const sale = await completeSale({ lines: [{ variantId: v.id, qty: 2, discountPct: 10 }], customerId: null, orderDiscount: null, giftWrap: false, redeemPoints: 0, payments: [{ method: 'cash_iqd', tendered: 81000 }], note: '' })
+    expect([refundedOf(sale), keptOf(sale)]).toEqual([0, 81000])
+
+    // one of the two bottles comes back: half the money went out, half stayed
+    await createReturn({ saleId: sale.id, lines: [{ saleItemIndex: 0, qty: 1, restock: true, reason: '' }], refundMethod: 'cash_iqd', note: '' })
+    const after = (await db.sales.get(sale.id))!
+    expect([refundedOf(after), keptOf(after)]).toEqual([40500, 40500])
+
+    // the other one too: nothing stayed
+    await createReturn({ saleId: sale.id, lines: [{ saleItemIndex: 0, qty: 1, restock: true, reason: '' }], refundMethod: 'cash_iqd', note: '' })
+    const all = (await db.sales.get(sale.id))!
+    expect([all.status, refundedOf(all), keptOf(all)]).toEqual(['returned', 81000, 0])
+
+    // a cancelled bill is nothing at all, whatever it said before
+    const other = await completeSale({ lines: [{ variantId: v.id, qty: 1, discountPct: 0 }], customerId: null, orderDiscount: null, giftWrap: false, redeemPoints: 0, payments: [{ method: 'cash_iqd', tendered: 45000 }], note: '' })
+    await voidSale(other.id, 'rang up twice')
+    expect(keptOf((await db.sales.get(other.id))!)).toBe(0)
   })
 
   it('void: cashier needs approval; stock and debt are restored', async () => {

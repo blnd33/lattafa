@@ -12,7 +12,7 @@ import { APP } from '@/data/app'
 import type { Sale, SaleStatus } from '@/data/types'
 import { fmtDateTime } from '@/lib/date'
 import { endOfDay, startOfDay } from '@/services/reports'
-import { listReturns } from '@/services/returns'
+import { keptOf, listReturns } from '@/services/returns'
 import { findSaleByNumber, listSales, voidSale } from '@/services/sales'
 import { useAction, useUsers } from '@/hooks/queries'
 import { useCan } from '@/hooks/useAuth'
@@ -25,6 +25,21 @@ type Range = 'today' | '7d' | '30d' | 'all'
 const DAY = 86_400_000
 
 const STATUS_TONE: Record<SaleStatus, 'ok' | 'danger' | 'warn' | 'neutral'> = { completed: 'ok', voided: 'danger', partially_returned: 'warn', returned: 'neutral' }
+
+/**
+ * What this bill came to, and what the shop was left with. A refunded or cancelled bill shows the old figure struck
+ * through, so a glance at the list says how much really stayed in the till.
+ */
+function Kept({ sale }: { sale: Sale }) {
+  const kept = keptOf(sale)
+  if (kept === sale.totalIQD) return <Amt n={kept} className="font-semibold" />
+  return (
+    <span className="flex flex-col items-end leading-tight">
+      <Amt n={kept} className="font-semibold" />
+      <Amt n={sale.totalIQD} className="text-xs text-fg-2 line-through" />
+    </span>
+  )
+}
 
 export function SalesPage() {
   const t = useT()
@@ -79,7 +94,7 @@ export function SalesPage() {
             <>
               <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-fg-2">
                 <Badge tone="gold"><span className="num">{sales.length}</span> {t('sales.count')}</Badge>
-                <span>{t('sales.sum')}: <Amt n={sales.filter((s) => s.status !== 'voided').reduce((a, s) => a + s.totalIQD, 0)} className="font-semibold text-fg" /></span>
+                <span>{t('sales.sum')}: <Amt n={sales.reduce((a, s) => a + keptOf(s), 0)} className="font-semibold text-fg" /></span>
               </div>
               {/* table ≥ md */}
               <div className="hidden overflow-hidden rounded-2xl border border-line bg-surface md:block">
@@ -94,7 +109,7 @@ export function SalesPage() {
                         <td className="num px-4 py-3 text-fg-2">{fmtDateTime(s.createdAt)}</td>
                         <td className="px-4 py-3">{s.userName}</td>
                         <td className="px-4 py-3 text-fg-2">{s.customerName || t('sell.walk_in')}</td>
-                        <td className="px-4 py-3 text-end"><Amt n={s.totalIQD} className="font-semibold" /></td>
+                        <td className="px-4 py-3 text-end"><Kept sale={s} /></td>
                         <td className="px-4 py-3"><Badge tone={STATUS_TONE[s.status]}>{t(`sales.status_${s.status}`)}</Badge></td>
                       </tr>
                     ))}
@@ -111,7 +126,7 @@ export function SalesPage() {
                         <div className="num truncate text-xs text-fg-2">{fmtDateTime(s.createdAt)}</div>
                         <div className="truncate text-xs text-fg-2">{s.userName} · {s.customerName || t('sell.walk_in')}</div>
                       </div>
-                      <div className="flex flex-col items-end gap-1"><Amt n={s.totalIQD} className="font-bold" /><Badge tone={STATUS_TONE[s.status]}>{t(`sales.status_${s.status}`)}</Badge></div>
+                      <div className="flex flex-col items-end gap-1"><Kept sale={s} /><Badge tone={STATUS_TONE[s.status]}>{t(`sales.status_${s.status}`)}</Badge></div>
                     </button>
                   </li>
                 ))}
