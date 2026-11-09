@@ -213,7 +213,7 @@ function Drawer({ open, onClose, items }: { open: boolean; onClose: () => void; 
   return (
     <div className="fixed inset-0 z-40 flex" role="dialog" aria-modal="true" aria-label={t('ap.title')}>
       <button type="button" aria-label={t('common.close')} className="absolute inset-0 bg-overlay" onClick={onClose} />
-      <aside className="relative flex w-72 max-w-[85%] flex-col bg-ink px-3 py-3 pt-safe text-white">
+      <aside className="relative flex w-72 max-w-[85%] flex-col bg-ink px-3 text-white pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] ps-[max(0.75rem,env(safe-area-inset-left))]">
         <div className="flex items-start justify-between">
           <SideBrand />
           <button type="button" onClick={onClose} aria-label={t('common.close')} className="grid size-11 place-items-center rounded-xl text-[#cfc5b4] hover:bg-white/10"><X className="size-5" /></button>
@@ -236,28 +236,31 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh bg-bg text-fg">
       {device !== 'phone' && (
-        <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white ps-safe', compact ? 'w-[5.25rem] px-2' : 'w-64 px-3')}>
+        <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white', compact ? 'w-[5.25rem] px-2 ps-[max(0.5rem,env(safe-area-inset-left))]' : 'w-64 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]')}>
           <SideBrand compact={compact} />
           <NavItems items={items} compact={compact} />
           <AppLinks compact={compact} />
         </aside>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line bg-surface px-3 pt-safe md:gap-3 md:px-6">
-          {device === 'phone' && (
-            <>
-              <button type="button" onClick={() => setDrawer(true)} aria-label={t('nav.more')} className="grid size-11 place-items-center rounded-xl bg-surface-2"><MenuIcon className="size-5" /></button>
-              <Logo className="h-9" />
-            </>
-          )}
-          <div className="flex-1" />
-          {device !== 'phone' && <LangSwitch />}
-          {device !== 'phone' && <ThemeToggle />}
-          <UserMenu />
+        {/* the inset is padding outside the 4 rem row, so the bar's colour reaches the status bar but its contents don't */}
+        <header className="shrink-0 border-b border-line bg-surface pt-safe ps-safe pe-safe">
+          <div className="flex h-16 items-center gap-2 px-3 md:gap-3 md:px-6">
+            {device === 'phone' && (
+              <>
+                <button type="button" onClick={() => setDrawer(true)} aria-label={t('nav.more')} className="grid size-11 place-items-center rounded-xl bg-surface-2"><MenuIcon className="size-5" /></button>
+                <Logo className="h-9" />
+              </>
+            )}
+            <div className="flex-1" />
+            {device !== 'phone' && <LangSwitch />}
+            {device !== 'phone' && <ThemeToggle />}
+            <UserMenu />
+          </div>
         </header>
         <main id="main" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {children}
-          <Credit className="px-4 pb-5 pt-2 pb-safe" />
+          <Credit className="px-4 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))]" />
         </main>
       </div>
       {device === 'phone' && <Drawer open={drawer} onClose={() => setDrawer(false)} items={items} />}

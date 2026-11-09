@@ -50,7 +50,7 @@ export function SignIn() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex justify-end gap-2 p-4 pt-safe">
+        <div className="flex justify-end gap-2 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <LangSwitch />
           <ThemeToggle />
         </div>
@@ -73,7 +73,7 @@ export function SignIn() {
             </Button>
           </form>
         </main>
-        <Credit className="px-4 pb-4 pb-safe" />
+        <Credit className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))]" />
       </div>
     </div>
   )

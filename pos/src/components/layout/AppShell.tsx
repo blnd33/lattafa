@@ -43,7 +43,7 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
     </NavLink>
   )
   return (
-    <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white ps-safe', expanded ? 'w-60 px-3' : 'w-[5.25rem] px-2')}>
+    <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white', expanded ? 'w-60 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]' : 'w-[5.25rem] px-2 ps-[max(0.5rem,env(safe-area-inset-left))]')}>
       <div className={cn('mb-3 flex items-center gap-2.5 px-1', !expanded && 'justify-center')}>
         <Logo className="h-11" />
         {expanded && <span className="font-serif text-xl font-semibold tracking-wide text-gold-light">Lattafa</span>}
@@ -76,20 +76,24 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
 function TopBar() {
   const device = useDevice()
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line bg-surface px-3 pt-safe md:gap-3 md:px-5">
-      {device === 'phone' && (
-        <span className="flex items-center gap-2">
-          <Logo className="h-9" />
-          <span className="font-serif text-xl font-semibold">Lattafa</span>
-        </span>
-      )}
-      <div className="flex-1" />
-      <ShiftChip compact={device !== 'desktop'} />
-      <SyncChip compact={device !== 'desktop'} />
-      <RateChip />
-      {device !== 'phone' && <LangSwitch />}
-      {device !== 'phone' && <ThemeToggle />}
-      <UserMenu />
+    // the bar's colour runs up under the phone's status bar, but its contents stay below it:
+    // the inset is padding on the outside, the 4 rem row lives in its own box inside
+    <header className="shrink-0 border-b border-line bg-surface pt-safe ps-safe pe-safe">
+      <div className="flex h-16 items-center gap-2 px-3 md:gap-3 md:px-5">
+        {device === 'phone' && (
+          <span className="flex items-center gap-2">
+            <Logo className="h-9" />
+            <span className="font-serif text-xl font-semibold">Lattafa</span>
+          </span>
+        )}
+        <div className="flex-1" />
+        <ShiftChip compact={device !== 'desktop'} />
+        <SyncChip compact={device !== 'desktop'} />
+        <RateChip />
+        {device !== 'phone' && <LangSwitch />}
+        {device !== 'phone' && <ThemeToggle />}
+        <UserMenu />
+      </div>
     </header>
   )
 }
@@ -105,7 +109,7 @@ function BottomNav({ items }: { items: NavItem[] }) {
   const restActive = rest.some((r) => loc.pathname.startsWith(r.to))
   return (
     <>
-      <nav className="grid shrink-0 border-t border-line bg-surface pb-safe" style={{ gridTemplateColumns: `repeat(${bottom.length + 1}, minmax(0, 1fr))` }} aria-label="Main">
+      <nav className="grid shrink-0 border-t border-line bg-surface pb-safe ps-safe pe-safe" style={{ gridTemplateColumns: `repeat(${bottom.length + 1}, minmax(0, 1fr))` }} aria-label="Main">
         {bottom.map((n) => (
           <NavLink key={n.to} to={n.to} className={({ isActive }) => cn('flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition', isActive ? 'text-gold-text' : 'text-fg-2')}>
             {({ isActive }) => (

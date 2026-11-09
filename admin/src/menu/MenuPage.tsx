@@ -92,7 +92,7 @@ function Editor({ fresh }: { fresh: MenuManage }) {
         </div>
       </div>
       {dirty && (
-        <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface/95 px-4 py-3 pb-safe backdrop-blur md:-mx-6 md:px-6" role="region" aria-label={t('mn.unsaved')}>
+        <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:-mx-6 md:px-6" role="region" aria-label={t('mn.unsaved')}>
           <p className="text-sm font-medium">{t('mn.changes')}</p>
           <div className="flex gap-2">
             <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={undo}>{t('mn.undo')}</Button>

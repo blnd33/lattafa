@@ -140,6 +140,18 @@
   unicode-bidi: isolate;
 }
 @utility scroll-hide { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+/*
+ * The strip the phone keeps for itself: the status bar / notch at the top, the home
+ * indicator at the bottom, the rounded corners at the sides.
+ *
+ * These REPLACE the padding on their side — they are declared last, so `px-3 ps-safe`
+ * is a start padding of 0 on every device that reports no inset (all desktops, every
+ * phone in portrait). Put them on a bare wrapper whose child carries the real padding,
+ * or, when one element must do both, ask for a minimum instead:
+ *     pb-[max(0.75rem,env(safe-area-inset-bottom))]
+ * Never put one on a fixed-height box either: the height includes the padding, so
+ * `h-16 pt-safe` leaves a 5 px row and the contents spill out of the bar.
+ */
 @utility pt-safe { padding-top: env(safe-area-inset-top); }
 @utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 @utility ps-safe { padding-inline-start: env(safe-area-inset-left); }

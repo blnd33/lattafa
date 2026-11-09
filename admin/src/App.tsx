@@ -101,7 +101,7 @@ function Centered({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-fg">
       <main className="grid flex-1 place-items-center p-6">{children}</main>
-      <Credit className="pb-4 pb-safe" />
+      <Credit className="pb-[max(1rem,env(safe-area-inset-bottom))]" />
     </div>
   )
 }
