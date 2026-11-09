@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { hasPerm } from '@/lib/permissions'
 import { useSession } from '@/store/session'
 import { refreshActor } from '@/services/auth'
-import { getSettings } from '@/services/settings'
+import { useSettings } from './queries'
 
 export function useActor() {
   return useSession((s) => s.actor)
@@ -43,22 +43,29 @@ export function useBootSession(ready: boolean) {
   }, [ready])
 }
 
-/** Locks the screen after N minutes without interaction (setting: security.autoLockMinutes). */
+/**
+ * Asks for the PIN again after a stretch with nobody touching the till
+ * (Settings → Security → "Ask for the PIN again after"; "Never" switches it off).
+ *
+ * The setting is read through the query, not once at start-up, so changing it in the
+ * admin panel reaches a till that is already open — on its next sync, without a reload.
+ */
 export function useAutoLock() {
   const actor = useSession((s) => s.actor)
   const locked = useSession((s) => s.locked)
   const lock = useSession((s) => s.lock)
+  const { data: settings } = useSettings()
+  // until the settings are in, lock nothing: a till must never lock on a guessed figure
+  const minutes = settings?.security.autoLockMinutes ?? 0
   useEffect(() => {
-    if (!actor || locked) return
-    let minutes = 10
-    let timer: ReturnType<typeof setInterval> | undefined
-    void getSettings().then((s) => { minutes = s.security.autoLockMinutes })
+    if (!actor || locked || minutes <= 0) return
     const bump = () => useSession.getState().touch()
-    const evts: (keyof WindowEventMap)[] = ['pointerdown', 'keydown', 'touchstart']
+    // a wheel counts as well: at a desktop till, scrolling a long list is someone working
+    const evts: (keyof WindowEventMap)[] = ['pointerdown', 'keydown', 'touchstart', 'wheel']
     evts.forEach((e) => window.addEventListener(e, bump, { passive: true }))
-    timer = setInterval(() => {
-      if (minutes > 0 && Date.now() - useSession.getState().lastActivity > minutes * 60_000) lock()
+    const timer = setInterval(() => {
+      if (Date.now() - useSession.getState().lastActivity > minutes * 60_000) lock()
     }, 15_000)
-    return () => { evts.forEach((e) => window.removeEventListener(e, bump)); if (timer) clearInterval(timer) }
-  }, [actor, locked, lock])
+    return () => { evts.forEach((e) => window.removeEventListener(e, bump)); clearInterval(timer) }
+  }, [actor, locked, lock, minutes])
 }

@@ -28,7 +28,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tax: { pct: 0 },
   loyalty: { enabled: true, pointsPer1000IQD: 1, pointValueIQD: 10 },
   sales: { requireShift: false, allowNegativeStock: false, giftWrapFeeIQD: 2000, defaultCustomerCreditIQD: 0, returnWindowDays: 14 },
-  security: { autoLockMinutes: 10, maxFailedAttempts: 5, lockoutSeconds: 60 },
+  // 30 minutes: long enough that serving one customer never locks the till mid-sale
+  security: { autoLockMinutes: 30, maxFailedAttempts: 5, lockoutSeconds: 60 },
   device: { id: '', code: 'ST1', name: 'Counter 1', locationId: STORE_LOCATION_ID },
   sync: { mode: 'local', serverUrl: '', lastPullAt: 0 },
 }

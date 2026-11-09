@@ -23,6 +23,9 @@ type Tab = 'store' | 'money' | 'rules' | 'security' | 'data'
 
 const clone = <T,>(x: T): T => structuredClone(x)
 
+/** How long the till may sit untouched. 0 is "never"; whatever the shop already had stays on the list. */
+const lockChoices = (current: number): number[] => [...new Set([0, 5, 10, 15, 30, 60, Math.max(0, Math.round(current))])].sort((a, b) => a - b)
+
 /** A fake sale used to preview / test-print the receipt layout. */
 function sampleSale(s: AppSettings): Sale {
   return {
@@ -160,7 +163,7 @@ export function SettingsPage() {
       {tab === 'security' && (
         <Card className="grid gap-4 sm:grid-cols-3">
           <h2 className="font-semibold sm:col-span-3">{t('settings.security')}</h2>
-          <Field label={t('settings.auto_lock')} hint={t('settings.auto_lock_hint')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.security.autoLockMinutes} onChange={(e) => up((d) => { d.security.autoLockMinutes = Math.round(parseAmount(e.target.value)) })} />}</Field>
+          <Field label={t('settings.auto_lock')} hint={t('settings.auto_lock_hint')}>{(i) => <Select id={i} disabled={ro} value={String(draft.security.autoLockMinutes)} onChange={(e) => up((d) => { d.security.autoLockMinutes = Number(e.target.value) })}>{lockChoices(draft.security.autoLockMinutes).map((m) => <option key={m} value={m}>{m === 0 ? t('settings.auto_lock_never') : t('settings.auto_lock_mins', { n: m })}</option>)}</Select>}</Field>
           <Field label={t('settings.max_attempts')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.security.maxFailedAttempts} onChange={(e) => up((d) => { d.security.maxFailedAttempts = Math.max(3, Math.round(parseAmount(e.target.value))) })} />}</Field>
           <Field label={t('settings.lockout')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.security.lockoutSeconds} onChange={(e) => up((d) => { d.security.lockoutSeconds = Math.max(10, Math.round(parseAmount(e.target.value))) })} />}</Field>
         </Card>

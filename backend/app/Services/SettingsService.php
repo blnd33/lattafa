@@ -29,7 +29,8 @@ class SettingsService
             'tax' => ['pct' => 0],
             'loyalty' => ['enabled' => true, 'pointsPer1000IQD' => 1, 'pointValueIQD' => 10],
             'sales' => ['requireShift' => false, 'allowNegativeStock' => false, 'giftWrapFeeIQD' => 2000, 'defaultCustomerCreditIQD' => 0, 'returnWindowDays' => 14],
-            'security' => ['autoLockMinutes' => 10, 'maxFailedAttempts' => 5, 'lockoutSeconds' => 60],
+            // 30 minutes: long enough that serving one customer never locks the till mid-sale
+            'security' => ['autoLockMinutes' => 30, 'maxFailedAttempts' => 5, 'lockoutSeconds' => 60],
             // the customer menu: prices shown, sold-out perfumes hidden, the WhatsApp number orders go to (empty = the shop phone),
             // photos/videos behind its top (see MenuMedia) and how much they are darkened
             'menu' => ['showPrices' => true, 'hideSoldOut' => false, 'whatsapp' => '', 'heroDim' => 45, 'hero' => []],
