@@ -2,6 +2,7 @@ import { BookOpen, Cloud, CloudOff, LayoutDashboard, Lock, LogOut, Moon, Sun, Mo
 import { useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { CodaLink } from '@/components/ui/Brand'
 import { Avatar, Badge } from '@/components/ui/Controls'
 import { Menu, MenuItem } from '@/components/ui/Menu'
 import { cn } from '@/components/ui/cn'
@@ -206,7 +207,7 @@ export function UserMenu() {
 export function Credit({ className }: { className?: string }) {
   return (
     <p dir="ltr" className={cn('text-center text-[11px] leading-relaxed text-fg-2', className)}>
-      Developed by <b className="font-semibold text-gold-text">Coda Agency</b> — Build What's Next — <span className="num">+964 750 730 8005</span> — <b className="font-semibold text-gold-text">@codatechagency</b>
+      Developed by <CodaLink className="text-gold-text" /> — Build What's Next — <span className="num">+964 750 730 8005</span> — <b className="font-semibold text-gold-text">@codatechagency</b>
     </p>
   )
 }

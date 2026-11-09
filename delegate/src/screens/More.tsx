@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, ChevronRight, Circle, ClipboardList, Tags, LogOut, Moon, RefreshCw, Send, Sun, SunMoon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { CodaLink } from '@/components/ui/Brand'
 import { Badge, Card, Segmented } from '@/components/ui/Controls'
 import { Field, Input, Textarea } from '@/components/ui/Field'
 import { useConfirm } from '@/components/ui/Modal'
@@ -54,7 +55,7 @@ export function MoreScreen() {
         </div>
       </Card>
       <div className="mx-4 my-6"><Button variant="ghost" size="lg" block className="text-danger" icon={<LogOut className="size-5" />} onClick={leave}>{t('dl.sign_out')}</Button></div>
-      <p className="px-4 pb-6 text-center text-xs text-fg-2">Developed by <b>Coda Agency</b> — Build What's Next — <span dir="ltr" className="num">+964 750 730 8005</span> — <b>@codatechagency</b></p>
+      <p className="px-4 pb-6 text-center text-xs text-fg-2">Developed by <CodaLink className="text-gold-text" /> — Build What's Next — <span dir="ltr" className="num">+964 750 730 8005</span> — <b>@codatechagency</b></p>
     </div>
   )
 }

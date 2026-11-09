@@ -11,6 +11,22 @@ export function Logo({ className, mono }: { className?: string; mono?: boolean }
   return <img src={logoSrc} alt="Lattafa" draggable={false} className={cn('h-10 w-auto select-none', mono && 'brightness-0', className)} />
 }
 
+export const CODA_URL = 'https://coda-agency.net/'
+
+/**
+ * Who built this, in the credit line at the foot of every app — tapping the name
+ * opens the agency's site in a tab of its own, so a sale in progress is left alone.
+ * The padding is only there to give a finger something to hit at this size.
+ */
+export function CodaLink({ className }: { className?: string }) {
+  return (
+    <a href={CODA_URL} target="_blank" rel="noopener noreferrer"
+      className={cn('-my-1 inline-block py-1 font-semibold underline-offset-2 hover:underline focus-visible:underline', className)}>
+      Coda Agency
+    </a>
+  )
+}
+
 /** Logo + wordmark, used in the top bar / login. */
 export function BrandMark({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
   const h = size === 'lg' ? 'h-24' : size === 'sm' ? 'h-8' : 'h-10'

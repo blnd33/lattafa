@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, MapPin, Pause, Phone, Play, RefreshCw, Search, Star, WifiOff } from 'lucide-react'
-import { BrandMark, Logo, ProductImage } from '@/components/ui/Brand'
+import { BrandMark, CodaLink, Logo, ProductImage } from '@/components/ui/Brand'
 import { cn } from '@/components/ui/cn'
 import type { Lang } from '@/data/types'
 import { fmt } from '@/lib/money'
@@ -410,7 +410,7 @@ function Footer({ t, store }: { t: MenuT; store?: MenuData['store'] }) {
         <p className="text-sm text-fg-2 sm:text-end">{t('foot2')}</p>
       </div>
       <p className="border-t border-line/40 px-4 py-4 text-center text-xs text-fg-2">
-        Developed by <b className="text-gold-light">Coda Agency</b> — Build What's Next — <span dir="ltr" className="num">+964 750 730 8005</span> — <b className="text-gold-light">@codatechagency</b>
+        Developed by <CodaLink className="text-gold-light" /> — Build What's Next — <span dir="ltr" className="num">+964 750 730 8005</span> — <b className="text-gold-light">@codatechagency</b>
       </p>
     </footer>
   )
