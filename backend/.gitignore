@@ -26,14 +26,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# built web apps (npm run build:backend in the project root)
-/public/pos
-/public/delegate
-/public/menu
-/public/assets
-/public/icons
-/public/sw.js
-/public/workbox-*.js
-/public/*.webmanifest
-/public/logo.png
-/public/favicon.png
+# The built web apps (/public/pos, /delegate, /menu, /admin, /assets, /icons, sw.js, workbox-*.js, *.webmanifest,
+# logo.png, favicon.png) ARE kept in git, so the server can be updated straight from GitHub with `git pull` and needs no
+# Node.js. After any front-end change, run `npm run build:backend` in the project root and commit backend/public with it.

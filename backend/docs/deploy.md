@@ -198,7 +198,45 @@ php artisan lattafa:reset-admin
 It asks for a new password and/or PIN, lifts the lockout and signs that person out everywhere. Tills, delegate phones
 and other staff are not affected. It shows in the activity log as "System".
 
-## Installing an update
+## Installing an update from GitHub (no office PC needed)
+
+The built web apps are kept in the repository, so the server can update itself straight from GitHub
+(`https://github.com/blnd33/lattafa`, branch `main`). It needs `git` (`apt install -y git`), not Node.js.
+
+**Once — turn the copied folder into a GitHub checkout.** `/var/www/lattafa` was filled by copying files; this links it
+to GitHub without touching `.env`, `vendor/`, the uploaded photos in `storage/` or the `public/storage` link (git leaves
+files it does not track alone):
+
+```bash
+sudo -u www-data php /var/www/lattafa/backend/artisan lattafa:backup   # a fresh backup first
+cd /var/www/lattafa
+git init -b main
+git remote add origin https://github.com/blnd33/lattafa.git
+git fetch --depth 1 origin main
+git checkout -f -B main origin/main
+```
+
+**Every update** (as root, from any command prompt connected to the server by SSH):
+
+```bash
+cd /var/www/lattafa
+git pull --ff-only origin main
+cd backend
+php artisan down
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize
+chown -R www-data:www-data storage bootstrap/cache
+php artisan up
+```
+
+`git pull` refuses (and changes nothing) if someone edited files on the server by hand; never edit code there — change it
+on GitHub instead. Tills and phones pick up the new version by themselves the next time they open the app.
+
+**Whoever changes the front end** (the `pos`, `admin`, `delegate` or `menu` folders) runs `npm run build:backend` in the
+project root and commits the changed `backend/public` files together with the code, or the server keeps the old screens.
+
+## Installing an update by copying files
 
 On the office PC: `npm run build:backend`. Copy the changed `backend` files to the server (again leaving out `.env`,
 `vendor/`, `database/database.sqlite`, `storage/`, `public/storage`), then on the server:

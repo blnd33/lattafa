@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1A1714" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lattafa Delegate" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/delegate.webmanifest" />
+    <title>Lattafa Delegate</title>
+    <script>
+      // Apply saved theme/language before first paint so there is no flash (same keys as the POS — one domain, one preference).
+      try {
+        var p = JSON.parse(localStorage.getItem('lattafa-ui') || '{}').state || {};
+        var d = document.documentElement;
+        var dark = p.theme === 'dark' || (p.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) d.classList.add('dark');
+        if (p.lang === 'ar' || p.lang === 'ku') { d.dir = 'rtl'; d.lang = p.lang === 'ku' ? 'ckb' : 'ar'; }
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/delegate-CjsvLAl0.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/cn-BdMxi1yN.js">
+    <link rel="modulepreload" crossorigin href="/assets/styles-DnhSwAsm.js">
+    <link rel="modulepreload" crossorigin href="/assets/Controls-CQQzPXah.js">
+    <link rel="modulepreload" crossorigin href="/assets/useQuery-DeXG-zoM.js">
+    <link rel="modulepreload" crossorigin href="/assets/Field-keVJBwsc.js">
+    <link rel="modulepreload" crossorigin href="/assets/arrow-left-CrhaKDG_.js">
+    <link rel="modulepreload" crossorigin href="/assets/tags-Dbaddmes.js">
+    <link rel="modulepreload" crossorigin href="/assets/download-CgMLfQ1X.js">
+    <link rel="modulepreload" crossorigin href="/assets/file-up-XvRW-LVE.js">
+    <link rel="modulepreload" crossorigin href="/assets/hand-coins-DaQ8CLi0.js">
+    <link rel="modulepreload" crossorigin href="/assets/map-pin-BfNCWxkd.js">
+    <link rel="modulepreload" crossorigin href="/assets/navigation-C0Mkd5Jw.js">
+    <link rel="modulepreload" crossorigin href="/assets/phone-B9MbPPCw.js">
+    <link rel="modulepreload" crossorigin href="/assets/printer-xQ1QHkrf.js">
+    <link rel="modulepreload" crossorigin href="/assets/refresh-cw-CbSvMj2m.js">
+    <link rel="modulepreload" crossorigin href="/assets/save-IUi0DriT.js">
+    <link rel="modulepreload" crossorigin href="/assets/shopping-bag-Bs0h9IfR.js">
+    <link rel="modulepreload" crossorigin href="/assets/smartphone-DEI764WB.js">
+    <link rel="modulepreload" crossorigin href="/assets/trash-Djo7X06I.js">
+    <link rel="modulepreload" crossorigin href="/assets/wifi-off-vzYMBxla.js">
+    <link rel="modulepreload" crossorigin href="/assets/useInstall-6qokNS0M.js">
+    <link rel="modulepreload" crossorigin href="/assets/xlsx-DVh0Pzd-.js">
+    <link rel="stylesheet" crossorigin href="/assets/styles-CRqJNJ3k.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
