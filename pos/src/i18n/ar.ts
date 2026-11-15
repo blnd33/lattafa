@@ -7,5 +7,6 @@ import { buy } from './locales/ar/buy'
 import { reports } from './locales/ar/reports'
 import { menu } from './locales/ar/menu'
 import { audit } from './locales/ar/audit'
+import { debts } from './locales/ar/debts'
 
-export const ar: Record<string, string> = { ...core, ...admin, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit }
+export const ar: Record<string, string> = { ...core, ...admin, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit, ...debts }

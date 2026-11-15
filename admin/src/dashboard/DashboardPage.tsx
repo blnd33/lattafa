@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardCheck, ClipboardList, PackageOpen, PackageX, RefreshCw, Truck, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, PackageOpen, PackageX, RefreshCw, Truck } from 'lucide-react'
 import { RequireAny } from '@/features/NoAccess'
 import { Amt, UsdAmt } from '@/components/ui/Amt'
 import { ProductImage } from '@/components/ui/Brand'
@@ -63,9 +63,12 @@ function Body({ d }: { d: Dashboard }) {
   const margin = d.totals.profitIQD !== null && d.totals.netIQD > 0 ? Math.round((d.totals.profitIQD / d.totals.netIQD) * 100) : null
   return (
     <>
-      <div className={cn('grid gap-4 sm:grid-cols-2', d.financial ? 'xl:grid-cols-4' : 'xl:grid-cols-3')}>
+      {/* the tiles wrap to fit any screen: one per row on a phone, up to five side by side on a wide one */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-4">
         <Kpi dark label={t('ap.kpi_sales')} value={<Amt n={d.totals.revenueIQD} />} delta={change(d.totals.revenueIQD, d.previous.revenueIQD)} vs={vs}
-          sub={d.totals.refundsIQD > 0 ? t('ap.refunded', { amount: fmt(d.totals.refundsIQD) }) : undefined} />
+          sub={[t('ap.paid_now', { amount: fmt(d.totals.paidIQD) }), d.totals.refundsIQD > 0 ? t('ap.refunded', { amount: fmt(d.totals.refundsIQD) }) : null].filter(Boolean).join(' · ')} />
+        <Kpi label={t('ap.kpi_debt')} value={<Amt n={d.totals.creditIQD} className={d.totals.creditIQD > 0 ? 'text-danger' : undefined} />} delta={change(d.totals.creditIQD, d.previous.creditIQD)} vs={vs} upIsBad
+          sub={t('ap.debt_collected', { amount: fmt(d.totals.collectedIQD) })} to={d.debts ? '/debts' : undefined} />
         {d.financial && d.totals.profitIQD !== null && (
           <Kpi label={t('ap.kpi_profit')} value={<Amt n={d.totals.profitIQD} />} delta={change(d.totals.profitIQD, d.previous.profitIQD ?? 0)} vs={vs}
             sub={[margin !== null ? t('ap.margin', { pct: margin }) : null, d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null].filter(Boolean).join(' · ') || undefined} />
@@ -97,8 +100,7 @@ function Body({ d }: { d: Dashboard }) {
         {d.delegates && <Delegates rows={d.delegates} />}
         <Attention d={d} />
         {d.lowStock && <LowStock low={d.lowStock} />}
-        {d.debts && <Debts debts={d.debts} />}
-        {d.suppliers && <Suppliers s={d.suppliers} />}
+        {(d.debts || d.suppliers) && <Debts debts={d.debts} suppliers={d.suppliers} />}
       </div>
     </>
   )
@@ -115,20 +117,23 @@ function CardHead({ title, icon, to, className }: { title: string; icon?: ReactN
   )
 }
 
-function Kpi({ label, value, delta, vs, sub, dark }: { label: string; value: ReactNode; delta?: number | null; vs?: string; sub?: string; dark?: boolean }) {
+/** One headline figure. `upIsBad`: a rise is shown in red (more sold on debt is not good news). `to`: the tile opens that screen. */
+function Kpi({ label, value, delta, vs, sub, dark, upIsBad, to }: { label: string; value: ReactNode; delta?: number | null; vs?: string; sub?: string; dark?: boolean; upIsBad?: boolean; to?: string }) {
   const t = useT()
   const up = (delta ?? 0) >= 0
-  return (
-    <div className={cn('rounded-2xl border p-5 shadow-soft', dark ? 'border-ink bg-gradient-to-br from-charcoal to-ink text-[#f6f0e4]' : 'border-line bg-surface')}>
-      <div className={cn('text-sm', dark ? 'text-[#cfc5b4]' : 'text-fg-2')}>{label}</div>
-      <div className={cn('mt-1.5 font-serif text-3xl font-semibold leading-tight', dark && 'text-gold')}>{value}</div>
+  const good = upIsBad ? !up || delta === 0 : up
+  const box = cn('block min-w-0 rounded-2xl border p-4 shadow-soft sm:p-5', dark ? 'border-ink bg-gradient-to-br from-charcoal to-ink text-[#f6f0e4]' : 'border-line bg-surface', to && 'transition hover:border-gold')
+  const body = (
+    <>
+      <div className={cn('flex items-center justify-between gap-2 text-sm', dark ? 'text-[#cfc5b4]' : 'text-fg-2')}>{label}{to && <ChevronRight className="size-4 shrink-0 opacity-60 rtl:rotate-180" />}</div>
+      <div className={cn('mt-1.5 break-words font-serif text-2xl font-semibold leading-tight sm:text-3xl', dark && 'text-gold')}>{value}</div>
       {vs !== undefined && (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           {delta === null || delta === undefined ? (
             <span className={dark ? 'text-[#b9ae9c]' : 'text-fg-2'}>{t('ap.vs_none')}</span>
           ) : (
             <>
-              <span className={cn('num inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold', up ? 'bg-ok-bg text-ok-fg' : 'bg-danger-bg text-danger-fg')}>
+              <span className={cn('num inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold', good ? 'bg-ok-bg text-ok-fg' : 'bg-danger-bg text-danger-fg')}>
                 {up ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
                 {Math.abs(delta) >= 1000 ? '999+' : Math.abs(Math.round(delta))}%
               </span>
@@ -138,8 +143,9 @@ function Kpi({ label, value, delta, vs, sub, dark }: { label: string; value: Rea
         </div>
       )}
       {sub && <div className={cn('mt-1 text-xs', dark ? 'text-[#b9ae9c]' : 'text-fg-2')}>{sub}</div>}
-    </div>
+    </>
   )
+  return to ? <Link to={to} className={box}>{body}</Link> : <div className={box}>{body}</div>
 }
 
 function TopProducts({ d }: { d: Dashboard }) {
@@ -260,56 +266,60 @@ function LowStock({ low }: { low: NonNullable<Dashboard['lowStock']> }) {
   )
 }
 
-/** What the shop owes its suppliers: dollars and dinars apart, and roughly in dinars at today's rate. */
-function Suppliers({ s }: { s: NonNullable<Dashboard['suppliers']> }) {
+/** Debts both ways, apart from the sales: what customers owe the shop and what the shop owes its suppliers. */
+function Debts({ debts, suppliers: s }: { debts: Dashboard['debts']; suppliers: Dashboard['suppliers'] }) {
   const t = useT()
   return (
-    <Card>
-      <CardHead title={t('ap.sup_title')} icon={<ClipboardList className="size-5 text-gold-text" />} to="/purchasing/suppliers" className="mb-1" />
-      {!s.suppliers ? <p className="py-6 text-center text-sm text-fg-2">{t('ap.sup_none')}</p> : (
-        <>
-          <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            {s.owedUSD > 0 && <UsdAmt n={s.owedUSD} className="font-serif text-2xl font-semibold text-danger" />}
-            {s.owedIQD > 0 && <Amt n={s.owedIQD} className="font-serif text-2xl font-semibold text-danger" />}
+    <Card className="min-w-0">
+      <CardHead title={t('ap.debts_card')} icon={<HandCoins className="size-5 text-gold-text" />} to="/debts" className="mb-3" />
+      {debts && (
+        <section>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+            <span className="flex items-center gap-1.5 text-sm text-fg-2"><ArrowDownLeft className="size-4 text-gold-text" />{t('ap.debts_title')}</span>
+            {debts.customers > 0 && <span className="text-xs text-fg-2">{plural(t, debts.customers, 'ap.debts_1', 'ap.debts_n')}</span>}
           </div>
-          <p className="mb-2 text-xs text-fg-2">{plural(t, s.suppliers, 'ap.sup_1', 'ap.sup_n')}{s.owedUSD > 0 ? ` · ${t('ap.sup_total', { amount: fmt(s.totalIQD) })}` : ''}</p>
-          <ul className="divide-y divide-line">
-            {s.top.map((x) => (
-              <li key={x.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="truncate text-sm font-medium">{x.name}</span>
-                {x.currency === 'USD' ? <UsdAmt n={x.balance} className="text-sm font-semibold" /> : <Amt n={x.balance} className="text-sm font-semibold" />}
-              </li>
-            ))}
-          </ul>
-        </>
+          {!debts.customers ? <p className="py-3 text-sm text-fg-2">{t('ap.debts_none')}</p> : (
+            <>
+              <Amt n={debts.totalIQD} className="font-serif text-2xl font-semibold text-danger" />
+              <ul className="mt-1 divide-y divide-line">
+                {debts.top.slice(0, 3).map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{c.name}</div>
+                      {c.phone && <div dir="ltr" className="num text-start text-xs text-fg-2">{c.phone}</div>}
+                    </div>
+                    <Amt n={c.balanceIQD} className="text-sm font-semibold" />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
       )}
-    </Card>
-  )
-}
-
-function Debts({ debts }: { debts: NonNullable<Dashboard['debts']> }) {
-  const t = useT()
-  return (
-    <Card>
-      <CardHead title={t('ap.debts_title')} icon={<Wallet className="size-5 text-gold-text" />} to="/customers" className="mb-1" />
-      {!debts.customers ? <p className="py-6 text-center text-sm text-fg-2">{t('ap.debts_none')}</p> : (
-        <>
-          <div className="mb-2 flex items-baseline justify-between gap-2">
-            <Amt n={debts.totalIQD} className="font-serif text-2xl font-semibold text-danger" />
-            <span className="text-xs text-fg-2">{plural(t, debts.customers, 'ap.debts_1', 'ap.debts_n')}</span>
+      {s && (
+        <section className={cn(debts && 'mt-3 border-t border-line pt-3')}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+            <span className="flex items-center gap-1.5 text-sm text-fg-2"><ArrowUpRight className="size-4 text-danger" />{t('ap.sup_title')}</span>
+            {s.suppliers > 0 && <span className="text-xs text-fg-2">{plural(t, s.suppliers, 'ap.sup_1', 'ap.sup_n')}</span>}
           </div>
-          <ul className="divide-y divide-line">
-            {debts.top.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{c.name}</div>
-                  {c.phone && <div dir="ltr" className="num text-start text-xs text-fg-2">{c.phone}</div>}
-                </div>
-                <Amt n={c.balanceIQD} className="text-sm font-semibold" />
-              </li>
-            ))}
-          </ul>
-        </>
+          {!s.suppliers ? <p className="py-3 text-sm text-fg-2">{t('ap.sup_none')}</p> : (
+            <>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                {s.owedUSD > 0 && <UsdAmt n={s.owedUSD} className="font-serif text-2xl font-semibold text-danger" />}
+                {s.owedIQD > 0 && <Amt n={s.owedIQD} className="font-serif text-2xl font-semibold text-danger" />}
+              </div>
+              {s.owedUSD > 0 && <p className="text-xs text-fg-2">{t('ap.sup_total', { amount: fmt(s.totalIQD) })}</p>}
+              <ul className="mt-1 divide-y divide-line">
+                {s.top.slice(0, 3).map((x) => (
+                  <li key={x.id} className="flex items-center justify-between gap-3 py-2">
+                    <span className="truncate text-sm font-medium">{x.name}</span>
+                    {x.currency === 'USD' ? <UsdAmt n={x.balance} className="text-sm font-semibold" /> : <Amt n={x.balance} className="text-sm font-semibold" />}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
       )}
     </Card>
   )

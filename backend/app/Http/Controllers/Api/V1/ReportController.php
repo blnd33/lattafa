@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Present;
 use App\Services\DashboardService;
+use App\Services\DebtService;
 use App\Services\ReportCenter;
 use App\Services\ReportService;
 use App\Support\Time;
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function __construct(private ReportService $reports, private DashboardService $dashboard, private ReportCenter $center) {}
+    public function __construct(private ReportService $reports, private DashboardService $dashboard, private ReportCenter $center, private DebtService $debts) {}
 
     /** Admin panel → Reports: any report in the one table shape. `?from=&to=` (ms, default today in shop time). */
     public function table(Request $r, string $type): JsonResponse
@@ -43,6 +44,14 @@ class ReportController extends Controller
         $r->validate(['period' => ['nullable', 'in:'.implode(',', array_keys(DashboardService::PERIODS))]]);
 
         return response()->json($this->dashboard->get($r->user(), (string) $r->query('period', 'today')));
+    }
+
+    /** Admin panel → Debts: who owes the shop and whom the shop owes. `?period=today|week|month|quarter`. */
+    public function debts(Request $r): JsonResponse
+    {
+        $r->validate(['period' => ['nullable', 'in:'.implode(',', array_keys(DebtService::PERIODS))]]);
+
+        return response()->json($this->debts->overview($r->user(), (string) $r->query('period', 'month')));
     }
 
     public function sales(Request $r): JsonResponse

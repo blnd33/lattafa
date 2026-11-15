@@ -44,7 +44,7 @@ class DashboardService
         return [
             'period' => $period, 'from' => $from, 'to' => $now, 'financial' => $financial,
             'totals' => $totals,
-            'previous' => array_intersect_key($previous, array_flip(['count', 'revenueIQD', 'netIQD', 'profitIQD'])),
+            'previous' => array_intersect_key($previous, array_flip(['count', 'revenueIQD', 'netIQD', 'profitIQD', 'creditIQD', 'paidIQD', 'collectedIQD'])),
             'channels' => $totals['channels'],
             'series' => $this->series($from, $now, $period === 'today' ? 'hour' : 'day'),
             'topProducts' => $this->topProducts($from, $now),
@@ -73,10 +73,12 @@ class DashboardService
     private function totals(int $from, int $to, bool $financial): array
     {
         $channels = ['store' => ['count' => 0, 'revenueIQD' => 0], 'delegate' => ['count' => 0, 'revenueIQD' => 0]];
-        foreach ($this->sales($from, $to)->selectRaw('channel, count(*) as n, coalesce(sum(total_iqd), 0) as revenue')->groupBy('channel')->get() as $row) {
+        $credit = 0;
+        foreach ($this->sales($from, $to)->selectRaw('channel, count(*) as n, coalesce(sum(total_iqd), 0) as revenue, coalesce(sum(due_iqd), 0) as due')->groupBy('channel')->get() as $row) {
             $key = $row->channel === 'delegate' ? 'delegate' : 'store';
             $channels[$key]['count'] += (int) $row->n;
             $channels[$key]['revenueIQD'] += (int) $row->revenue;
+            $credit += (int) $row->due;
         }
         $count = $channels['store']['count'] + $channels['delegate']['count'];
         $revenue = $channels['store']['revenueIQD'] + $channels['delegate']['revenueIQD'];
@@ -98,6 +100,10 @@ class DashboardService
 
         return [
             'count' => $count, 'revenueIQD' => $revenue, 'refundsIQD' => $refunds, 'netIQD' => $net,
+            // of the sales, what was left on the customer's account (debt) and what was paid at the counter
+            'creditIQD' => $credit, 'paidIQD' => $revenue - $credit,
+            // old debts customers paid back in the window: money in, but not a sale
+            'collectedIQD' => (int) DB::table('collections')->whereBetween('occurred_at', [$from, $to])->sum('amount_iqd'),
             'unitsSold' => (int) $items->units, 'avgBasketIQD' => $count ? (int) round($revenue / $count) : 0,
             'profitIQD' => $profit, 'channels' => $channels,
         ];

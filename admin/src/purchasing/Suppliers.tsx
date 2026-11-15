@@ -74,7 +74,7 @@ export function SupplierEditor({ supplier, onClose, onSaved }: { supplier?: Supp
   )
 }
 
-function SupplierDetail({ id, onClose }: { id: string; onClose: () => void }) {
+export function SupplierDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const t = useT()
   const confirm = useConfirm()
   const canManage = useCan('purchasing.manage')

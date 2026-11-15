@@ -141,6 +141,7 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
 
     // reports
     Route::get('dashboard', [ReportController::class, 'dashboard']);
+    Route::get('debts', [ReportController::class, 'debts']);
     Route::get('reports/sales', [ReportController::class, 'sales']);
     Route::get('reports/stock-valuation', [ReportController::class, 'stockValuation']);
     Route::get('reports/debtors', [ReportController::class, 'debtors']);

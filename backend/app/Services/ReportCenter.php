@@ -37,6 +37,9 @@ class ReportCenter
         'delegate-commission' => 'delegates.manage',
         'delegate-sales' => 'delegates.manage',
         'debt-aging' => 'customers.view',
+        'debt-movements' => 'customers.view',
+        'supplier-balances' => 'purchasing.view',
+        'supplier-movements' => 'purchasing.view',
         'stock-valuation' => 'reports.financial',
         'slow-movers' => 'inventory.view',
         'purchases' => 'purchasing.view',
@@ -47,7 +50,7 @@ class ReportCenter
 
     private bool $fin = false;
 
-    public function __construct(private StockService $stock, private ExpenseService $expenses, private ShiftService $shifts) {}
+    public function __construct(private StockService $stock, private ExpenseService $expenses, private ShiftService $shifts, private DebtService $debts) {}
 
     /** @return array<string, mixed> */
     public function run(User $actor, string $type, int $from, int $to): array
@@ -68,6 +71,9 @@ class ReportCenter
             'delegate-commission' => $this->commission($from, $to),
             'delegate-sales' => $this->delegateSales($from, $to),
             'debt-aging' => $this->debtAging(),
+            'debt-movements' => $this->debtMovements('customer', $from, $to),
+            'supplier-balances' => $this->supplierBalances(),
+            'supplier-movements' => $this->debtMovements('supplier', $from, $to),
             'stock-valuation' => $this->stockValuation(),
             'slow-movers' => $this->slowMovers($from, $to),
             'purchases' => $this->purchases($from, $to),
@@ -436,48 +442,61 @@ class ReportCenter
         ]);
     }
 
-    /**
-     * Who owes the shop, and since when. Payments clear the oldest debt first, so what is still owed is the newest
-     * credit sales: walk them from the newest back until they add up to the balance. Debt the sales do not explain
-     * (an opening balance) counts as the oldest.
-     */
+    /** Who owes the shop, and since when (the oldest debt is paid off first). */
     private function debtAging(): array
     {
-        $now = Time::nowMs();
-        $customers = DB::table('customers')->where('active', true)->where('balance_iqd', '>', 0)->orderByDesc('balance_iqd')->get(['id', 'name', 'phone', 'type', 'balance_iqd']);
-        $credit = DB::table('sale_payments')->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
-            ->where('sale_payments.method', 'debt')->where('sales.status', '!=', 'voided')->whereIn('sales.customer_id', $customers->pluck('id'))
-            ->orderByDesc('sales.sold_at')->get(['sales.customer_id', 'sales.sold_at', 'sale_payments.amount_iqd'])->groupBy('customer_id');
-        $lastPaid = DB::table('collections')->whereIn('customer_id', $customers->pluck('id'))->selectRaw('customer_id, max(occurred_at) as at')->groupBy('customer_id')->pluck('at', 'customer_id');
-        $buckets = ['age0' => 30, 'age31' => 60, 'age61' => 90];
-        $rows = $customers->map(function ($c) use ($credit, $lastPaid, $now, $buckets) {
-            $left = (int) $c->balance_iqd;
-            $row = ['id' => $c->id, 'customer' => $c->name, 'phone' => $c->phone, 'type' => $c->type, 'balance' => $left, 'age0' => 0, 'age31' => 0, 'age61' => 0, 'age91' => 0,
-                'lastPayment' => isset($lastPaid[$c->id]) ? (int) $lastPaid[$c->id] : null];
-            foreach ($credit[$c->id] ?? [] as $debt) {
-                if ($left <= 0) {
-                    break;
-                }
-                $part = min($left, (int) $debt->amount_iqd);
-                $days = intdiv($now - (int) $debt->sold_at, self::DAY_MS);
-                $key = 'age91';
-                foreach ($buckets as $k => $limit) {
-                    if ($days <= $limit) {
-                        $key = $k;
-                        break;
-                    }
-                }
-                $row[$key] += $part;
-                $left -= $part;
-            }
-            $row['age91'] += max(0, $left);
-
-            return $row;
-        });
+        $rows = $this->debts->aging()->map(fn ($r) => ['id' => $r['id'], 'customer' => $r['name'], 'phone' => $r['phone'], 'type' => $r['type'], 'balance' => $r['balanceIQD'],
+            'age0' => $r['age0'], 'age31' => $r['age31'], 'age61' => $r['age61'], 'age91' => $r['age91'], 'lastPayment' => $r['lastPaymentAt']]);
         $tot = ['balance' => $rows->sum('balance'), 'age0' => $rows->sum('age0'), 'age31' => $rows->sum('age31'), 'age61' => $rows->sum('age61'), 'age91' => $rows->sum('age91')];
         $columns = $this->cols([['customer', 'text'], ['phone', 'text'], ['type', 'enum:cust.type_'], ['balance', 'iqd'], ['age0', 'iqd'], ['age31', 'iqd'], ['age61', 'iqd'], ['age91', 'iqd'], ['lastPayment', 'date']]);
 
-        return $this->table($columns, $rows, $tot);
+        return $this->table($columns, $rows, $tot, [
+            ['label' => 'rc.balance', 'type' => 'iqd', 'value' => $tot['balance']],
+            ['label' => 'rc.customers', 'type' => 'int', 'value' => $rows->count()],
+            ['label' => 'rc.age91', 'type' => 'iqd', 'value' => $tot['age91']],
+        ]);
+    }
+
+    /**
+     * Every debt movement in the window, oldest first: for customers the bills sold on debt, the payments collected and
+     * the returns taken off a debt; for suppliers the deliveries received and the payments made.
+     */
+    private function debtMovements(string $side, int $from, int $to): array
+    {
+        $rows = collect(array_reverse($this->debts->movements($from, $to, $side === 'customer', $side === 'supplier')))->map(fn ($m) => [
+            'id' => $m['id'], 'date' => $m['at'], 'movement' => $m['kind'], 'party' => $m['party'], 'ref' => $m['ref'],
+            'added' => $m['sign'] > 0 ? $m['amount'] : null, 'paidOff' => $m['sign'] < 0 ? $m['amount'] : null, 'currency' => $m['currency'],
+            'amountIQD' => $m['sign'] * $m['amountIQD'], 'method' => $m['method'] ? ($side === 'customer' ? 'method.' : 'pay.').$m['method'] : null, 'by' => $m['by'], 'note' => $m['note'],
+        ]);
+        $added = (int) $rows->where('amountIQD', '>', 0)->sum('amountIQD');
+        $paid = (int) -$rows->where('amountIQD', '<', 0)->sum('amountIQD');
+        $columns = $this->cols([['date', 'datetime'], ['movement', 'enum:debt.kind_'], ['party', 'text'], ['ref', 'text'], ['added', 'money'], ['paidOff', 'money'],
+            ['amountIQD', 'iqd'], ['method', 'label'], ['by', 'text'], ['note', 'text']]);
+        $owed = $side === 'customer' ? (int) $this->debts->aging()->sum('balanceIQD') : (int) $this->debts->supplierBalances()->where('balance', '>', 0)->sum('balanceIQD');
+
+        return $this->table($columns, $rows, ['amountIQD' => $added - $paid], [
+            ['label' => $side === 'customer' ? 'rc.debt_given' : 'rc.debt_bought', 'type' => 'iqd', 'value' => $added],
+            ['label' => $side === 'customer' ? 'rc.debt_collected' : 'rc.debt_paid', 'type' => 'iqd', 'value' => $paid],
+            ['label' => 'rc.debt_change', 'type' => 'iqd', 'value' => $added - $paid],
+            ['label' => $side === 'customer' ? 'rc.debt_owed_now' : 'rc.debt_we_owe_now', 'type' => 'iqd', 'value' => $owed],
+        ]);
+    }
+
+    /** What the shop owes each supplier now: received, paid and left, in the supplier's currency and in dinars. */
+    private function supplierBalances(): array
+    {
+        $rows = $this->debts->supplierBalances()->filter(fn ($r) => $r['active'] || $r['balance'] != 0)->sortByDesc('balanceIQD')->map(fn ($r) => [
+            'id' => $r['id'], 'supplier' => $r['name'], 'phone' => $r['phone'], 'received' => $r['received'], 'paid' => $r['paid'], 'left' => $r['balance'], 'currency' => $r['currency'],
+            'leftIQD' => $r['balanceIQD'], 'lastPayment' => $r['lastPaymentAt'],
+        ])->values();
+        $columns = $this->cols([['supplier', 'text'], ['phone', 'text'], ['received', 'money'], ['paid', 'money'], ['left', 'money'], ['leftIQD', 'iqd'], ['lastPayment', 'date']]);
+        $owing = $rows->where('left', '>', 0);
+
+        return $this->table($columns, $rows, ['leftIQD' => (int) $owing->sum('leftIQD')], [
+            ['label' => 'rc.debt_we_owe_now', 'type' => 'iqd', 'value' => (int) $owing->sum('leftIQD')],
+            ['label' => 'rc.usd_owed', 'type' => 'usd', 'value' => round((float) $owing->where('currency', 'USD')->sum('left'), 2)],
+            ['label' => 'rc.suppliers_owed', 'type' => 'int', 'value' => $owing->count()],
+        ]);
     }
 
     /* ───────── stock ───────── */

@@ -25,6 +25,9 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
   const others = useOtherSections()
   const main = items.filter((i) => i.group === 'main')
   const manage = items.filter((i) => i.group === 'manage')
+  // Items give up height to fit a short screen (a landscape tablet, a 768 px touch screen) but never below a finger-
+  // sized 36 px, so the gold pill always holds its icon; past that the menu scrolls. Labels shrink (min-w-0 + truncate)
+  // instead of pushing the pill wider.
   const link = (n: NavItem) => (
     <NavLink
       key={n.to}
@@ -32,39 +35,40 @@ function Sidebar({ items, expanded }: { items: NavItem[]; expanded: boolean }) {
       title={t(n.label)}
       className={({ isActive }) =>
         cn(
-          'group flex items-center gap-3 rounded-2xl px-3 transition',
-          expanded ? 'h-12' : 'h-16 flex-col justify-center gap-1 px-1 text-[10.5px]',
-          isActive ? 'bg-gold text-ink shadow-[0_6px_18px_rgba(212,165,72,.25)]' : 'text-[#cfc5b4] hover:bg-white/10 hover:text-white',
+          'group flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl px-3 transition',
+          expanded ? 'h-12 min-h-9' : 'h-16 min-h-14 flex-col justify-center gap-0.5 px-1 text-[10.5px]',
+          isActive ? 'bg-gold text-ink shadow-[0_4px_12px_rgba(212,165,72,.25)]' : 'text-[#cfc5b4] hover:bg-white/10 hover:text-white',
         )
       }
     >
       <n.icon className="size-[22px] shrink-0" />
-      <span className={cn('truncate font-medium', expanded ? 'text-sm' : 'max-w-full leading-tight')}>{t(n.label)}</span>
+      <span className={cn('min-w-0 font-medium', expanded ? 'truncate text-sm' : 'line-clamp-2 max-w-full text-center leading-[1.15] tracking-tight')}>{t(n.label)}</span>
     </NavLink>
   )
   return (
-    <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white', expanded ? 'w-60 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]' : 'w-[5.25rem] px-2 ps-[max(0.5rem,env(safe-area-inset-left))]')}>
-      <div className={cn('mb-3 flex items-center gap-2.5 px-1', !expanded && 'justify-center')}>
-        <Logo className="h-11" />
+    <aside className={cn('flex min-h-0 shrink-0 flex-col overflow-hidden bg-ink py-[clamp(0.375rem,1.2dvh,0.75rem)] text-white', expanded ? 'w-60 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]' : 'w-[5.75rem] px-1.5 ps-[max(0.375rem,env(safe-area-inset-left))]')}>
+      <div className={cn('mb-[clamp(0.25rem,1.2dvh,0.75rem)] flex shrink-0 items-center gap-2.5 px-1', !expanded && 'justify-center')}>
+        <Logo className="h-[clamp(2rem,5dvh,2.75rem)]" />
         {expanded && <span className="font-serif text-xl font-semibold tracking-wide text-gold-light">Lattafa</span>}
       </div>
-      <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto scroll-hide">
+      {/* scrolls when it still does not fit; the thin bar shows there is more, and the padding keeps the active pill's shadow from being clipped */}
+      <nav aria-label="Main" className="-mx-1 flex min-h-0 flex-1 flex-col gap-[clamp(0.0625rem,0.4dvh,0.25rem)] overflow-y-auto overscroll-contain px-1 py-0.5 [scrollbar-color:rgba(255,255,255,.18)_transparent] [scrollbar-width:thin]">
         {main.map(link)}
-        {manage.length > 0 && <div className="my-2 border-t border-white/10" />}
+        {manage.length > 0 && <div className="my-[clamp(0.25rem,1dvh,0.5rem)] shrink-0 border-t border-white/10" />}
         {manage.map(link)}
         {/* the other sections open in a tab of their own, so the till (and a sale on it) stays as it is */}
-        <div className="my-2 border-t border-white/10" />
-        {expanded && <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8f8574]">{t('nav.sections')}</p>}
+        <div className="my-[clamp(0.25rem,1dvh,0.5rem)] shrink-0 border-t border-white/10" />
+        {expanded && <p className="shrink-0 truncate px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8f8574] rtl:tracking-normal">{t('nav.sections')}</p>}
         {others.map((o) => (
           <a key={o.key} href={o.href} target="_blank" rel="noopener" title={t(o.label)}
-            className={cn('flex items-center gap-3 rounded-2xl px-3 text-[#cfc5b4] transition hover:bg-white/10 hover:text-white', expanded ? 'h-11' : 'h-16 flex-col justify-center gap-1 px-1 text-[10.5px]')}>
+            className={cn('flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl px-3 text-[#cfc5b4] transition hover:bg-white/10 hover:text-white', expanded ? 'h-11 min-h-9' : 'h-16 min-h-14 flex-col justify-center gap-0.5 px-1 text-[10.5px]')}>
             <o.icon className="size-[22px] shrink-0" />
-            <span className={cn('truncate font-medium', expanded ? 'text-sm' : 'max-w-full leading-tight')}>{t(o.label)}</span>
+            <span className={cn('min-w-0 font-medium', expanded ? 'truncate text-sm' : 'line-clamp-2 max-w-full text-center leading-[1.15] tracking-tight')}>{t(o.label)}</span>
           </a>
         ))}
       </nav>
       {device === 'desktop' && (
-        <button type="button" onClick={toggle} aria-label={expanded ? t('nav.collapse') : t('nav.expand')} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl text-[#b9ae9c] transition hover:bg-white/10 hover:text-white">
+        <button type="button" onClick={toggle} aria-label={expanded ? t('nav.collapse') : t('nav.expand')} className="mt-1 flex h-[clamp(2.25rem,5dvh,2.75rem)] shrink-0 items-center justify-center gap-2 rounded-xl text-[#b9ae9c] transition hover:bg-white/10 hover:text-white">
           {expanded ? <ChevronsLeft className="size-5 rtl:rotate-180" /> : <ChevronsRight className="size-5 rtl:rotate-180" />}
           {expanded && <span className="text-xs">{t('nav.collapse')}</span>}
         </button>
@@ -79,7 +83,7 @@ function TopBar() {
     // the bar's colour runs up under the phone's status bar, but its contents stay below it:
     // the inset is padding on the outside, the 4 rem row lives in its own box inside
     <header className="shrink-0 border-b border-line bg-surface pt-safe ps-safe pe-safe">
-      <div className="flex h-16 items-center gap-2 px-3 md:gap-3 md:px-5">
+      <div className="flex h-16 min-w-0 items-center gap-2 px-3 md:gap-3 md:px-5">
         {device === 'phone' && (
           <span className="flex items-center gap-2">
             <Logo className="h-9" />
@@ -90,8 +94,9 @@ function TopBar() {
         <ShiftChip compact={device !== 'desktop'} />
         <SyncChip compact={device !== 'desktop'} />
         <RateChip />
-        {device !== 'phone' && <LangSwitch />}
-        {device !== 'phone' && <ThemeToggle />}
+        {/* tablets: language and theme move into the user menu so the bar never runs out of room */}
+        {device === 'desktop' && <LangSwitch />}
+        {device === 'desktop' && <ThemeToggle />}
         <UserMenu />
       </div>
     </header>

@@ -76,7 +76,7 @@ function Levels() {
         {val && <Stat label={t('inv.value_cost')} value={<Amt n={val.costIQD} />} />}
         {val && <Stat label={t('inv.value_retail')} value={<Amt n={val.retailIQD} />} tone="gold" />}
       </div>
-      <div className="mb-4 grid gap-2.5 md:grid-cols-[1fr_auto]">
+      <div className="mb-4 grid grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1fr)_auto] [&>*]:min-w-0">
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('prod.search')} />
         <label className="flex h-11 items-center gap-2.5 rounded-xl bg-surface-2 px-3.5 text-sm font-medium">{t('inv.low_only')}<Switch checked={lowOnly} onChange={setLowOnly} label={t('inv.low_only')} /></label>
       </div>

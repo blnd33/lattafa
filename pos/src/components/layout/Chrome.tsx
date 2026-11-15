@@ -180,7 +180,7 @@ export function UserMenu() {
             </div>
           </div>
           <div className="my-1 border-t border-line" />
-          <div className="px-3 py-2 md:hidden">
+          <div className="px-3 py-2 lg:hidden">
             <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-fg-2"><Languages className="size-4" />{t('common.language')}</div>
             <div className="flex gap-2">
               {langs.map((l) => (
@@ -194,7 +194,7 @@ export function UserMenu() {
               ))}
             </div>
           </div>
-          <div className="my-1 border-t border-line md:hidden" />
+          <div className="my-1 border-t border-line lg:hidden" />
           <MenuItem icon={<KeyRound className="size-5" />} onClick={() => { close(); navigate('/account') }}>{t('account.title')}</MenuItem>
           <MenuItem icon={<Lock className="size-5" />} onClick={() => { close(); lock() }}>{t('auth.lock')}</MenuItem>
           <MenuItem icon={<LogOut className="size-5" />} danger onClick={() => { close(); void audit('auth.logout', 'user', actor.id); signOut() }}>{t('auth.sign_out')}</MenuItem>

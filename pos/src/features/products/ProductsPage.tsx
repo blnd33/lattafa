@@ -70,7 +70,7 @@ export function ProductsPage() {
           </>
         }
       />
-      <div className="mb-4 grid gap-2.5 md:grid-cols-[1fr_12rem_12rem_auto]">
+      <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] [&>*]:min-w-0">
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('prod.search')} />
         <Select value={brand} onChange={(e) => setBrand(e.target.value)} aria-label={t('prod.brand')}><option value="">{t('prod.brand')}: {t('common.all')}</option>{brands.map((b) => <option key={b}>{b}</option>)}</Select>
         <Select value={cat} onChange={(e) => setCat(e.target.value)} aria-label={t('prod.category')}><option value="">{t('prod.category')}: {t('common.all')}</option>{['perfume', 'oud', 'mist', 'oil', 'set', 'home'].map((c) => <option key={c} value={c}>{t(`prod.cat_${c}`)}</option>)}</Select>

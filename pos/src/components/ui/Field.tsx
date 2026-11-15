@@ -53,7 +53,7 @@ export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
   ref,
 ) {
   return (
-    <label className={cn('flex items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 text-fg-2 transition focus-within:border-gold focus-within:ring-4 focus-within:ring-gold/20', big ? 'h-14' : 'h-11', className)}>
+    <label className={cn('flex min-w-0 items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 text-fg-2 transition focus-within:border-gold focus-within:ring-4 focus-within:ring-gold/20', big ? 'h-14' : 'h-11', className)}>
       <Search className="size-5 shrink-0" aria-hidden />
       <input ref={ref} type="search" className="min-w-0 flex-1 bg-transparent text-base text-fg outline-none placeholder:text-fg-2/70 sm:text-sm" {...rest} />
     </label>

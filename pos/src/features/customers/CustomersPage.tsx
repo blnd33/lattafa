@@ -46,14 +46,14 @@ export function CustomersPage() {
         <Stat label={t('cust.with_debt')} value={<span className="num">{(customers ?? []).filter((c) => c.balanceIQD > 0).length}</span>} />
         <Stat label={t('cust.points_out')} value={<span className="num">{fmt((customers ?? []).reduce((a, c) => a + c.points, 0))}</span>} />
       </div>
-      <div className="mb-4 grid gap-2.5 md:grid-cols-[1fr_auto_auto]">
+      <div className="mb-4 grid grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto] [&>*]:min-w-0">
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('cust.search')} />
         <Segmented value={type} onChange={setType} options={[{ value: 'all', label: t('common.all') }, ...TYPES.map((x) => ({ value: x, label: t(`cust.type_${x}`) }))]} />
         <label className="flex h-11 items-center gap-2.5 rounded-xl bg-surface-2 px-3.5 text-sm font-medium">{t('cust.debt_only')}<Switch checked={debtOnly} onChange={setDebtOnly} label={t('cust.debt_only')} /></label>
       </div>
 
       {isLoading ? <div className="grid place-items-center py-16"><Spinner className="size-9" /></div> : !list.length ? <EmptyState title={t('cust.none')} hint={t('cust.none_hint')} /> : (
-        <ul className="grid gap-2.5 md:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
           {list.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setOpenId(c.id)} className="flex w-full items-center gap-3.5 rounded-2xl border border-line bg-surface p-3.5 text-start shadow-soft transition hover:border-gold-light active:bg-surface-2">
@@ -78,7 +78,7 @@ export function CustomersPage() {
   )
 }
 
-function CustomerForm({ value, onClose }: { value: Customer | 'new' | null; onClose: () => void }) {
+export function CustomerForm({ value, onClose }: { value: Customer | 'new' | null; onClose: () => void }) {
   const t = useT()
   const canCredit = useCan('customers.credit')
   const run = useAction(saveCustomer, { success: 'cust.saved' })
@@ -108,7 +108,7 @@ function CustomerForm({ value, onClose }: { value: Customer | 'new' | null; onCl
   )
 }
 
-function CustomerDetail({ customer, onClose, onEdit }: { customer: Customer | null; onClose: () => void; onEdit: (c: Customer) => void }) {
+export function CustomerDetail({ customer, onClose, onEdit }: { customer: Customer | null; onClose: () => void; onEdit: (c: Customer) => void }) {
   const t = useT()
   const navigate = useNavigate()
   const confirm = useConfirm()

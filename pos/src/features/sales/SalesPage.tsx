@@ -77,7 +77,7 @@ export function SalesPage() {
 
       {tab === 'sales' ? (
         <>
-          <div className="mb-4 grid gap-2.5 md:grid-cols-[1fr_auto_auto_auto]">
+          <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto] [&>*]:min-w-0">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('sales.search_ph')} data-scan-target="true" />
             <Segmented value={range} onChange={setRange} options={(['today', '7d', '30d', 'all'] as Range[]).map((r) => ({ value: r, label: t(`sales.range_${r}`) }))} />
             <Select value={status} onChange={(e) => setStatus(e.target.value as '' | SaleStatus)} aria-label={t('sales.status')}>

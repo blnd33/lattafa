@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BarChart3, BookOpen, Boxes, ClipboardList, FileSpreadsheet, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
+  BarChart3, BookOpen, HandCoins, Boxes, ClipboardList, FileSpreadsheet, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
   ShieldAlert, ShieldCheck, Sun, Truck, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Brand'
@@ -43,6 +43,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/menu', icon: BookOpen, label: 'ap.nav_menu', perms: ['products.edit'], section: 'catalogue' },
   { to: '/inventory', icon: Boxes, label: 'nav.inventory', perms: ['inventory.view'], section: 'catalogue' },
   { to: '/purchasing', icon: ClipboardList, label: 'ap.nav_purchasing', perms: ['purchasing.view'], section: 'catalogue' },
+  { to: '/debts', icon: HandCoins, label: 'ap.nav_debts', perms: ['customers.view', 'purchasing.view'], section: 'money' },
   { to: '/expenses', icon: Wallet, label: 'ap.nav_expenses', perms: ['expenses.view'], section: 'money' },
   { to: '/customers', icon: Users, label: 'nav.customers', perms: ['customers.view'], section: 'people' },
   { to: '/orders', icon: Inbox, label: 'ap.nav_orders', perms: ['delegate.sell', 'delegates.manage'], section: 'people' },
@@ -70,7 +71,7 @@ function useNavItems(): AdminNavItem[] {
 function NavItems({ items, compact, onPick }: { items: AdminNavItem[]; compact?: boolean; onPick?: () => void }) {
   const t = useT()
   return (
-    <nav aria-label="Main" className="-me-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pe-1 [scrollbar-color:rgba(255,255,255,.18)_transparent] [scrollbar-width:thin]">
+    <nav aria-label="Main" className="-mx-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-1 py-0.5 [scrollbar-color:rgba(255,255,255,.18)_transparent] [scrollbar-width:thin]">
       {SECTIONS.map((sec, i) => {
         const mine = items.filter((n) => n.section === sec)
         if (!mine.length) return null
@@ -96,13 +97,13 @@ function NavItem({ n, compact, onPick }: { n: AdminNavItem; compact?: boolean; o
       title={t(n.label)}
       onClick={onPick}
       className={({ isActive }) => cn(
-        'flex shrink-0 items-center gap-3 rounded-xl transition',
+        'flex min-w-0 shrink-0 items-center gap-3 overflow-hidden rounded-xl transition',
         compact ? 'min-h-14 flex-col justify-center gap-0.5 px-1 py-1.5 text-[10px]' : 'h-9 px-3 text-sm',
-        isActive ? 'bg-gold text-ink shadow-[0_6px_18px_rgba(212,165,72,.25)]' : 'text-[#cfc5b4] hover:bg-white/10 hover:text-white',
+        isActive ? 'bg-gold text-ink shadow-[0_4px_12px_rgba(212,165,72,.25)]' : 'text-[#cfc5b4] hover:bg-white/10 hover:text-white',
       )}
     >
       <n.icon className="size-5 shrink-0" />
-      <span className={cn('font-medium', compact ? 'line-clamp-2 max-w-full text-center leading-tight' : 'truncate')}>{t(n.label)}</span>
+      <span className={cn('min-w-0 font-medium', compact ? 'line-clamp-2 max-w-full text-center leading-tight' : 'truncate')}>{t(n.label)}</span>
     </NavLink>
   )
 }
@@ -110,8 +111,8 @@ function NavItem({ n, compact, onPick }: { n: AdminNavItem; compact?: boolean; o
 function SideBrand({ compact }: { compact?: boolean }) {
   const t = useT()
   return (
-    <div className={cn('mb-2 flex items-center gap-2.5 px-1', compact && 'justify-center')}>
-      <Logo className="h-11" />
+    <div className={cn('mb-2 flex shrink-0 items-center gap-2.5 px-1', compact && 'justify-center')}>
+      <Logo className="h-[clamp(2rem,5dvh,2.75rem)]" />
       {!compact && (
         <span className="leading-tight">
           <span className="block font-serif text-xl font-semibold tracking-wide text-gold-light">Lattafa</span>
@@ -128,10 +129,10 @@ function AppLinks({ compact }: { compact?: boolean }) {
   const at = useAppAddresses()
   const links: [string, LucideIcon, string][] = [[at.pos, MonitorSmartphone, 'ap.open_pos'], [at.delegate, Truck, 'ap.open_delegate'], [at.menu, BookOpen, 'ap.open_menu']]
   return (
-    <div className="mt-2 flex flex-col gap-0.5 border-t border-white/10 pt-2">
+    <div className="mt-2 flex shrink-0 flex-col gap-0.5 border-t border-white/10 pt-2">
       {links.map(([href, Icon, label]) => (
         <a key={label} href={href} target="_blank" rel="noopener" title={t(label)}
-          className={cn('flex items-center gap-2 rounded-xl text-[#b9ae9c] transition hover:bg-white/10 hover:text-white', compact ? 'h-11 justify-center' : 'h-9 px-3 text-sm')}>
+          className={cn('flex min-w-0 shrink-0 items-center gap-2 overflow-hidden rounded-xl text-[#b9ae9c] transition hover:bg-white/10 hover:text-white', compact ? 'h-11 justify-center' : 'h-9 px-3 text-sm')}>
           <Icon className="size-5 shrink-0" />
           {!compact && <span className="truncate">{t(label)}</span>}
         </a>
@@ -177,7 +178,7 @@ function UserMenu() {
             </div>
           </div>
           <div className="my-1 border-t border-line" />
-          <div className="px-3 py-2 md:hidden">
+          <div className="px-3 py-2 lg:hidden">
             <div className="mb-1.5 flex items-center gap-2 text-xs font-medium text-fg-2"><Languages className="size-4" />{t('common.language')}</div>
             <div className="flex gap-2">
               {LANGS.map((l) => (
@@ -191,7 +192,7 @@ function UserMenu() {
               ))}
             </div>
           </div>
-          <div className="my-1 border-t border-line md:hidden" />
+          <div className="my-1 border-t border-line lg:hidden" />
           <MenuItem icon={<KeyRound className="size-5" />} onClick={() => { close(); navigate('/account') }}>{t('account.title')}</MenuItem>
           <MenuItem icon={<LogOut className="size-5 rtl:rotate-180" />} danger onClick={() => { close(); void leave() }}>{t('auth.sign_out')}</MenuItem>
         </>
@@ -236,7 +237,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-dvh bg-bg text-fg">
       {device !== 'phone' && (
-        <aside className={cn('flex shrink-0 flex-col bg-ink py-3 text-white', compact ? 'w-[5.25rem] px-2 ps-[max(0.5rem,env(safe-area-inset-left))]' : 'w-64 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]')}>
+        <aside className={cn('flex min-h-0 shrink-0 flex-col overflow-hidden bg-ink py-[clamp(0.375rem,1.2dvh,0.75rem)] text-white', compact ? 'w-[5.25rem] px-2 ps-[max(0.5rem,env(safe-area-inset-left))]' : 'w-64 px-3 ps-[max(0.75rem,env(safe-area-inset-left))]')}>
           <SideBrand compact={compact} />
           <NavItems items={items} compact={compact} />
           <AppLinks compact={compact} />
@@ -253,8 +254,8 @@ export function Shell({ children }: { children: ReactNode }) {
               </>
             )}
             <div className="flex-1" />
-            {device !== 'phone' && <LangSwitch />}
-            {device !== 'phone' && <ThemeToggle />}
+            {device === 'desktop' && <LangSwitch />}
+            {device === 'desktop' && <ThemeToggle />}
             <UserMenu />
           </div>
         </header>

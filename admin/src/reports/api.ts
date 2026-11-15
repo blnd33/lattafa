@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, Clock, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BarChart3, CalendarDays, ClipboardList, Scale, Clock, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
 import { api } from '@/services/api'
 
 /** One report, in the shape the server sends every report in — see backend/app/Services/ReportCenter.php. */
@@ -22,13 +22,14 @@ export interface ReportTable {
 export type ReportId =
   | 'sales-by-day' | 'sales-by-product' | 'sales-by-brand' | 'sales-by-category' | 'sales-by-seller'
   | 'profit-loss' | 'expenses' | 'delegate-commission' | 'delegate-sales' | 'debt-aging'
+  | 'debt-movements' | 'supplier-balances' | 'supplier-movements'
   | 'stock-valuation' | 'slow-movers' | 'purchases' | 'shifts'
 
 export type Preset = 'today' | 'yesterday' | '7' | '30' | '90' | 'month' | 'last_month' | 'year' | 'custom'
 
 export interface ReportDef {
   id: ReportId
-  group: 'sales' | 'money' | 'stock' | 'staff' | 'delegate'
+  group: 'sales' | 'money' | 'debts' | 'stock' | 'staff' | 'delegate'
   icon: LucideIcon
   /** the permission the server checks */
   perm: string
@@ -47,14 +48,17 @@ export const REPORTS: ReportDef[] = [
   { id: 'profit-loss', group: 'money', icon: Landmark, perm: 'reports.financial', preset: 'month' },
   { id: 'expenses', group: 'money', icon: Wallet, perm: 'expenses.view', preset: 'month' },
   { id: 'delegate-commission', group: 'delegate', icon: HandCoins, perm: 'delegates.manage', preset: 'month' },
-  { id: 'debt-aging', group: 'money', icon: Hourglass, perm: 'customers.view', preset: 'today', asOf: true },
+  { id: 'debt-aging', group: 'debts', icon: Hourglass, perm: 'customers.view', preset: 'today', asOf: true },
+  { id: 'debt-movements', group: 'debts', icon: ArrowLeftRight, perm: 'customers.view', preset: 'month' },
+  { id: 'supplier-balances', group: 'debts', icon: Scale, perm: 'purchasing.view', preset: 'today', asOf: true },
+  { id: 'supplier-movements', group: 'debts', icon: ClipboardList, perm: 'purchasing.view', preset: 'month' },
   { id: 'stock-valuation', group: 'stock', icon: BarChart3, perm: 'reports.financial', preset: 'today', asOf: true },
   { id: 'slow-movers', group: 'stock', icon: Clock, perm: 'inventory.view', preset: '90' },
   { id: 'purchases', group: 'stock', icon: PackageOpen, perm: 'purchasing.view', preset: 'month' },
   { id: 'shifts', group: 'staff', icon: Receipt, perm: 'shifts.view_all', preset: '7' },
 ]
 
-export const GROUPS = ['sales', 'money', 'stock', 'staff', 'delegate'] as const
+export const GROUPS = ['sales', 'money', 'debts', 'stock', 'staff', 'delegate'] as const
 /** The delegate's own reports — gathered in the Delegates section as well as here. */
 export const DELEGATE_REPORTS = REPORTS.filter((r) => r.group === 'delegate')
 

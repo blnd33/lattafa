@@ -17,6 +17,7 @@ import { useSession } from '@/store/session'
 import { useUI } from '@/store/ui'
 import { AdminApp } from './App'
 import type { Dashboard } from './dashboard/api'
+import type { Debts } from './debts/api'
 
 // jsdom's page is "/", not "/admin/": tell the shared code it runs as the admin panel (the path check itself is in lib.test.ts)
 vi.mock('@/data/app', () => ({ APP: 'admin', DB_NAME: 'lattafa-admin-test', SESSION_KEY: 'lattafa-admin-session' }))
@@ -59,11 +60,35 @@ function pull(): PullPayload {
   }
 }
 
+function debts(period: Debts['period']): Debts {
+  return {
+    period, from: now - 30 * 86_400_000, to: now,
+    receivable: {
+      totalIQD: 640_000, customers: 2, overLimit: 1, aging: { age0: 290_000, age31: 0, age61: 0, age91: 350_000 },
+      givenIQD: 230_000, givenCount: 3, collectedIQD: 75_000, collectedCount: 1, returnedIQD: 0,
+      rows: [
+        { id: 'c1', name: 'Noor Shop', phone: '0750 000 0000', type: 'shop', city: 'Duhok', balanceIQD: 500_000, creditLimitIQD: 400_000, age0: 150_000, age31: 0, age61: 0, age91: 350_000, lastDebtAt: now - 86_400_000, lastPaymentAt: null, oldestDays: 1 },
+        { id: 'c2', name: 'Shilan Salon', phone: '', type: 'retail', city: '', balanceIQD: 140_000, creditLimitIQD: 0, age0: 140_000, age31: 0, age61: 0, age91: 0, lastDebtAt: now - 3_600_000, lastPaymentAt: now - 7_200_000, oldestDays: 0 },
+      ],
+    },
+    payable: {
+      totalIQD: 379_600, owedUSD: 260, owedIQD: 0, rate: 1460, suppliers: 1, boughtIQD: 438_000, boughtCount: 1, paidIQD: 58_400, paidCount: 1,
+      rows: [{ id: 's1', name: 'Dubai Perfume House', phone: '', city: 'Dubai', currency: 'USD', active: true, received: 300, paid: 40, balance: 260, balanceIQD: 379_600, lastReceiptAt: now - 86_400_000, lastPaymentAt: now - 3_600_000 }],
+    },
+    netIQD: 260_400,
+    series: { unit: 'day', points: Array.from({ length: 30 }, (_, i) => ({ key: `2026-10-${String(i + 1).padStart(2, '0')}`, givenIQD: i === 29 ? 230_000 : 0, collectedIQD: i === 29 ? 75_000 : 0, boughtIQD: 0, paidIQD: 0 })) },
+    activity: [
+      { id: 'm1', at: now - 3_600_000, side: 'customer', kind: 'collection', sign: -1, partyId: 'c2', party: 'Shilan Salon', ref: '', amount: 75_000, currency: 'IQD', amountIQD: 75_000, method: 'cash_iqd', by: 'Sara', note: '' },
+      { id: 'm2', at: now - 7_200_000, side: 'supplier', kind: 'supplier_payment', sign: -1, partyId: 's1', party: 'Dubai Perfume House', ref: '', amount: 40, currency: 'USD', amountIQD: 58_400, method: 'bank', by: 'Rand Owner', note: 'Transfer' },
+    ],
+  }
+}
+
 function dashboard(period: Dashboard['period']): Dashboard {
   return {
     period, from: now - 3_600_000, to: now, financial: true,
-    totals: { count: 12, revenueIQD: 1_250_000, refundsIQD: 0, netIQD: 1_250_000, unitsSold: 19, avgBasketIQD: 104_167, profitIQD: 410_000 },
-    previous: { count: 8, revenueIQD: 1_000_000, netIQD: 1_000_000, profitIQD: 0 },
+    totals: { count: 12, revenueIQD: 1_250_000, refundsIQD: 0, netIQD: 1_250_000, unitsSold: 19, avgBasketIQD: 104_167, profitIQD: 410_000, creditIQD: 230_000, paidIQD: 1_020_000, collectedIQD: 75_000 },
+    previous: { count: 8, revenueIQD: 1_000_000, netIQD: 1_000_000, profitIQD: 0, creditIQD: 115_000, paidIQD: 885_000, collectedIQD: 0 },
     channels: { store: { count: 9, revenueIQD: 950_000 }, delegate: { count: 3, revenueIQD: 300_000 } },
     series: period === 'today'
       ? { unit: 'hour', points: Array.from({ length: 15 }, (_, h) => ({ key: String(h), storeIQD: h === 10 ? 950_000 : 0, delegateIQD: h === 12 ? 300_000 : 0, count: 0 })) }
@@ -121,6 +146,8 @@ beforeEach(async () => {
     if (path === `/sales/${flagged.id}/reviewed`) { reviewed = true; return json(200, { sale: { ...flagged, needsReview: false, reviewedAt: now, reviewedBy: owner.id, reviewNote: body.note } }) }
     const m = /^\/dashboard\?period=(\w+)$/.exec(path)
     if (m) return json(200, dashboard(m[1] as Dashboard['period']))
+    const dm = /^\/debts\?period=(\w+)$/.exec(path)
+    if (dm) return json(200, debts(dm[1] as Debts['period']))
     return json(404, { error: { code: 'not_found', params: {} } })
   })
 })
@@ -159,13 +186,18 @@ describe('Admin panel', () => {
     expect(screen.getByText('0 left · alert at 3')).toBeInTheDocument()
     expect(screen.getByText('Noor Shop')).toBeInTheDocument()
     expect(screen.getByText('Dubai Perfume House')).toBeInTheDocument()                  // owed to suppliers
+    // debt is kept apart from the sales: what was paid, what went on the customer's account, and old debt paid back
+    expect(screen.getByText('1,020,000 paid')).toBeInTheDocument()
+    expect(screen.getByText('Sold on debt').closest('a')).toHaveAttribute('href', '#/debts')
+    expect(screen.getByText('230,000')).toBeInTheDocument()
+    expect(screen.getByText('75,000 of old debt collected')).toBeInTheDocument()
     expect(screen.getByText('33% of sales · 260,000 after expenses')).toBeInTheDocument() // profit 410,000 − expenses 150,000
     expect(screen.getByText('Orders waiting to arrive').closest('a')).toHaveAttribute('href', '#/purchasing')
 
     // another period
     await user.click(screen.getByRole('button', { name: '7 days' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/dashboard?period=week')).toBe(true), wait)
-    expect(await screen.findAllByText('vs the 7 days before', {}, wait)).toHaveLength(2) // sales and bills
+    expect(await screen.findAllByText('vs the 7 days before', {}, wait)).toHaveLength(3) // sales, debt and bills
 
     // the POS's own screens, run against the server
     const nav = screen.getByRole('navigation', { name: 'Main' })
@@ -192,6 +224,41 @@ describe('Admin panel', () => {
     expect(await screen.findByLabelText('Username', {}, wait)).toBeInTheDocument()
     expect(calls.some((c) => c.path === '/auth/logout')).toBe(true)
     expect(useSession.getState().actor).toBeNull()
+  }, 30_000)
+
+  it('shows debts both ways on their own screen', async () => {
+    render(<AdminApp />)
+    await user.type(await screen.findByLabelText('Username', {}, wait), 'owner')
+    await user.type(screen.getByLabelText('Password'), 'right password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Rand/ }, wait)
+
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+    await user.click(within(nav).getByRole('link', { name: 'Debts' }))
+    expect(await screen.findByRole('heading', { name: 'Debts', level: 1 }, wait)).toBeInTheDocument()
+    expect(await screen.findByText('Customers owe the shop', {}, wait)).toBeInTheDocument()
+    expect(calls.some((c) => c.path === '/debts?period=month')).toBe(true)
+    expect(screen.getByText('640,000')).toBeInTheDocument()
+    expect(screen.getByText('The shop owes suppliers')).toBeInTheDocument()
+    expect(screen.getByText('260,400')).toBeInTheDocument()                                // net position
+    expect(screen.getByText('Customers owe the shop more than the shop owes its suppliers.')).toBeInTheDocument()
+    expect(screen.getByText('Noor Shop')).toBeInTheDocument()
+    expect(screen.getByText('Over limit')).toBeInTheDocument()
+
+    // only the old debts
+    await user.click(screen.getByRole('button', { name: 'Over 60 days' }))
+    expect(screen.queryByText('Shilan Salon')).toBeNull()
+
+    // what the shop owes, and every movement
+    const tabs = screen.getByRole('group', { name: 'Debts' })
+    await user.click(within(tabs).getByRole('button', { name: 'We owe suppliers' }))
+    expect(await screen.findByText('Dubai Perfume House', {}, wait)).toBeInTheDocument()
+    await user.click(within(tabs).getByRole('button', { name: 'Movements' }))
+    expect(await screen.findByText('Payment collected · Shilan Salon', {}, wait)).toBeInTheDocument()
+    expect(screen.getByText('Paid to supplier · Dubai Perfume House')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '90 days' }))
+    await waitFor(() => expect(calls.some((c) => c.path === '/debts?period=quarter')).toBe(true), wait)
   }, 30_000)
 
   it('an account made only to watch lands on the activity log and reaches nothing else', async () => {

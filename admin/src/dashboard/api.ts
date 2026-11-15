@@ -15,9 +15,13 @@ export interface Dashboard {
   totals: {
     count: number; revenueIQD: number; refundsIQD: number; netIQD: number; unitsSold: number; avgBasketIQD: number
     profitIQD: number | null
+    /** of the sales: left on the customer's account (debt) / paid at the counter */
+    creditIQD: number; paidIQD: number
+    /** old debts paid back in the window — money in, but not a sale */
+    collectedIQD: number
   }
   /** the same stretch of time just before, up to the same moment */
-  previous: { count: number; revenueIQD: number; netIQD: number; profitIQD: number | null }
+  previous: { count: number; revenueIQD: number; netIQD: number; profitIQD: number | null; creditIQD: number; paidIQD: number; collectedIQD: number }
   channels: { store: ChannelTotals; delegate: ChannelTotals }
   series: { unit: 'hour' | 'day'; points: { key: string; storeIQD: number; delegateIQD: number; count: number }[] }
   topProducts: { productId: string; name: Record<Lang, string>; brand: string; image: string | null; art: Product['art'] | null; units: number; revenueIQD: number }[]
