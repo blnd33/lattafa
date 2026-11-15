@@ -51,6 +51,27 @@ class ExpenseTest extends ApiTestCase
         $this->api('DELETE', 'expenses/'.Str::uuid())->assertNotFound();
     }
 
+    public function test_everything_recorded_and_the_dashboard_card(): void
+    {
+        $this->shop(false);
+        $now = Time::nowMs();
+        $this->api('POST', 'expenses', ['category' => 'rent', 'amount' => 400000, 'currency' => 'IQD', 'spentAt' => $now])->assertCreated();
+        $this->api('POST', 'expenses', ['category' => 'food', 'amount' => 15000, 'currency' => 'IQD', 'spentAt' => $now - 1])->assertCreated();
+        $this->api('POST', 'expenses', ['category' => 'rent', 'amount' => 380000, 'currency' => 'IQD', 'spentAt' => $now - 200 * 86_400_000])->assertCreated(); // long ago
+
+        // from=0: every expense ever recorded
+        $all = $this->api('GET', "expenses?from=0&to=$now")->assertOk()->json();
+        $this->assertSame([3, 795000], [$all['count'], $all['totalIQD']]);
+        $this->assertSame(['rent', 780000, 2], [$all['byCategory'][0]['category'], $all['byCategory'][0]['amountIQD'], $all['byCategory'][0]['count']]);
+        $this->assertCount(3, $all['expenses']);
+
+        // the dashboard: today's spending, the biggest category first, the latest entries and the all-time total
+        $e = $this->api('GET', 'dashboard?period=today')->assertOk()->json('expenses');
+        $this->assertSame([415000, 2, 'rent', 795000, 3], [$e['totalIQD'], $e['count'], $e['byCategory'][0]['category'], $e['allTimeIQD'], $e['allTimeCount']]);
+        $this->assertSame('rent', $e['recent'][0]['category']);
+        $this->assertCount(3, $e['recent']);
+    }
+
     public function test_only_people_allowed_see_or_change_expenses(): void
     {
         $this->shop(false);

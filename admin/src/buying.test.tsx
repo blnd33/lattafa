@@ -84,7 +84,7 @@ beforeEach(async () => {
     if (path === '/purchase-orders' && method === 'POST') return json(201, { order: order(0) })
     if (path === '/purchase-orders/po-1') return json(200, { order: order(received) })
     if (path === '/purchase-orders/po-1/receive') { received = body.lines[0].qty; return json(200, { order: order(received) }) }
-    if (path.startsWith('/expenses?')) return json(200, { from: 0, to: 0, expenses, totalIQD: expenses.length ? 125000 : 0, byCategory: expenses.length ? [{ category: 'electricity', amountIQD: 125000, count: 1 }] : [], delegateIQD: 15000 })
+    if (path.startsWith('/expenses?')) return json(200, { from: 0, to: 0, expenses, count: expenses.length, totalIQD: expenses.length ? 125000 : 0, byCategory: expenses.length ? [{ category: 'electricity', amountIQD: 125000, count: 1 }] : [], delegateIQD: 15000 })
     if (path === '/expenses' && method === 'POST') {
       const e = { id: 'e-1', ...body, rate: 1460, amountIQD: 125000, userId: owner.id, userName: 'Rand Owner' }
       expenses = [e]

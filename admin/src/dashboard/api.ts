@@ -1,4 +1,5 @@
 import type { Lang, Product } from '@/data/types'
+import type { Expense, ExpenseCategory } from '../expenses/api'
 import { api } from '@/services/api'
 
 /** GET /dashboard — see backend/app/Services/DashboardService.php. */
@@ -31,6 +32,13 @@ export interface Dashboard {
   debts: { totalIQD: number; customers: number; top: { id: string; name: string; phone: string; balanceIQD: number }[] } | null
   /** shop expenses + delegates' approved road expenses in the window (null = no permission) */
   expensesIQD: number | null
+  /** the expenses card (null = no permission): the window's shop expenses, delegates' road expenses, top categories, latest entries, all-time total */
+  expenses: {
+    totalIQD: number; count: number; delegateIQD: number
+    byCategory: { category: ExpenseCategory; amountIQD: number; count: number }[]
+    recent: Expense[]
+    allTimeIQD: number; allTimeCount: number
+  } | null
   suppliers: { owedUSD: number; owedIQD: number; totalIQD: number; rate: number; suppliers: number; top: { id: string; name: string; currency: 'IQD' | 'USD'; balance: number; balanceIQD: number }[] } | null
   attention: { openRequests: number | null; pendingClosings: number | null; salesToReview: number | null; ordersWaiting: number | null }
 }

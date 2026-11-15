@@ -145,12 +145,13 @@ function Header({ t, storeName, tagline }: { t: MenuT; storeName?: string; tagli
   }, [])
   return (
     <header className={cn('sticky top-0 z-30 border-b pt-safe transition-colors duration-300', solid ? 'border-line/60 bg-bg/85 backdrop-blur' : 'border-transparent bg-transparent')}>
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <Logo className="h-9 shrink-0 sm:h-10" />
           <div className="min-w-0">
-            <div className="truncate font-serif text-[0.95rem] font-semibold leading-tight text-gold-light sm:text-lg">{storeName || 'Lattafa'}</div>
-            <div className="truncate text-[11px] uppercase tracking-[0.18em] text-fg-2">{tagline}</div>
+            {/* very small phones: the name may take two lines and the tagline steps aside, rather than cutting the name */}
+            <div className="truncate font-serif text-[0.95rem] font-semibold leading-tight text-gold-light max-[379px]:line-clamp-2 max-[379px]:whitespace-normal max-[379px]:text-sm sm:text-lg">{storeName || 'Lattafa'}</div>
+            <div className="truncate text-[11px] uppercase tracking-[0.18em] text-fg-2 max-[379px]:hidden rtl:tracking-normal">{tagline}</div>
           </div>
         </div>
         <LangPicker t={t} />
@@ -167,7 +168,7 @@ function LangPicker({ t }: { t: MenuT }) {
     <div role="group" aria-label={t('lang')} className="flex shrink-0 gap-1 rounded-full border border-line bg-surface p-1">
       {opts.map(([l, label]) => (
         <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)}
-          className={cn('min-h-9 rounded-full px-2 text-sm font-semibold transition sm:px-3', lang === l ? 'bg-gold text-ink' : 'text-fg-2 hover:text-fg')}>{label}</button>
+          className={cn('min-h-9 rounded-full px-2 text-sm font-semibold transition max-[379px]:px-1.5 max-[379px]:text-xs sm:px-3', lang === l ? 'bg-gold text-ink' : 'text-fg-2 hover:text-fg')}>{label}</button>
       ))}
     </div>
   )

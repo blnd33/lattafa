@@ -1,4 +1,4 @@
-/** Admin panel → Debts: what customers owe the shop and what the shop owes its suppliers. */
+/** Admin panel → Debts, and the dashboard's money cards (debts, expenses). */
 export const debts: Record<string, string> = {
   'ap.nav_debts': 'Debts',
   'ap.kpi_debt': 'Sold on debt',
@@ -81,4 +81,21 @@ export const debts: Record<string, string> = {
   'rc.debt_we_owe_now': 'The shop owes now',
   'rc.usd_owed': 'Owed in dollars',
   'rc.suppliers_owed': 'Suppliers owed',
+  'ap.kpi_expenses': 'Expenses',
+  'ap.exp_title': 'Expenses',
+  'ap.exp_with_delegates': "includes {amount} of delegates' road expenses",
+  'ap.exp_1': '1 expense',
+  'ap.exp_n': '{n} expenses',
+  'ap.exp_spent_today': 'Spent today',
+  'ap.exp_spent_week': 'Spent in the last 7 days',
+  'ap.exp_spent_month': 'Spent in the last 30 days',
+  'ap.exp_latest': 'Latest',
+  'ap.exp_all_time': 'All time: {amount} IQD · {n} expenses',
+  'exp.all_time': 'All time',
+  'exp.view': 'Show',
+  'exp.view_month': 'By month',
+  'exp.view_all': 'All expenses',
+  'exp.spent_all': 'Spent since the first expense',
+  'exp.count': '{n} expenses',
+  'exp.showing': 'Showing the latest {shown} of {n}. The totals include them all.',
 }

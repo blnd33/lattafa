@@ -1,4 +1,4 @@
-/** لوحة الإدارة ← الديون: ما يدين به الزبائن للمحل وما يدين به المحل للموردين. */
+/** Admin panel → Debts, and the dashboard's money cards (debts, expenses). */
 export const debts: Record<string, string> = {
   'ap.nav_debts': 'الديون',
   'ap.kpi_debt': 'مبيع بالدين',
@@ -81,4 +81,21 @@ export const debts: Record<string, string> = {
   'rc.debt_we_owe_now': 'ديون على المحل الآن',
   'rc.usd_owed': 'المستحق بالدولار',
   'rc.suppliers_owed': 'موردون لهم مستحقات',
+  'ap.kpi_expenses': 'المصاريف',
+  'ap.exp_title': 'المصاريف',
+  'ap.exp_with_delegates': 'تشمل {amount} مصاريف طريق المندوبين',
+  'ap.exp_1': 'مصروف واحد',
+  'ap.exp_n': '{n} مصاريف',
+  'ap.exp_spent_today': 'المصروف اليوم',
+  'ap.exp_spent_week': 'المصروف في آخر 7 أيام',
+  'ap.exp_spent_month': 'المصروف في آخر 30 يوماً',
+  'ap.exp_latest': 'الأحدث',
+  'ap.exp_all_time': 'منذ البداية: {amount} د.ع · {n} مصاريف',
+  'exp.all_time': 'منذ البداية',
+  'exp.view': 'العرض',
+  'exp.view_month': 'حسب الشهر',
+  'exp.view_all': 'كل المصاريف',
+  'exp.spent_all': 'المصروف منذ أول مصروف',
+  'exp.count': '{n} مصاريف',
+  'exp.showing': 'يُعرض أحدث {shown} من {n}. المجاميع تشملها كلها.',
 }

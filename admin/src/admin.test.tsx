@@ -98,6 +98,12 @@ function dashboard(period: Dashboard['period']): Dashboard {
     delegates: [{ id: 'u-ahmed', name: 'Ahmed', color: '#7A9', salesIQD: 300_000, salesCount: 3, collectedIQD: 50_000, lastSeenAt: now - 60_000 }],
     debts: { totalIQD: 640_000, customers: 2, top: [{ id: 'c1', name: 'Noor Shop', phone: '0750 000 0000', balanceIQD: 500_000 }] },
     expensesIQD: 150_000,
+    expenses: {
+      totalIQD: 135_000, count: 2, delegateIQD: 15_000,
+      byCategory: [{ category: 'electricity', amountIQD: 125_000, count: 1 }, { category: 'food', amountIQD: 10_000, count: 1 }],
+      recent: [{ id: 'e1', category: 'electricity', amount: 125_000, currency: 'IQD', rate: 1, amountIQD: 125_000, method: 'cash', note: 'Generator', spentAt: now - 3_600_000, userId: owner.id, userName: 'Rand Owner' }],
+      allTimeIQD: 2_480_000, allTimeCount: 31,
+    },
     suppliers: { owedUSD: 260, owedIQD: 0, totalIQD: 379_600, rate: 1460, suppliers: 1, top: [{ id: 's1', name: 'Dubai Perfume House', currency: 'USD', balance: 260, balanceIQD: 379_600 }] },
     attention: { openRequests: 2, pendingClosings: 0, salesToReview: 0, ordersWaiting: 1 },
   }
@@ -146,6 +152,10 @@ beforeEach(async () => {
     if (path === `/sales/${flagged.id}/reviewed`) { reviewed = true; return json(200, { sale: { ...flagged, needsReview: false, reviewedAt: now, reviewedBy: owner.id, reviewNote: body.note } }) }
     const m = /^\/dashboard\?period=(\w+)$/.exec(path)
     if (m) return json(200, dashboard(m[1] as Dashboard['period']))
+    if (path.startsWith('/expenses?')) {
+      const all = path.startsWith('/expenses?from=0&')
+      return json(200, { from: 0, to: now, count: all ? 31 : 2, totalIQD: all ? 2_480_000 : 135_000, delegateIQD: 0, expenses: dashboard('today').expenses!.recent, byCategory: dashboard('today').expenses!.byCategory })
+    }
     const dm = /^\/debts\?period=(\w+)$/.exec(path)
     if (dm) return json(200, debts(dm[1] as Debts['period']))
     return json(404, { error: { code: 'not_found', params: {} } })
@@ -259,6 +269,30 @@ describe('Admin panel', () => {
 
     await user.click(screen.getByRole('button', { name: '90 days' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/debts?period=quarter')).toBe(true), wait)
+  }, 30_000)
+
+  it('the expenses card opens the expenses screen: everything recorded, and the form to add one', async () => {
+    render(<AdminApp />)
+    await user.type(await screen.findByLabelText('Username', {}, wait), 'owner')
+    await user.type(screen.getByLabelText('Password'), 'right password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Rand/ }, wait)
+
+    expect(await screen.findByText('Spent today', {}, wait)).toBeInTheDocument()
+    expect(screen.getAllByText('150,000')).toHaveLength(2)                                    // shop 135,000 + delegates 15,000: the tile and the card
+    expect(screen.getAllByText("includes 15,000 of delegates' road expenses")).toHaveLength(2) // the tile and the card
+    expect(screen.getByText('· Generator')).toBeInTheDocument()                               // the latest entry
+
+    // everything ever recorded
+    await user.click(screen.getByRole('link', { name: 'All time: 2,480,000 IQD · 31 expenses' }))
+    expect(await screen.findByText('Spent since the first expense', {}, wait)).toBeInTheDocument()
+    expect(calls.some((c) => c.path.startsWith('/expenses?from=0&'))).toBe(true)
+    expect(screen.getByText('2,480,000')).toBeInTheDocument()
+
+    // back on the dashboard, "Add expense" opens the form straight away
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Dashboard' }))
+    await user.click(await screen.findByRole('link', { name: 'Add expense' }, wait))
+    expect(await screen.findByRole('dialog', { name: 'Add expense' }, wait)).toBeInTheDocument()
   }, 30_000)
 
   it('an account made only to watch lands on the activity log and reaches nothing else', async () => {

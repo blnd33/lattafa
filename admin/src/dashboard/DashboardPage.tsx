@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, PackageOpen, PackageX, RefreshCw, Truck } from 'lucide-react'
+import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, PackageOpen, PackageX, Plus, RefreshCw, Truck, Wallet } from 'lucide-react'
 import { RequireAny } from '@/features/NoAccess'
 import { Amt, UsdAmt } from '@/components/ui/Amt'
 import { ProductImage } from '@/components/ui/Brand'
@@ -9,11 +9,13 @@ import { IconButton } from '@/components/ui/Button'
 import { Avatar, Badge, Card, EmptyState, Segmented, Spinner } from '@/components/ui/Controls'
 import { cn } from '@/components/ui/cn'
 import { errorMessage, pick, useT } from '@/i18n'
-import { fmtTime } from '@/lib/date'
+import { fmtDate, fmtTime } from '@/lib/date'
 import { fmt } from '@/lib/money'
+import { useCan } from '@/hooks/useAuth'
 import { useSession } from '@/store/session'
 import { useUI } from '@/store/ui'
 import { ago, change, freshness, greeting, longDate, plural } from '../lib'
+import { Money } from '../money'
 import { getDashboard, type Dashboard, type Period } from './api'
 import { DELEGATE_BG, SalesChart, SplitRing, STORE_BG } from './charts'
 
@@ -73,6 +75,10 @@ function Body({ d }: { d: Dashboard }) {
           <Kpi label={t('ap.kpi_profit')} value={<Amt n={d.totals.profitIQD} />} delta={change(d.totals.profitIQD, d.previous.profitIQD ?? 0)} vs={vs}
             sub={[margin !== null ? t('ap.margin', { pct: margin }) : null, d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null].filter(Boolean).join(' · ') || undefined} />
         )}
+        {d.expenses && (
+          <Kpi label={t('ap.kpi_expenses')} value={<Amt n={d.expenses.totalIQD + d.expenses.delegateIQD} />} to="/expenses"
+            sub={d.expenses.delegateIQD > 0 ? t('ap.exp_with_delegates', { amount: fmt(d.expenses.delegateIQD) }) : plural(t, d.expenses.count, 'ap.exp_1', 'ap.exp_n')} />
+        )}
         <Kpi label={t('ap.kpi_bills')} value={<span className="num">{fmt(d.totals.count)}</span>} delta={change(d.totals.count, d.previous.count)} vs={vs}
           sub={t('ap.avg_bill', { amount: fmt(d.totals.avgBasketIQD) })} />
         <Kpi label={t('ap.kpi_units')} value={<span className="num">{fmt(d.totals.unitsSold)}</span>} />
@@ -101,6 +107,7 @@ function Body({ d }: { d: Dashboard }) {
         <Attention d={d} />
         {d.lowStock && <LowStock low={d.lowStock} />}
         {(d.debts || d.suppliers) && <Debts debts={d.debts} suppliers={d.suppliers} />}
+        {d.expenses && <Expenses e={d.expenses} period={d.period} />}
       </div>
     </>
   )
@@ -321,6 +328,58 @@ function Debts({ debts, suppliers: s }: { debts: Dashboard['debts']; suppliers: 
           )}
         </section>
       )}
+    </Card>
+  )
+}
+
+/** What running the shop cost in the period, the biggest categories, the latest entries — and a way to add one. */
+function Expenses({ e, period }: { e: NonNullable<Dashboard['expenses']>; period: Period }) {
+  const t = useT()
+  const canAdd = useCan('expenses.manage')
+  const top = e.byCategory[0]?.amountIQD ?? 0
+  return (
+    <Card className="flex min-w-0 flex-col">
+      <CardHead title={t('ap.exp_title')} icon={<Wallet className="size-5 text-gold-text" />} to="/expenses" className="mb-3" />
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+        <span className="text-sm text-fg-2">{t(`ap.exp_spent_${period}`)}</span>
+        <span className="text-xs text-fg-2">{plural(t, e.count, 'ap.exp_1', 'ap.exp_n')}</span>
+      </div>
+      <Amt n={e.totalIQD + e.delegateIQD} className="font-serif text-2xl font-semibold" />
+      {e.delegateIQD > 0 && <p className="text-xs text-fg-2">{t('ap.exp_with_delegates', { amount: fmt(e.delegateIQD) })}</p>}
+      {e.byCategory.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {e.byCategory.map((c) => (
+            <li key={c.category}>
+              <div className="flex items-baseline justify-between gap-2 text-sm"><span className="min-w-0 truncate">{t(`exp.cat_${c.category}`)}</span><Amt n={c.amountIQD} className="font-semibold" /></div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-gold" style={{ width: `${top ? Math.max(3, (c.amountIQD / top) * 100) : 0}%` }} /></div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-fg-2 rtl:tracking-normal">{t('ap.exp_latest')}</h3>
+      {!e.recent.length ? <p className="py-2 text-sm text-fg-2">{t('exp.none')}</p> : (
+        <ul className="divide-y divide-line">
+          {e.recent.map((x) => (
+            <li key={x.id} className="flex items-center gap-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{t(`exp.cat_${x.category}`)}{x.note ? <span className="font-normal text-fg-2"> · {x.note}</span> : null}</div>
+                <div className="num text-xs text-fg-2">{fmtDate(x.spentAt)}</div>
+              </div>
+              <Money v={x.amount} currency={x.currency} className="shrink-0 text-sm font-semibold" />
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+        <Link to="/expenses?view=all" className="min-w-0 text-xs text-fg-2 hover:text-fg">
+          {t('ap.exp_all_time', { amount: fmt(e.allTimeIQD), n: e.allTimeCount })}
+        </Link>
+        {canAdd && (
+          <Link to="/expenses?new=1" className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-gold px-3.5 text-sm font-semibold text-ink transition hover:brightness-105">
+            <Plus className="size-4" />{t('exp.new')}
+          </Link>
+        )}
+      </div>
     </Card>
   )
 }

@@ -1,4 +1,4 @@
-/** پانێڵی بەڕێوەبەر ← قەرزەکان: ئەوەی کڕیاران قەرزاری دوکانن و ئەوەی دوکان قەرزاری دابینکەرانە. */
+/** Admin panel → Debts, and the dashboard's money cards (debts, expenses). */
 export const debts: Record<string, string> = {
   'ap.nav_debts': 'قەرزەکان',
   'ap.kpi_debt': 'فرۆشتن بە قەرز',
@@ -81,4 +81,21 @@ export const debts: Record<string, string> = {
   'rc.debt_we_owe_now': 'قەرزی دوکان ئێستا',
   'rc.usd_owed': 'قەرز بە دۆلار',
   'rc.suppliers_owed': 'دابینکەرانی قەرزدار',
+  'ap.kpi_expenses': 'خەرجییەکان',
+  'ap.exp_title': 'خەرجییەکان',
+  'ap.exp_with_delegates': '{amount} خەرجی ڕێگای نوێنەران تێدایە',
+  'ap.exp_1': '1 خەرجی',
+  'ap.exp_n': '{n} خەرجی',
+  'ap.exp_spent_today': 'خەرجی ئەمڕۆ',
+  'ap.exp_spent_week': 'خەرجی 7 ڕۆژی ڕابردوو',
+  'ap.exp_spent_month': 'خەرجی 30 ڕۆژی ڕابردوو',
+  'ap.exp_latest': 'نوێترین',
+  'ap.exp_all_time': 'لە سەرەتاوە: {amount} دینار · {n} خەرجی',
+  'exp.all_time': 'لە سەرەتاوە',
+  'exp.view': 'پیشاندان',
+  'exp.view_month': 'بەپێی مانگ',
+  'exp.view_all': 'هەموو خەرجییەکان',
+  'exp.spent_all': 'خەرجی لە یەکەم خەرجییەوە',
+  'exp.count': '{n} خەرجی',
+  'exp.showing': 'نوێترین {shown} لە {n} پیشان دەدرێت. کۆکان هەموویان دەگرنەوە.',
 }

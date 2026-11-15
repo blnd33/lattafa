@@ -15,7 +15,7 @@ class ExpenseController extends Controller
 {
     public function __construct(private ExpenseService $expenses) {}
 
-    /** `?from=&to=` (ms; default this month, shop time) `&category=` */
+    /** `?from=&to=` (ms; default this month, shop time; `from=0` for everything recorded) `&category=` */
     public function index(Request $r): JsonResponse
     {
         $r->validate(['from' => ['nullable', 'integer'], 'to' => ['nullable', 'integer'], 'category' => ['nullable', 'in:'.implode(',', ExpenseService::CATEGORIES)]]);

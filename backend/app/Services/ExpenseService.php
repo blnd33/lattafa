@@ -26,26 +26,51 @@ class ExpenseService
 
     public const METHODS = ['cash', 'bank', 'other'];
 
+    /** the most expenses one list returns (the totals always cover them all) */
+    public const LIST_LIMIT = 5000;
+
     public function __construct(private AuditService $audit, private SettingsService $settings) {}
 
     /** @return array<string, mixed> the expenses between two moments, their total and each category's share */
     public function list(User $actor, int $from, int $to, ?string $category = null): array
     {
         $this->need($actor, 'expenses.view');
-        $rows = Expense::whereBetween('spent_at', [$from, $to])->when($category, fn ($q) => $q->where('category', $category))
-            ->orderByDesc('spent_at')->orderByDesc('created_at')->limit(2000)->get();
-        $by = [];
-        foreach ($rows as $e) {
-            $by[$e->category] = ['category' => $e->category, 'amountIQD' => ($by[$e->category]['amountIQD'] ?? 0) + $e->amount_iqd, 'count' => ($by[$e->category]['count'] ?? 0) + 1];
-        }
-        usort($by, fn ($a, $b) => $b['amountIQD'] <=> $a['amountIQD']);
+        $scope = fn () => Expense::whereBetween('spent_at', [$from, $to])->when($category, fn ($q) => $q->where('category', $category));
+        $rows = $scope()->orderByDesc('spent_at')->orderByDesc('created_at')->limit(self::LIST_LIMIT)->get();
+        // totals come from the database, so they cover every expense in the window even past the list's limit
+        $by = $scope()->selectRaw('category, coalesce(sum(amount_iqd), 0) as amount, count(*) as n')->groupBy('category')->get()
+            ->map(fn ($r) => ['category' => $r->category, 'amountIQD' => (int) $r->amount, 'count' => (int) $r->n])
+            ->sortByDesc('amountIQD')->values()->all();
 
         return [
             'from' => $from, 'to' => $to,
             'expenses' => $rows->map(fn (Expense $e) => Present::expense($e))->values()->all(),
-            'totalIQD' => (int) $rows->sum('amount_iqd'),
-            'byCategory' => array_values($by),
+            'totalIQD' => (int) array_sum(array_column($by, 'amountIQD')),
+            'count' => (int) array_sum(array_column($by, 'count')),
+            'byCategory' => $by,
             'delegateIQD' => $category ? 0 : $this->delegateExpenses($from, $to),
+        ];
+    }
+
+    /**
+     * The dashboard's expenses card: what the window cost (shop + delegates' road expenses), the biggest categories,
+     * the latest entries, and everything recorded so far.
+     *
+     * @return array<string, mixed>
+     */
+    public function summary(int $from, int $to): array
+    {
+        $by = Expense::whereBetween('spent_at', [$from, $to])->selectRaw('category, coalesce(sum(amount_iqd), 0) as amount, count(*) as n')->groupBy('category')->get()
+            ->map(fn ($r) => ['category' => $r->category, 'amountIQD' => (int) $r->amount, 'count' => (int) $r->n])->sortByDesc('amountIQD')->values();
+
+        return [
+            'totalIQD' => (int) $by->sum('amountIQD'),
+            'count' => (int) $by->sum('count'),
+            'delegateIQD' => $this->delegateExpenses($from, $to),
+            'byCategory' => $by->take(4)->all(),
+            'recent' => Expense::orderByDesc('spent_at')->orderByDesc('created_at')->limit(4)->get()->map(fn (Expense $e) => Present::expense($e))->values()->all(),
+            'allTimeIQD' => (int) Expense::sum('amount_iqd'),
+            'allTimeCount' => Expense::count(),
         ];
     }
 

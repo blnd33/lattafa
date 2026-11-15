@@ -53,6 +53,7 @@ class DashboardService
             'debts' => $actor->can('customers.view') ? $this->debts() : null,
             // what running the shop cost in the window (shop expenses + delegates' approved road expenses)
             'expensesIQD' => $actor->can('expenses.view') ? $this->expenses->totalIQD($from, $now) + $this->expenses->delegateExpenses($from, $now) : null,
+            'expenses' => $actor->can('expenses.view') ? $this->expenses->summary($from, $now) : null,
             'suppliers' => $actor->can('purchasing.view') ? $this->suppliers() : null,
             'attention' => [
                 'openRequests' => $actor->can('delegates.manage') ? DB::table('stock_requests')->where('status', 'open')->count() : null,

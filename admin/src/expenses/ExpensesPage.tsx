@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus, Save, Trash2, Truck } from 'lucide-react'
 import { RequireAny } from '@/features/NoAccess'
@@ -28,17 +29,27 @@ function Expenses() {
   const lang = useUI((s) => s.lang)
   const canManage = useCan('expenses.manage')
   const now = new Date()
+  // ?view=all (from the dashboard) shows everything ever recorded; ?new=1 opens the form to add one
+  const [params, setParams] = useSearchParams()
+  const [view, setView] = useState<'month' | 'all'>(params.get('view') === 'all' ? 'all' : 'month')
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() })
-  const [from, to] = monthRange(ym.y, ym.m)
+  const [mFrom, mTo] = monthRange(ym.y, ym.m)
+  const [from, to] = view === 'all' ? [0, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - 1] : [mFrom, mTo]
   const isThisMonth = ym.y === now.getFullYear() && ym.m === now.getMonth()
-  const q = useQuery({ queryKey: ['expenses', from], queryFn: () => listExpenses(from, to), placeholderData: keepPreviousData })
-  const [editing, setEditing] = useState<Expense | 'new' | null>(null)
+  const q = useQuery({ queryKey: ['expenses', view, from], queryFn: () => listExpenses(from, to), placeholderData: keepPreviousData })
+  const [editing, setEditing] = useState<Expense | 'new' | null>(canManage && params.get('new') === '1' ? 'new' : null)
+  useEffect(() => {
+    if (!params.has('new') && !params.has('view')) return
+    const next = new URLSearchParams(params); next.delete('new'); next.delete('view')
+    setParams(next, { replace: true }) // a refresh should not open the form again
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const periodLabel = view === 'all' ? t('exp.all_time') : monthYear(new Date(ym.y, ym.m, 1), lang)
   const step = (d: number) => setYm(({ y, m }) => { const x = new Date(y, m + d, 1); return { y: x.getFullYear(), m: x.getMonth() } })
   const d = q.data
   const top = d?.byCategory[0]?.amountIQD ?? 0
   const days = useMemo(() => {
     const groups = new Map<string, Expense[]>()
-    for (const e of d?.expenses ?? []) { const k = toInputDate(e.spentAt); groups.set(k, [...(groups.get(k) ?? []), e]) }
+    for (const e of d?.expenses ?? []) { const k = toInputDate(e.spentAt); const list = groups.get(k); if (list) list.push(e); else groups.set(k, [e]) }
     return [...groups.entries()]
   }, [d])
 
@@ -46,18 +57,24 @@ function Expenses() {
     <div className="mx-auto max-w-5xl space-y-4 p-4 md:p-6">
       <PageHeader title={t('exp.title')} subtitle={t('exp.subtitle')}
         actions={canManage && <Button variant="primary" icon={<Plus className="size-5" />} onClick={() => setEditing('new')}>{t('exp.new')}</Button>} />
-      <div className="flex items-center gap-2">
-        <IconButton label={t('exp.prev_month')} onClick={() => step(-1)}><ChevronLeft className="size-5 rtl:rotate-180" /></IconButton>
-        <span className="min-w-40 text-center font-semibold">{monthYear(new Date(ym.y, ym.m, 1), lang)}</span>
-        <IconButton label={t('exp.next_month')} disabled={isThisMonth} onClick={() => step(1)}><ChevronRight className="size-5 rtl:rotate-180" /></IconButton>
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented ariaLabel={t('exp.view')} value={view} onChange={setView} options={[{ value: 'month', label: t('exp.view_month') }, { value: 'all', label: t('exp.view_all') }]} />
+        {view === 'month' && (
+          <div className="flex min-w-0 items-center gap-2">
+            <IconButton label={t('exp.prev_month')} onClick={() => step(-1)}><ChevronLeft className="size-5 rtl:rotate-180" /></IconButton>
+            <span className="min-w-0 text-center font-semibold sm:min-w-40">{monthYear(new Date(ym.y, ym.m, 1), lang)}</span>
+            <IconButton label={t('exp.next_month')} disabled={isThisMonth} onClick={() => step(1)}><ChevronRight className="size-5 rtl:rotate-180" /></IconButton>
+          </div>
+        )}
       </div>
       {!d ? <div className="grid h-60 place-items-center"><Spinner className="size-9" /></div> : (
         <>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
             <Card className="flex flex-col justify-between gap-3">
               <div>
-                <div className="text-sm text-fg-2">{t('exp.spent', { month: monthYear(new Date(ym.y, ym.m, 1), lang) })}</div>
+                <div className="text-sm text-fg-2">{view === 'all' ? t('exp.spent_all') : t('exp.spent', { month: periodLabel })}</div>
                 <Amt n={d.totalIQD} className="font-serif text-3xl font-semibold" />
+                <div className="mt-1 text-xs text-fg-2">{t('exp.count', { n: d.count })}</div>
               </div>
               {d.delegateIQD > 0 && <p className="flex items-start gap-2 text-xs text-fg-2"><Truck className="size-4 shrink-0 text-gold-text" />{t('exp.delegates', { amount: fmt(d.delegateIQD) })}</p>}
             </Card>
@@ -76,7 +93,8 @@ function Expenses() {
             </Card>
           </div>
           <Card>
-            <h2 className="mb-2 font-semibold">{t('exp.list')}</h2>
+            <h2 className="mb-2 font-semibold">{t('exp.list')} <span className="text-sm font-normal text-fg-2">· {periodLabel}</span></h2>
+            {d.count > d.expenses.length && <p className="mb-2 text-xs text-fg-2">{t('exp.showing', { shown: d.expenses.length, n: d.count })}</p>}
             {!days.length ? <EmptyState title={t('exp.none')} className="py-10" /> : days.map(([day, list]) => (
               <section key={day} className="mt-3 first:mt-0">
                 <h3 className="num mb-1 text-xs font-semibold uppercase tracking-wide text-fg-2">{fmtDate(fromInputDate(day))}</h3>

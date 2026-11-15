@@ -24,6 +24,8 @@ export interface ExpenseList {
   to: number
   expenses: Expense[]
   totalIQD: number
+  /** how many expenses the window holds (the list may stop sooner; the totals cover them all) */
+  count: number
   byCategory: { category: ExpenseCategory; amountIQD: number; count: number }[]
   /** delegates' road expenses from approved daily closings, in the same window */
   delegateIQD: number
@@ -31,6 +33,7 @@ export interface ExpenseList {
 
 export interface ExpenseInput { category: ExpenseCategory; amount: number; currency: Currency; rate?: number; method: string; note: string; spentAt: number }
 
+/** from = 0: everything ever recorded */
 export const listExpenses = (from: number, to: number) => api<ExpenseList>('GET', `/expenses?from=${from}&to=${to}`)
 export const saveExpense = async (input: ExpenseInput, id?: string) => (await api<{ expense: Expense }>(id ? 'PUT' : 'POST', id ? `/expenses/${id}` : '/expenses', input)).expense
 export const deleteExpense = async (id: string) => { await api('DELETE', `/expenses/${id}`) }
