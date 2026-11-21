@@ -89,10 +89,11 @@ class WholesaleAccessTest extends ApiTestCase
         $this->assertArrayNotHasKey('fingerprint', $listed);
         $this->assertArrayNotHasKey('hash', $listed);
 
-        // nor does the activity log
-        $this->assertDatabaseMissing('audit_logs', ['meta' => json_encode(['code' => $code])]);
+        // nor does the activity log — read as text, because PostgreSQL has no `json = text` operator to compare with
         $entry = \DB::table('audit_logs')->where('action', 'catalogue.code_issued')->value('meta');
         $this->assertStringNotContainsString($code, (string) $entry);
+        // decoded, not matched as text: the bullets in the masked display are written as • in the column
+        $this->assertSame($row->display, json_decode((string) $entry, true)['code'] ?? null, 'the masked display is what is kept');
     }
 
     public function test_an_unknown_code_is_simply_not_recognised(): void
@@ -174,6 +175,26 @@ class WholesaleAccessTest extends ApiTestCase
         $this->unlock($code, $iraq->iso2)->assertStatus(422)->assertJsonPath('error.code', 'code_country');
         // with no country asked for, the code's own is used
         $this->unlock($code)->assertOk()->assertJsonPath('session.country.iso2', 'TR');
+    }
+
+    /**
+     * The catalogue sends the ISO code, never the id — `unlock(code, country?.iso2)`.
+     *
+     * This passed on SQLite while failing on PostgreSQL for the whole of the catalogue's first day live: the id
+     * column is a real `uuid` there, and comparing it with "IQ" is error 22P02, which the buyer met as "something
+     * went wrong". Both spellings are asserted here, and the suite is run on PostgreSQL before a deploy.
+     */
+    public function test_a_country_can_be_named_by_its_iso_code_or_its_id(): void
+    {
+        $iraq = CatalogueCountry::where('iso2', 'IQ')->firstOrFail();
+
+        $this->unlock($this->issue(), 'IQ')->assertOk()->assertJsonPath('session.country.iso2', 'IQ');
+        $this->unlock($this->issue(), 'iq')->assertOk()->assertJsonPath('session.country.iso2', 'IQ');
+        $this->unlock($this->issue(), $iraq->id)->assertOk()->assertJsonPath('session.country.iso2', 'IQ');
+
+        // a country nobody has opened is simply not found — never a 500
+        $this->unlock($this->issue(), 'ZZ')->assertOk()->assertJsonPath('session.country', null);
+        $this->unlock($this->issue(), 'not-a-uuid-or-an-iso')->assertOk()->assertJsonPath('session.country', null);
     }
 
     public function test_a_code_with_no_country_follows_the_business(): void

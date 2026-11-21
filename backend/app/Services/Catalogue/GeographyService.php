@@ -10,6 +10,7 @@ use App\Models\WholesaleCustomer;
 use App\Services\AuditService;
 use App\Services\Concerns\RequiresPermission;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The countries the wholesale catalogue is open in and the languages it is read in.
@@ -52,7 +53,14 @@ class GeographyService
         ];
     }
 
-    /** The country a visitor asked for, by id or ISO code — only if it is open. */
+    /**
+     * The country a visitor asked for, by id or ISO code — only if it is open.
+     *
+     * The id is only ever compared when the value actually looks like one. PostgreSQL types that column as `uuid`
+     * and refuses to compare it with anything that is not (`22P02`), which is a 500 rather than a "no such
+     * country"; SQLite types it as text and quietly says false, so this is invisible until it reaches the real
+     * database. The catalogue sends the ISO code, so this is the ordinary path, not an edge case.
+     */
     public function openCountry(?string $idOrIso): ?CatalogueCountry
     {
         if (! $idOrIso) {
@@ -61,7 +69,12 @@ class GeographyService
         $key = strtoupper($idOrIso);
 
         return CatalogueCountry::where('enabled', true)
-            ->where(fn ($q) => $q->where('id', $idOrIso)->orWhere('iso2', $key))
+            ->where(function ($q) use ($idOrIso, $key) {
+                $q->where('iso2', $key);
+                if (Str::isUuid($idOrIso)) {
+                    $q->orWhere('id', $idOrIso);
+                }
+            })
             ->first();
     }
 
