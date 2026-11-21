@@ -69,6 +69,7 @@ return [
         'pos' => env('POS_URL', '/pos/'),
         'delegate' => env('DELEGATE_URL', '/delegate/'),
         'admin' => env('ADMIN_URL', '/admin/'),
+        'catalogue' => env('CATALOGUE_URL', '/catalogue/'),
     ],
 
     /*

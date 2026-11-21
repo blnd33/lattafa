@@ -20,8 +20,9 @@
       "@/*": ["pos/src/*"],
       "@delegate/*": ["delegate/src/*"],
       "@menu/*": ["menu/src/*"],
-      "@admin/*": ["admin/src/*"]
+      "@admin/*": ["admin/src/*"],
+      "@catalogue/*": ["catalogue/src/*"]
     }
   },
-  "include": ["pos/src", "delegate/src", "menu/src", "admin/src", "vite.config.ts", "scripts"]
+  "include": ["pos/src", "delegate/src", "menu/src", "admin/src", "catalogue/src", "vite.config.ts", "scripts"]
 }

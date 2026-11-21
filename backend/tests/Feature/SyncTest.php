@@ -384,7 +384,7 @@ class SyncTest extends ApiTestCase
         $j = $res->json();
 
         $this->assertSame(1460, $j['settings']['currency']['rate']);
-        $this->assertCount(5, $j['roles']);
+        $this->assertCount(7, $j['roles']);
         $this->assertEqualsCanonicalizing(['owner', 'alii'], collect($j['users'])->pluck('username')->all());
         $this->assertCount(13, $j['products']);
         $this->assertCount(3, $j['customers']);

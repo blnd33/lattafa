@@ -57,7 +57,7 @@ beforeEach(async () => { await freshShop() })
 describe('setup + login', () => {
   it('creates a super admin, roles, settings and demo data — with no default account before that', async () => {
     const roles = await db.roles.toArray()
-    expect(roles.map((r) => r.key).sort()).toEqual(['cashier', 'delegate', 'manager', 'stock_keeper', 'super_admin'])
+    expect(roles.map((r) => r.key).sort()).toEqual(['cashier', 'catalogue_manager', 'delegate', 'manager', 'sales_manager', 'stock_keeper', 'super_admin'])
     expect(getActor()?.isSuperAdmin).toBe(true)
     expect((await listCatalog()).length).toBeGreaterThan(10)
   })

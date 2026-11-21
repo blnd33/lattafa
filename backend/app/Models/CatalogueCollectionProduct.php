@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+
+/** One perfume's place in one collection. */
+class CatalogueCollectionProduct extends Model
+{
+    use HasUuids;
+
+    protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return ['sort' => 'integer'];
+    }
+}

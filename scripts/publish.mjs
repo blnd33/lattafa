@@ -1,4 +1,4 @@
-// Copies the built web apps (dist/) into backend/public/ so Laravel serves menu, POS, delegate and the API on one domain.
+// Copies the built web apps (dist/) into backend/public/ so Laravel serves menu, POS, delegate, admin, catalogue and the API on one domain.
 // Only the folders/files the web build owns are replaced; Laravel's own public files (index.php, storage link…) are untouched.
 import { cpSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
@@ -12,7 +12,10 @@ if (!existsSync(path.join(dist, 'pos', 'index.html'))) {
   process.exit(1)
 }
 
-const OWNED = ['pos', 'delegate', 'menu', 'admin', 'assets', 'icons', 'sw.js', 'logo.png', 'favicon.png', 'pos.webmanifest', 'delegate.webmanifest']
+const OWNED = [
+  'pos', 'delegate', 'menu', 'admin', 'catalogue', 'assets', 'icons', 'sw.js', 'logo.png', 'favicon.png',
+  'pos.webmanifest', 'delegate.webmanifest', 'menu.webmanifest', 'admin.webmanifest', 'catalogue.webmanifest',
+]
 const isWorkbox = (f) => /^workbox-.*\.js$/.test(f)
 
 for (const name of [...OWNED, ...readdirSync(pub).filter(isWorkbox)]) {

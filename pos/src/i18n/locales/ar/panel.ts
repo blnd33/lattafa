@@ -126,6 +126,7 @@ export const panel: Record<string, string> = {
   'ap.nav_purchasing': 'المشتريات',
   'ap.nav_expenses': 'المصاريف',
   'ap.nav_menu': 'قائمة الزبائن',
+  'ap.nav_catalogue': 'كتالوك الجملة',
   'ap.after_expenses': '{amount} بعد المصاريف',
   'ap.att_orders': 'طلبات بانتظار الوصول',
   'ap.sup_title': 'ديون للموردين',

@@ -27,6 +27,8 @@ export const PERMISSION_GROUPS: PermGroup[] = [
   { key: 'users', perms: ['users.view', 'users.create', 'users.edit', 'users.delete', 'users.reset_credentials', 'roles.manage'] },
   { key: 'system', perms: ['settings.view', 'settings.edit', 'devices.manage', 'audit.view', 'backup.manage'] },
   { key: 'delegate', perms: ['delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close', 'delegates.manage'] },
+  // the wholesale catalogue (/catalogue/) — its management screens live in the admin panel
+  { key: 'catalogue', perms: ['catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules', 'catalogue.orders', 'catalogue.payments', 'catalogue.appearance'] },
 ]
 
 export const ALL_PERMISSIONS: string[] = PERMISSION_GROUPS.flatMap((g) => g.perms)
@@ -50,6 +52,18 @@ const CASHIER = [
   'shifts.open', 'shifts.close',
   'customers.view', 'customers.create', 'customers.credit', 'customers.collect',
   'products.view',
+]
+
+/** Looks after how the wholesale catalogue reads and looks; does not touch customers, prices or orders. */
+const CATALOGUE_MANAGER = [
+  'catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.appearance',
+  'products.view', 'inventory.view',
+]
+
+/** Looks after who buys and on what terms; does not touch the perfumes themselves. */
+const SALES_MANAGER = [
+  'catalogue.view', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules',
+  'catalogue.orders', 'catalogue.payments', 'products.view', 'customers.view', 'reports.view',
 ]
 
 export interface RoleSeed {
@@ -103,6 +117,20 @@ export const SYSTEM_ROLES: RoleSeed[] = [
       'delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close',
     ],
     apps: ['delegate'],
+  },
+  {
+    key: 'catalogue_manager',
+    name: 'Catalogue Manager',
+    description: 'The wholesale catalogue: perfume photos and copy, collections, countries, languages and how it looks.',
+    permissions: CATALOGUE_MANAGER,
+    apps: ['admin'],
+  },
+  {
+    key: 'sales_manager',
+    name: 'Sales Manager',
+    description: 'Wholesale customers, access codes, prices, order rules, orders and payments.',
+    permissions: SALES_MANAGER,
+    apps: ['admin'],
   },
 ]
 

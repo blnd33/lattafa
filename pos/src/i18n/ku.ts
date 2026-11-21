@@ -8,5 +8,6 @@ import { reports } from './locales/ku/reports'
 import { menu } from './locales/ku/menu'
 import { audit } from './locales/ku/audit'
 import { debts } from './locales/ku/debts'
+import { wholesale } from './locales/ku/wholesale'
 
-export const ku: Record<string, string> = { ...core, ...admin, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit, ...debts }
+export const ku: Record<string, string> = { ...core, ...admin, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit, ...debts, ...wholesale }

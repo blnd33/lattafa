@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  BarChart3, BookOpen, HandCoins, Boxes, ClipboardList, FileSpreadsheet, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
+  BarChart3, BookOpen, HandCoins, Boxes, ClipboardList, FileSpreadsheet, Globe, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
   ShieldAlert, ShieldCheck, Sun, Truck, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Brand'
@@ -41,6 +41,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/products', icon: Package, label: 'nav.products', perms: ['products.create', 'products.edit', 'products.delete'], section: 'catalogue' },
   { to: '/sheet', icon: FileSpreadsheet, label: 'nav.sheet', perms: ['products.import'], section: 'catalogue' },
   { to: '/menu', icon: BookOpen, label: 'ap.nav_menu', perms: ['products.edit'], section: 'catalogue' },
+  { to: '/wholesale', icon: Globe, label: 'ap.nav_catalogue', perms: ['catalogue.view'], section: 'catalogue' },
   { to: '/inventory', icon: Boxes, label: 'nav.inventory', perms: ['inventory.view'], section: 'catalogue' },
   { to: '/purchasing', icon: ClipboardList, label: 'ap.nav_purchasing', perms: ['purchasing.view'], section: 'catalogue' },
   { to: '/debts', icon: HandCoins, label: 'ap.nav_debts', perms: ['customers.view', 'purchasing.view'], section: 'money' },

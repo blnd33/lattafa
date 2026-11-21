@@ -29,6 +29,7 @@ final class Permissions
         'users' => ['users.view', 'users.create', 'users.edit', 'users.delete', 'users.reset_credentials', 'roles.manage'],
         'system' => ['settings.view', 'settings.edit', 'devices.manage', 'audit.view', 'backup.manage'],
         'delegate' => ['delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close', 'delegates.manage'],
+        'catalogue' => ['catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules', 'catalogue.orders', 'catalogue.payments', 'catalogue.appearance'],
     ];
 
     /** Things only the Super Admin may ever do, whatever a role says. */
@@ -41,6 +42,18 @@ final class Permissions
         'pos.sell', 'pos.hold', 'sales.discount.item', 'sales.discount.order', 'sales.view_own', 'sales.reprint',
         'returns.create', 'shifts.open', 'shifts.close', 'customers.view', 'customers.create', 'customers.credit',
         'customers.collect', 'products.view',
+    ];
+
+    /** Looks after how the wholesale catalogue reads and looks; does not touch customers, prices or orders. */
+    public const CATALOGUE_MANAGER = [
+        'catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.appearance',
+        'products.view', 'inventory.view',
+    ];
+
+    /** Looks after who buys and on what terms; does not touch the perfumes themselves. */
+    public const SALES_MANAGER = [
+        'catalogue.view', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules',
+        'catalogue.orders', 'catalogue.payments', 'products.view', 'customers.view', 'reports.view',
     ];
 
     /** @return string[] */
@@ -62,6 +75,8 @@ final class Permissions
             ['key' => 'cashier', 'name' => 'Cashier', 'description' => 'Sells in the shop, opens/closes own shift, limited returns.', 'permissions' => self::CASHIER, 'apps' => ['pos']],
             ['key' => 'stock_keeper', 'name' => 'Stock Keeper', 'description' => 'Inventory, purchase orders, receiving and stock counts.', 'permissions' => ['products.view', 'products.edit', 'inventory.view', 'inventory.adjust', 'inventory.receive', 'inventory.count', 'inventory.movements', 'pos.tester', 'purchasing.view', 'purchasing.manage'], 'apps' => ['pos', 'admin']],
             ['key' => 'delegate', 'name' => 'Delegate', 'description' => 'Field sales rep (Delegate app only).', 'permissions' => ['customers.view', 'customers.create', 'customers.collect', 'customers.credit', 'products.view', 'sales.view_own', 'delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close'], 'apps' => ['delegate']],
+            ['key' => 'catalogue_manager', 'name' => 'Catalogue Manager', 'description' => 'The wholesale catalogue: perfume photos and copy, collections, countries, languages and how it looks.', 'permissions' => self::CATALOGUE_MANAGER, 'apps' => ['admin']],
+            ['key' => 'sales_manager', 'name' => 'Sales Manager', 'description' => 'Wholesale customers, access codes, prices, order rules, orders and payments.', 'permissions' => self::SALES_MANAGER, 'apps' => ['admin']],
         ];
     }
 

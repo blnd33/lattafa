@@ -51,6 +51,31 @@ class PermissionsTest extends TestCase
         $this->assertGreaterThan(40, count(Permissions::all()));
     }
 
+    /** The wholesale catalogue is split in two: one role looks after the perfumes, the other after who buys them. */
+    public function test_the_two_catalogue_roles_each_mind_their_own_half(): void
+    {
+        $cat = Permissions::effective($this->role('catalogue_manager'), [], []);
+        $this->assertTrue(Permissions::has($cat, 'catalogue.products'));
+        $this->assertTrue(Permissions::has($cat, 'catalogue.appearance'));
+        $this->assertFalse(Permissions::has($cat, 'catalogue.prices'));     // prices belong to the Sales Manager
+        $this->assertFalse(Permissions::has($cat, 'catalogue.orders'));
+        $this->assertFalse(Permissions::has($cat, 'pos.sell'));             // neither of them stands at a till
+
+        $sales = Permissions::effective($this->role('sales_manager'), [], []);
+        $this->assertTrue(Permissions::has($sales, 'catalogue.prices'));
+        $this->assertTrue(Permissions::has($sales, 'catalogue.codes'));
+        $this->assertTrue(Permissions::has($sales, 'catalogue.orders'));
+        $this->assertFalse(Permissions::has($sales, 'catalogue.products'));
+        $this->assertFalse(Permissions::has($sales, 'settings.edit'));
+        $this->assertFalse(Permissions::has($sales, 'pos.sell'));
+
+        // and a Manager, who holds everything but the Super Admin's own keys, can do both
+        $manager = Permissions::effective($this->role('manager'), [], []);
+        foreach (Permissions::GROUPS['catalogue'] as $perm) {
+            $this->assertTrue(Permissions::has($manager, $perm), $perm);
+        }
+    }
+
     public function test_clean_drops_unknown_permissions_and_duplicates(): void
     {
         $this->assertSame(['pos.sell', '*'], Permissions::clean(['pos.sell', 'made.up', 'pos.sell', '*']));

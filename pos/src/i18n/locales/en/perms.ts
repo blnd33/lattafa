@@ -15,6 +15,7 @@ export const perms: Dict = {
   'permgroup.users': 'Users & roles',
   'permgroup.system': 'System',
   'permgroup.delegate': 'Delegates (field sales)',
+  'permgroup.catalogue': 'Wholesale catalogue',
 
   'perm.pos.sell': 'Sell at the till',
   'perm.pos.hold': 'Hold and resume bills',
@@ -74,4 +75,15 @@ export const perms: Dict = {
   'perm.delegate.request_stock': 'Ask the shop for more van stock',
   'perm.delegate.close': 'Send the daily closing',
   'perm.delegates.manage': 'Manage delegates: load vans, handle stock requests, approve closings',
+  'perm.catalogue.view': 'See the wholesale catalogue screens',
+  'perm.catalogue.products': 'Photos, descriptions and collections of the perfumes in the catalogue',
+  'perm.catalogue.countries': 'Add countries and the language each one opens in',
+  'perm.catalogue.translations': 'Translate the catalogue',
+  'perm.catalogue.customers': 'Wholesale customers: shops, distributors and their details',
+  'perm.catalogue.codes': 'Give out, suspend and withdraw wholesale access codes',
+  'perm.catalogue.prices': 'Wholesale dollar prices by country and by customer',
+  'perm.catalogue.rules': 'Smallest order, smallest quantity and quantity steps',
+  'perm.catalogue.orders': 'Wholesale orders: approve, refuse and release held stock',
+  'perm.catalogue.payments': 'Record and confirm payments on wholesale orders',
+  'perm.catalogue.appearance': 'How the catalogue looks: logo, front page, banners and contacts',
 }

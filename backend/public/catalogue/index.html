@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FBF8F2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Lattafa Wholesale" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/catalogue.webmanifest" />
+    <meta name="description" content="Lattafa wholesale collection — for perfume shops, distributors and retailers. Browse the collection; authorised buyers unlock their own wholesale prices." />
+    <title>Lattafa — Wholesale Collection</title>
+    <script>
+      // The catalogue keeps its own choices, apart from the staff apps: a buyer's country and language must not be
+      // changed by what a till on the same domain happens to have saved. It is always the light, ivory look.
+      try {
+        var p = JSON.parse(localStorage.getItem('lattafa-catalogue') || '{}').state || {};
+        if (p.dir === 'rtl') document.documentElement.dir = 'rtl';
+        if (p.htmlLang) document.documentElement.lang = p.htmlLang;
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/assets/catalogue-EFmJ-DcE.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/middleware-BFybvEpn.js">
+    <link rel="modulepreload" crossorigin href="/assets/styles-DF_zKScq.js">
+    <link rel="modulepreload" crossorigin href="/assets/arrow-left-BN7nJZ2o.js">
+    <link rel="modulepreload" crossorigin href="/assets/arrow-right-BvS38oHM.js">
+    <link rel="modulepreload" crossorigin href="/assets/key-round-DkU1TR-P.js">
+    <link rel="modulepreload" crossorigin href="/assets/lock-open-BQ7ubcHx.js">
+    <link rel="modulepreload" crossorigin href="/assets/triangle-alert-smRkOv2d.js">
+    <link rel="modulepreload" crossorigin href="/assets/menu-dUIy9J1_.js">
+    <link rel="modulepreload" crossorigin href="/assets/message-circle-CH2-Bcyw.js">
+    <link rel="modulepreload" crossorigin href="/assets/send--r8RnU7F.js">
+    <link rel="modulepreload" crossorigin href="/assets/shopping-bag-C8YaOaUn.js">
+    <link rel="modulepreload" crossorigin href="/assets/sliders-horizontal-DqMdyElX.js">
+    <link rel="modulepreload" crossorigin href="/assets/trash-DPPjPL_4.js">
+    <link rel="stylesheet" crossorigin href="/assets/styles-DRCJyb_t.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -126,6 +126,7 @@ export const panel: Record<string, string> = {
   'ap.nav_purchasing': 'Purchasing',
   'ap.nav_expenses': 'Expenses',
   'ap.nav_menu': 'Customer menu',
+  'ap.nav_catalogue': 'Wholesale catalogue',
   'ap.after_expenses': '{amount} after expenses',
   'ap.att_orders': 'Orders waiting to arrive',
   'ap.sup_title': 'Owed to suppliers',

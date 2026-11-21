@@ -1,9 +1,10 @@
 // The Lattafa system on one local address per app:
-//   node scripts/serve.mjs all        → all four at once:
+//   node scripts/serve.mjs all        → all five at once:
 //                                        http://localhost:8001  customer menu
 //                                        http://localhost:8002  store POS
 //                                        http://localhost:8003  delegate app
 //                                        http://localhost:8004  admin panel
+//                                        http://localhost:8005  wholesale catalogue
 //   node scripts/serve.mjs pos [port]  → just one of them
 // Every address is the same Laravel backend and the same database (backend/.env), so the apps stay connected, and each
 // is told where the others are, so they link to each other (admin → POS, POS → admin panel, …). Each address keeps its
@@ -13,7 +14,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const PORTS = { menu: 8001, pos: 8002, delegate: 8003, admin: 8004 }
+const PORTS = { menu: 8001, pos: 8002, delegate: 8003, admin: 8004, catalogue: 8005 }
 const APPS = Object.keys(PORTS)
 const [which = 'all', portArg] = process.argv.slice(2)
 if (which !== 'all' && !APPS.includes(which)) usage()
@@ -24,7 +25,10 @@ const router = join(backend, 'vendor/laravel/framework/src/Illuminate/Foundation
 const ports = { ...PORTS, ...(portArg ? { [which]: Number(portArg) } : {}) }
 const addr = (app) => `http://localhost:${ports[app]}`
 // every server knows every app's address, so the links between them go to the right place
-const addresses = { MENU_URL: `${addr('menu')}/`, POS_URL: `${addr('pos')}/`, DELEGATE_URL: `${addr('delegate')}/`, ADMIN_URL: `${addr('admin')}/` }
+const addresses = {
+  MENU_URL: `${addr('menu')}/`, POS_URL: `${addr('pos')}/`, DELEGATE_URL: `${addr('delegate')}/`,
+  ADMIN_URL: `${addr('admin')}/`, CATALOGUE_URL: `${addr('catalogue')}/`,
+}
 
 const children = []
 for (const app of which === 'all' ? APPS : [which]) {

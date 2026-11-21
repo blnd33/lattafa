@@ -18,7 +18,7 @@ class AccessTest extends ApiTestCase
         $this->shop();
         $this->getJson('/api/v1/setup/status')->assertJson(['setupDone' => true]);
 
-        $this->assertEqualsCanonicalizing(['cashier', 'delegate', 'manager', 'stock_keeper', 'super_admin'], Role::pluck('key')->all());
+        $this->assertEqualsCanonicalizing(['cashier', 'delegate', 'manager', 'stock_keeper', 'super_admin', 'catalogue_manager', 'sales_manager'], Role::pluck('key')->all());
         $this->assertSame(1, User::count());
         $this->assertGreaterThan(10, \App\Models\Product::count());
         $me = $this->api('GET', 'auth/me')->assertOk()->json('user');

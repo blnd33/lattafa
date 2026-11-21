@@ -4,7 +4,7 @@ Laravel 13 · PHP 8.4+ · PostgreSQL · Sanctum tokens. The single source of tru
 (Duhok, Iraq): accounts and permissions, catalogue, stock, sales, returns, shifts, customers and the offline
 sync used by the POS tills and delegate phones.
 
-**One domain for everything** — the three web apps are built into this Laravel app's `public/` folder:
+**One domain for everything** — the web apps are built into this Laravel app's `public/` folder:
 
 | URL | App | Source |
 |---|---|---|
@@ -12,6 +12,7 @@ sync used by the POS tills and delegate phones.
 | `/` → `/pos/` | Store point of sale (tills, tablets) — the domain opens it; its sidebar (phones: More) and sign-in screen link to the other sections | `../pos` |
 | `/delegate/` | Delegate field-sales app — a POS for the road, in the phone's browser (installable, works offline) | `../delegate` |
 | `/admin/` | Admin panel for the owner and managers — any computer or tablet, signs in with username + password and is never registered as a till; dashboard, sales to check, purchasing & suppliers, expenses, and every management screen (products, stock, customers, delegates, users, settings…) | `../admin` |
+| `/catalogue/` | Wholesale catalogue for perfume shops and distributors abroad — the whole collection to anyone, each buyer's own USD prices to whoever holds an access code, and orders that hold stock until the shop approves them. Its management screens live in `/admin/` | `../catalogue` |
 | `/api/v1/…` | This API | here |
 
 * **API reference:** [docs/api.md](docs/api.md)
@@ -55,20 +56,20 @@ From the **project root** (one folder up), with Node 20+:
 
 ```bash
 npm install
-npm run build:backend         # builds /menu, /pos, /delegate and copies them into backend/public/
+npm run build:backend         # builds /menu, /pos, /delegate, /admin, /catalogue and copies them into backend/public/
 ```
 
 Now `php artisan serve` serves everything: http://127.0.0.1:8000/ (menu), `/pos/`, `/delegate/`. Run the build again
 after every front-end change (it only replaces its own files in `public/`).
 
 **While developing the front end** run `npm run dev` in the project root next to `php artisan serve`: Vite serves the
-three apps with hot reload on http://localhost:5173/menu/, `/pos/`, `/delegate/` and forwards `/api` and `/storage` to
+apps with hot reload on http://localhost:5173/menu/, `/pos/`, `/delegate/`, `/admin/`, `/catalogue/` and forwards `/api` and `/storage` to
 Laravel on :8000 — the same one-domain layout as production.
 
 **One address per app (local):** the whole system with each app on its own port, from the project root:
 
 ```bash
-node scripts/serve.mjs all             # menu :8001 · POS :8002 · delegate :8003 · admin :8004
+node scripts/serve.mjs all             # menu :8001 · POS :8002 · delegate :8003 · admin :8004 · catalogue :8005
 ```
 
 | App | Address |
@@ -77,6 +78,7 @@ node scripts/serve.mjs all             # menu :8001 · POS :8002 · delegate :80
 | Store POS | http://localhost:8002 |
 | Delegate app | http://localhost:8003 |
 | Admin panel | http://localhost:8004 |
+| Wholesale catalogue | http://localhost:8005 |
 
 (`node scripts/serve.mjs pos` starts just one; in the Claude desktop app they are the `menu`, `pos`, `delegate` and
 `admin` entries of `.claude/launch.json`.) They are all this same backend and database, so a sale on the POS shows in
@@ -283,6 +285,59 @@ The full step-by-step is in **[docs/deploy.md](docs/deploy.md)**. In short:
 * **Locked out:** `php artisan lattafa:reset-admin` sets a new Super Admin password/PIN from the server.
 * `/up` answers when the system runs, for an uptime monitor. `APP_TIMEZONE` defaults to `Asia/Baghdad`, so "today's
   sales" ends at midnight in Duhok.
+
+### Wholesale catalogue (`/catalogue/`)
+
+The international wholesale channel: perfume shops and distributors abroad browse the whole collection, unlock their
+own USD prices with a private access code, and send orders that hold stock until the owner approves them. It is the
+same database as everything above, so there is nothing to synchronise — a reservation and the stock it holds commit
+together, and approving an order deducts through `StockService::applyMovement` like every other stock change.
+
+The plan, phase by phase, with the decisions behind it: **[../docs/catalogue-plan.md](../docs/catalogue-plan.md)**.
+
+* **Built (Phase 0):** the app itself on the domain, the brand, the `catalogue.*` permissions, and two new built-in
+  roles — **Catalogue Manager** (the perfumes as they read and look) and **Sales Manager** (who buys, on what terms).
+* **Built (Phase 1):** countries and languages as rows the owner edits (the catalogue opens in a new country with no
+  code change), the catalogue's own words with an English fallback and a completeness view, wholesale customers, and
+  their access codes — `LAT-XXXXXXXX`, kept the way staff PINs are (keyed fingerprint + bcrypt), shown once and never
+  again. Unlocking opens a session that is **not** a Sanctum token, so a buyer's token opens no staff screen at all.
+* **Built (Phase 2):** wholesale prices and the rules engine. Prices are whole US cents; a country's price sits on
+  top of the delegate's dollar list, and what a particular business has been promised sits on top of that — a price
+  agreed outright, or a percentage off, **never both**. Every change is kept with who made it. Minimum orders,
+  smallest quantities and quantity steps are checked as the buyer types and again on the server, which is the only
+  answer that counts.
+* **Built (Phase 3):** the admin screens — **Admin panel → Wholesale catalogue**, five tabs, each behind the
+  permission it needs: countries and languages, the catalogue's words (with how far each language has got),
+  wholesale customers with their access codes and agreed prices, the price grid per country (Excel out and back in
+  by SKU, a "missing a price" filter, price history), and the order rules. Catalogue appearance and product
+  enrichment moved to Phase 4, where the pages they configure are built.
+* **Built (Phase 4):** the catalogue itself at `/catalogue/` — welcome, country, homepage, browsing with filters
+  and search, a perfume's own page with its notes and sizes, unlocking with an access code, this buyer's own
+  prices, favourites, and a basket the server prices and checks against the wholesale rules. Reads in any enabled
+  language, mirrors in Arabic and Kurdish, and is built for a phone first. The collection endpoint is public and
+  carries **no price field at all**; prices come only from the session endpoint and are joined in the browser.
+* **Built (Phase 5):** sending an order. A buyer checks out in the catalogue (WhatsApp or straight through); the
+  server prices and checks the basket again, writes the order and **holds** the bottles — in one transaction, with
+  the stock rows locked, so two buyers cannot take the same last bottle. Held stock has not left the shelf, but no
+  one else can order it. **Nothing releases a hold because time has passed**: the shop approves (stock comes off
+  through `StockService::applyMovement`, exactly once), refuses or cancels (the bottles go back), or lets the hold
+  go by hand. Payment is a separate track — recording money moves no stock, and approving marks nothing paid.
+  Bank transfer and cash are real; card payment is refused rather than faked, because no provider is chosen.
+  Admin panel → Wholesale catalogue → **Orders**.
+* **Built (Phase 6):** how it looks, and what the catalogue says about each perfume. The owner sets the three
+  colours and the wordmark, writes the headline, puts up an opening picture, and **arranges the homepage as a list
+  of sections** — moved and switched on or off, which is literally the order the page is drawn in. Collections are
+  editorial groupings of perfumes ("Oud Collection"), and each perfume can be hidden from this channel, featured
+  here alone, given further photographs, and described in each language. The line is the one the system already
+  draws: **the shop owns the perfume, the catalogue owns how it is shown** — nothing on these screens writes to
+  `products` or `variants`, so hiding a perfume from buyers abroad leaves it on sale at the till. The colours and
+  wordmark that ship are this system's house theme, **not** Lattafa's own brand kit, which nobody has supplied;
+  the catalogue says so in its footer until somebody loads the real one and turns the mark off.
+  Admin panel → Wholesale catalogue → **Perfumes** and **How it looks**.
+* Prices are **USD only**, stored in whole cents, and are left out of the JSON entirely for anyone who has not
+  unlocked them — not hidden in the page.
+* Country prices sit **on top of** the delegate's dollar list (`variants.wholesale_usd_cents`): a size with no country
+  price of its own falls back to it, so opening a country needs only the prices that really differ.
 
 ## 4 · Not built yet (planned)
 

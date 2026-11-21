@@ -1,10 +1,11 @@
 @import "tailwindcss" source(none);
 
-/* The one stylesheet shared by all three web apps — scan only their source (never backend/ or the design mock-ups). */
+/* The one stylesheet shared by every web app — scan only their source (never backend/ or the design mock-ups). */
 @source "../";
 @source "../../../delegate/src";
 @source "../../../menu/src";
 @source "../../../admin/src";
+@source "../../../catalogue/src";
 
 /* Fonts are bundled (not fetched) so the POS renders identically offline. */
 @import "@fontsource/poppins/latin-400.css";

@@ -105,7 +105,7 @@ Legend: 🔓 public · 🔑 any signed-in user · `perm` needs that permission (
 
 | | Endpoint | Notes |
 |---|---|---|
-| 🔓 | `GET /apps` | `{menu, pos, delegate, admin}` — each web app's address, so they link to each other. On one domain the paths (`/menu/` …); with an address per app what `MENU_URL`, `POS_URL`, `DELEGATE_URL`, `ADMIN_URL` say (e.g. `http://localhost:8002/`). Cached 5 minutes. |
+| 🔓 | `GET /apps` | `{menu, pos, delegate, admin, catalogue}` — each web app's address, so they link to each other. On one domain the paths (`/menu/` …); with an address per app what `MENU_URL`, `POS_URL`, `DELEGATE_URL`, `ADMIN_URL`, `CATALOGUE_URL` say (e.g. `http://localhost:8002/`). Cached 5 minutes. |
 
 ## Public menu
 
@@ -119,6 +119,133 @@ Legend: 🔓 public · 🔑 any signed-in user · `perm` needs that permission (
 | — | `POST /menu/media/{uploadId}/finish` | `{poster?}` (a video's first frame as a `data:image/jpeg|webp;base64` URL, ≤ 2 MB). The file must be complete and really be what it said, judged by its first bytes (`media_broken`, `media_type`). Saved under `storage/app/public/menu/hero/`; returns `GET /menu/manage`. Logged as `menu.media_add`. Unfinished uploads are thrown away after a day. |
 | — | `PUT /menu/media/order` | `{ids:[…]}` — the photos/videos in this order (`settings.edit`). Returns `GET /menu/manage`. |
 | — | `DELETE /menu/media/{id}` | Removes one, and its files (`settings.edit`). Logged as `menu.media_delete`. Returns `GET /menu/manage`. |
+
+## Wholesale catalogue
+
+The international wholesale channel (`/catalogue/`): shops and distributors abroad browse the whole collection and
+unlock their own USD prices with a private access code. It runs on **this** database — `products`, `variants` and
+`stock` are the catalogue's too, so nothing is synchronised and no quantity is ever held twice.
+
+A buyer's session is **not** a Sanctum token: it is an opaque token in its own table, checked by the `wholesale`
+middleware. A buyer's token presented to any endpoint above is not a token at all (`401 not_signed_in`), and a staff
+token presented below is not a session (`401 not_unlocked`).
+
+Prices are USD only and kept in whole cents. The split between the two public endpoints and the two behind a session
+is the guarantee itself: `GET /wholesale/products` has **no price field built into it at all** — not nulled, not
+filtered, never assembled — so "no code, no prices" is not a filter anyone can forget to apply. The catalogue fetches
+the two separately and joins them in the browser once a code has opened a session.
+
+### What a buyer sees
+
+| | Endpoint | Notes |
+|---|---|---|
+| 🔓 | `GET /wholesale/open?language=` | Everything needed before anything else: `{countries[{id,iso2,name,language,minOrderCents,isDefault}], languages[{code,name,native,rtl}], defaultCountryId, language, words{}, currency:"USD", whatsapp, look}`. Enabled countries only, and only those whose language is enabled too — a buyer is never sent to a catalogue with no words. `words` is the catalogue's own dictionary in `language` (English underneath, that language on top). `look` is how the owner has arranged it: `{brand{ink,ivory,gold,wordmark,tagline,provisional}, sections[{key,on}], headline, lead, hero, footer{note,email,phone,instagram,website}}` — **only the sections switched on, in the owner's order**, which is the order the homepage is drawn in. `headline` and `lead` empty mean the catalogue uses its own translated words. Nothing private: no buyer, no note, no price. Throttled 120/min; `Cache-Control: public, max-age=60`. |
+| 🔓 | `GET /wholesale/products?language=` | **The collection, and not one price in it.** `{language, products[{id,name,description,notes{top,heart,base},brand,category,gender,concentration,scentFamilies,season,longevity,sillage,image,images[],art,featured,isNew,inStock,sizes[{variantId,sku,label,size,unit,ml,inStock,minQty,step}]}], categories[{key,count}], brands[], collections[{id,slug,name,description,image,featured,products[]}]}`. A perfume reads in `language`, falling back to its own words where that language has no translation of it. `images` is the shop's own photograph first, then whatever the catalogue has added. `featured` is the catalogue's own view of it where the owner set one, else the product's own flag. `collections` are the owner's editorial groupings, listing only perfumes this reply is showing — so hiding one empties it out of every collection at once, and a collection left with nothing is not sent. `inStock` is a yes or no on both the perfume and each size — an exact quantity never leaves the shop. `minQty` and `step` are the shop's general rules; a buyer let off one of them sees their own figures in their price list. Testers, switched-off sizes, perfumes with nothing to sell and perfumes hidden from this channel are left out. Throttled 120/min; `Cache-Control: public, max-age=60`. |
+| 🔓 | `POST /wholesale/unlock` | `{code, country?}` → `{token, session}`. `country` is an id or ISO code. Refusals: `code_invalid` (never issued, or wrong), `code_expired`, `code_revoked` (withdrawn or switched off), `customer_inactive` (business on hold), `code_country{country,iso2}` (the code belongs to another country — the buyer picked wrong, so it is **not** counted as a guess). Ten refusals from one address in an hour → `429`. Codes are case-insensitive and may be typed with spaces or without the `LAT-`. |
+| 🔒 | `GET /wholesale/me` | `{session{business,contactPerson,country{id,iso2,name,language,minOrderCents},expiresAt}}` — this buyer's own business and nothing else. |
+| 🔒 | `GET /wholesale/prices` | **The only route by which a wholesale price ever leaves the server.** `{minOrderCents, lines[{variantId,productId,sku,label,ml,category,priceCents,source,inStock,minQty,step}]}` — this buyer's own price for every size that has one. A size priced nowhere is left out rather than shown at zero. `inStock` is a yes or no; an exact quantity is never sent. `source` says where the price came from: `customer`, `customer_percent`, `customer_wide`, `country` or `list`. |
+| 🔒 | `POST /wholesale/quote` | `{lines:[{variantId,qty}]}` → the basket priced and checked: `{ok, subtotalCents, units, minOrderCents, shortfallCents, lines[{…,unitCents,lineCents,minQty,step,problems}], problems[{code,params}]}`. The same size twice is one line of the two quantities added up. Problems are codes, never sentences, so the catalogue says them in the buyer's own language: `min_order{minimum,add}`, `min_qty{sku,qty}`, `qty_step{sku,step}`, `unpriced{sku}`, `out_of_stock{sku}`, `invalid_quantity{sku}`, `cart_empty`. Phase 5 runs this same check inside the transaction that creates the order. |
+| 🔒 | `POST /wholesale/orders` | **Sends an order.** `{lines:[{variantId,qty}], method:'direct'\|'whatsapp', businessName, contactPerson?, phone?, whatsapp?, email?, address?, note?}` → `201 {order, whatsapp?}`. The basket is priced and checked again inside the transaction that writes the order and holds the stock, with the stock rows locked first — what the browser was shown is never trusted. Send an `Idempotency-Key` header and the same checkout twice returns the same order rather than making a second. A `whatsapp` order also gets the message to open `wa.me` with, written on the server from the order as recorded. Refusals are the quote's codes (`min_order`, `out_of_stock`, `min_qty`, `qty_step`, `unpriced`), so the catalogue says them in the buyer's own language. |
+| 🔒 | `POST /wholesale/orders/{reference}/whatsapp-opened` | Records that WhatsApp was opened. **Its own fact** — opening it is not the message being sent, the order already exists, and opening it five times still leaves one order and one hold. |
+| 🔒 | `GET /wholesale/orders` · `GET /wholesale/orders/{reference}` | This buyer's own orders. Found by the random `reference`, not by an order number, and only within their own business — one buyer cannot read another's by counting upwards (`404`, not `403`: they should not learn it exists). Carries nothing of the shop's own: no admin note, no reservation, no decision-maker. |
+| 🔒 | `POST /wholesale/lock` | Signs out. The token stops working everywhere at once, not only in that browser. |
+
+🔒 = needs `Authorization: Bearer <session token>` from `unlock`.
+
+### Running it (admin panel)
+
+| | Endpoint | Notes |
+|---|---|---|
+| — | `GET /catalogue/countries` | `catalogue.view`. Every country with `customers` (how many buy from it). |
+| — | `POST`/`PUT /catalogue/countries[/{id}]` | `catalogue.countries`. `{iso2, name{lang:text}, language, enabled?, isDefault?, sort?, minOrderCents?}`. `country_iso_invalid`, `country_name_required`, `country_exists{iso2}`, `language_unknown`. Exactly one enabled country is ever `isDefault`; switching that one off hands the job to the next. Logged as `catalogue.country_added|updated`. |
+| — | `DELETE /catalogue/countries/{id}` | `catalogue.countries`. Refused with `country_in_use{iso2}` while any buyer is tied to it — their agreed prices and orders hang off it. |
+| — | `GET /catalogue/languages` | `catalogue.view`. |
+| — | `PUT /catalogue/languages` | `catalogue.countries`. `{code, name?, native?, rtl?, enabled?, sort?}` — adds or changes; the code is the key. `language_code_invalid`; `language_in_use{code}` when an open country reads in it; `language_last_enabled` for the only one left. |
+| — | `DELETE /catalogue/languages/{code}` | `catalogue.countries`. Its translations go with it. Same two guards. |
+| — | `GET /catalogue/translations` | `catalogue.view`. How far each language has got: `[{language,name,native,done,total}]`. English ships complete in code. |
+| — | `GET /catalogue/translations/{language}` | `catalogue.view`. `{language, done, total, rows[{key, en, value}]}` — every word the catalogue knows, what English says, and what this language says. |
+| — | `PUT /catalogue/translations/{language}` | `catalogue.translations`. `{values:{key:text}}` → `{changed}`. An empty value removes the row so the word falls back to English; a key the catalogue does not use is ignored, never stored. Logged as `catalogue.translated`. |
+| — | `GET /catalogue/customers?q=&status=&countryId=` | `catalogue.customers`. Businesses that buy wholesale, with `liveCodes`. |
+| — | `GET /catalogue/customers/{id}` | `catalogue.customers`. With its codes (never the codes themselves). |
+| — | `POST`/`PUT /catalogue/customers[/{id}]` | `catalogue.customers`. `{businessName, contactPerson?, email?, phone?, whatsapp?, countryId?, address?, status?, notes?, posCustomerId?}`. `posCustomerId` points at the same business in the shop's own `customers` table; nothing is copied between them. |
+| — | `PATCH /catalogue/customers/{id}/status` | `catalogue.customers`. `{status: active\|suspended\|closed}`. Anything but `active` closes that buyer's open sessions at once. |
+| — | `GET /catalogue/customers/{id}/codes` | `catalogue.codes`. Each code as `{id, display:"LAT-••••3K7Q", countryId, active, revoked, expiresAt, uses, lastUsedAt}` — never the code. |
+| — | `POST /catalogue/customers/{id}/codes` | `catalogue.codes`. `{countryId?, expiresAt?}` → `201 {code, plain}`. **`plain` is the only time a code leaves the server in full** — it is shown once and cannot be read again. `expiry_in_the_past`. Logged as `catalogue.code_issued`, without the code. |
+| — | `PATCH /catalogue/codes/{id}/active` | `catalogue.codes`. `{active}`. Switching off closes sessions opened with it. A withdrawn code cannot be switched back on (`code_revoked`). |
+| — | `POST /catalogue/codes/{id}/revoke` | `catalogue.codes`. For good, and open sessions close at once. |
+
+### Prices and wholesale rules (admin panel)
+
+Prices are **whole US cents** and percentages are **basis points** (17.5 % = `1750`), so money and discounts are
+never floats. The order of priority is settled in one place, `App\Support\CataloguePricing`:
+
+1. a price agreed with this business for this size — it stands on its own, even where nothing else is priced
+2. a percentage off: the one agreed for this size if there is one, else the one across this buyer's whole order —
+   **never both**, discounts do not stack
+3. the country's wholesale price
+4. the delegate's dollar list (`variants.wholesale_usd_cents`), which the shop already keeps
+5. otherwise the size has **no price**: the catalogue shows it and it cannot be ordered
+
+| | Endpoint | Notes |
+|---|---|---|
+| — | `GET /catalogue/prices/{countryId}?q=&missing=` | `catalogue.prices`. The grid for one country: every size on sale with `listCents` (the dollar list), `priceCents` (this country's own, `null` where unset) and `effectiveCents` (what a buyer with no special terms pays). `missing=1` narrows it to sizes with no price at all. |
+| — | `PUT /catalogue/prices/{countryId}` | `catalogue.prices`. `{prices:{variantId: cents\|null}}` → `{changed}`. `null` takes a price away so the size falls back to the dollar list; a size that is not on file is ignored, never created; setting a price to what it already is changes nothing. Every change is written to the trail. Logged as `catalogue.prices_country`. |
+| — | `GET /catalogue/customers/{id}/terms` | `catalogue.prices`. `{prices[{variantId,name,sku,label,priceCents,percentBp,validFrom,validTo,inForce}], discount{percentBp,validFrom,validTo}\|null}`. |
+| — | `PUT /catalogue/customers/{id}/terms` | `catalogue.prices`. `{terms:{variantId:{priceCents?,percentBp?,validFrom?,validTo?}}}` → `{changed}`. A price **or** a percentage, never both (`price_or_percent{sku}`); both `null` withdraws the agreement and the buyer goes back to the country's price. Dates are epoch ms; an agreement out of date is simply not used. Logged as `catalogue.prices_customer`. |
+| — | `PUT /catalogue/customers/{id}/discount` | `catalogue.prices`. `{percentBp, validFrom?, validTo?}` — a percentage off everything this business buys; `{percentBp: null}` withdraws it. The one it replaces is ended rather than deleted, so what was agreed when survives. Logged as `catalogue.discount_set`. |
+| — | `GET /catalogue/prices/history?scope=&scopeId=&variantId=&limit=` | `catalogue.prices`. Every price that ever changed: `{scope,scopeId,variantId,fromCents,toCents,fromPercentBp,toPercentBp,byName,at}`, newest first. `null → 2000` is a price first set; `2400 → null` is one taken away. |
+| — | `GET /catalogue/rules` | `catalogue.view`. |
+| — | `PUT /catalogue/rules` | `catalogue.rules`. `{scope:'global'\|'category', scopeId?, minOrderCents?, minQty?, qtyIncrement?, enabled?}`. A `category` rule (the `category` on products: perfume, oud, mist, oil, set, home) **replaces** the general one for those lines rather than adding to it. `minOrderCents` is only read on the general rule, and only fills in where a country has not set its own. A smallest quantity that is not a whole number of steps is refused (`rule_min_not_a_step{qty,step}`) — "at least 7, in steps of 6" can never be satisfied. |
+| — | `DELETE /catalogue/rules/{id}` | `catalogue.rules`. |
+| — | `GET`/`PUT /catalogue/customers/{id}/exemptions` | Reading needs `catalogue.customers`, changing needs `catalogue.rules`. `{letOff:['min_order','min_qty','qty_increment']}` — the rules this business has been let off. Being let off one does not let it off the others. |
+
+### Orders, held stock and payments (admin panel)
+
+An order waiting for approval is **holding bottles off the shelf**. They have not been deducted — `stock.qty` has
+not moved — but `Catalogue\Inventory` subtracts them, in one place, from what a wholesale buyer may order, so the
+same bottle can never be promised twice. **Nothing releases a hold because time has passed**: a person approves,
+refuses, cancels, or lets it go by hand.
+
+Approving deducts the stock through `StockService::applyMovement` — the one writer of stock in the whole system —
+and marks the reservation consumed, in the same transaction. Approving twice is harmless: the second call finds the
+order already approved and changes nothing.
+
+| | Endpoint | Notes |
+|---|---|---|
+| — | `GET /catalogue/orders?status=&q=&countryId=&customerId=` | `catalogue.orders`. Each order with its reservation, including `heldForMs` — how long the bottles have been held. |
+| — | `GET /catalogue/orders/{id}` | `catalogue.orders`. With its lines (frozen as agreed), reservation, payments and the whole status history. |
+| — | `POST /catalogue/orders/{id}/approve` | `catalogue.orders`. Stock off the shelf and hold consumed, together. Idempotent. If taking the stock fails nothing is marked approved — the hold stands and it can be tried again. |
+| — | `POST /catalogue/orders/{id}/reject` · `/cancel` | `catalogue.orders`. `{reason?}`. The bottles go back. An order already approved cannot be cancelled (`order_already_approved`) — that would be a return, not a cancellation. |
+| — | `POST /catalogue/orders/{id}/release-hold` | `catalogue.orders`. Lets the bottles go **without** deciding on the order — for one that has sat far too long. Exists precisely because nothing expires on its own. |
+| — | `GET`/`POST /catalogue/orders/{id}/payments` | Reading and recording need `catalogue.payments`. `{method:'bank_transfer'\|'cash'\|'other', amountCents, reference?, note?, status?}`. Part payments are normal. **Recording money moves no stock and does not approve anything**, and approving does not mark anything paid — the two tracks never write each other. |
+| — | `PATCH`/`DELETE /catalogue/payments/{id}` | `catalogue.payments`. Confirm a pending payment, mark one refunded, or remove one recorded in error; the order's `paymentStatus` and `paidCents` are worked out again from what is actually confirmed. |
+
+### How it looks, and what we say about the perfumes
+
+The line here is the one the POS already draws: **the shop owns the perfume, the catalogue owns how it is shown.** Nothing in this section writes to `products` or `variants`, so hiding a perfume from buyers in Türkiye leaves it on sale at the till, and renaming it in Products changes it everywhere at once.
+
+| | Endpoint | Notes |
+|---|---|---|
+| — | `GET /catalogue/appearance` | `catalogue.view`. `{brand, homepage{headline,lead,hero,sections[{key,on}]}, footer}`, defaults filled in. The shipped colours and wordmark are this system's house theme, **not** Lattafa's own brand kit, which nobody has supplied; `brand.provisional` stays true (and the catalogue's footer says so) until somebody turns it off. |
+| — | `PUT /catalogue/appearance/{brand\|homepage\|footer}` | `catalogue.appearance`. `{patch:{…}}` — only the part named, so two screens cannot overwrite each other. Anything in a colour field that is not a `#rrggbb` is quietly left as it was rather than refused — the screen's colour picker cannot send one, and a half-saved theme is worse than an ignored keystroke. A section key the catalogue cannot draw is dropped, and one left out of the list is put back switched off, so the list is always whole. `appearance_unknown{key}` for anything else. Logged as `catalogue.appearance_saved`. |
+| — | `PUT /catalogue/appearance/hero` | `catalogue.appearance`. `{image: dataUrl\|null}` → the whole appearance. The bytes are checked rather than the label (`image_invalid`), 3 MB at most; the one it replaces is deleted. Photographs, not video — the QR menu's chunked uploader exists because that hero takes video and this one does not. |
+| — | `GET /catalogue/collections` | `catalogue.view`. The owner's editorial groupings with `perfumes` (how many) and `productIds` (which, in order) — the admin screen replaces the whole list when it saves, so it has to start from what is in there. |
+| — | `POST`/`PUT /catalogue/collections[/{id}]` | `catalogue.products`. `{name{lang:text}, description?, enabled?, featured?, sort?, image?}`. The slug comes from the English name; `collection_name_required`, `collection_exists{slug}`. `image: null` takes the picture away. Logged as `catalogue.collection_saved`. |
+| — | `DELETE /catalogue/collections/{id}` | `catalogue.products`. The perfumes themselves are untouched. |
+| — | `PUT /catalogue/collections/{id}/products` | `catalogue.products`. `{productIds:[…]}` → `{count}`. **Replaces** the whole list, in the order given; an id that is not a product is ignored. Logged as `catalogue.collection_filled`. |
+| — | `GET /catalogue/perfumes/{id}` | `catalogue.view`. `{fromThePos{…}, hidden, featured, images[{id,url,sort}], translations[], collections[]}`. `fromThePos` is what Products owns, shown so the owner can see it — this endpoint never writes it. `featured: null` means "follow the product's own flag". |
+| — | `PUT /catalogue/perfumes/{id}` | `catalogue.products`. `{hidden?, featured?}`. `hidden` takes it out of the catalogue and out of every collection at once, and leaves it on sale at the till. `featured: null` hands the decision back to Products. Logged as `catalogue.product_presented`. |
+| — | `PUT /catalogue/perfumes/{id}/text/{language}` | `catalogue.translations`. `{name?, description?}` — how this perfume reads to a buyer in that language. Empty falls back to English. Logged as `catalogue.product_translated`. |
+| — | `POST /catalogue/perfumes/{id}/images` · `DELETE /catalogue/images/{imageId}` | `catalogue.products`. Further photographs for the catalogue alone; the shop's own is always shown first and cannot be removed from here. Same byte check and 3 MB limit as the hero. |
+
+**Card payment is not connected.** No provider has been chosen, and the merchant jurisdiction decides which are
+even possible, so `method: 'online'` is refused rather than faked. `wholesale_payment_events` exists for when one
+is connected: its `(provider, external_id)` is unique, so the same notification arriving twice cannot be counted
+twice. Nothing in the code pretends a provider exists.
+
+Codes are kept the way staff PINs are: a keyed HMAC fingerprint finds the row, bcrypt proves the code, and the code
+itself is stored nowhere — not in the database, not in the activity log. A code that matched nothing is still checked
+against a bcrypt hash, so "never issued" and "wrong" take the same time to refuse.
 
 ## Field sales (delegates)
 
@@ -257,4 +384,7 @@ Users are listed without any credential material; cost prices follow the same vi
 · setup/users: `setup_already_done` `invalid_rate` `role_missing` `required_fields` `username_invalid` `username_taken` `password_short` `password_long` `pin_invalid` `pin_taken` `cannot_modify_self` `last_super_admin` `role_locked` `role_in_use` `user_has_history` `device_code_invalid` `device_code_taken`
 · catalogue/stock: `sku_required` `sku_taken` `invalid_size` `barcode_taken` `barcode_generation_failed` `variant_required` `invalid_price` `image_invalid` `nothing_to_import` `invalid_quantity` `insufficient_stock{sku,available}`
 · delegates: `request_closed` `invalid_day` `closing_already_approved` `closing_not_pending`
+· wholesale orders and payments: `order_method_invalid` `order_key_taken` `order_not_open{status}` `order_already_approved` `order_stock_failed{sku}` `reservation_missing` `payment_method_unavailable{method}` `payment_status_invalid`
+· wholesale prices and rules: `price_or_percent{sku}` `rule_scope_invalid` `rule_scope_required` `rule_min_not_a_step{qty,step}` · and from a quote, as `problems[]` rather than an error: `min_order{minimum,add}` `min_qty{sku,qty}` `qty_step{sku,step}` `unpriced{sku}` `out_of_stock{sku}` `invalid_quantity{sku}` `cart_empty`
+· wholesale catalogue: `not_unlocked` `code_invalid` `code_expired` `code_revoked` `code_country{country,iso2}` `customer_inactive` `expiry_in_the_past` `code_generation_failed` `country_iso_invalid` `country_name_required` `country_exists{iso2}` `country_in_use{iso2}` `country_unknown` `language_unknown` `language_code_invalid` `language_in_use{code}` `language_last_enabled` `status_invalid` `customer_unknown` `appearance_unknown{key}` `collection_name_required` `collection_exists{slug}`
 · sales: `cart_empty` `shift_required` `shift_already_open` `shift_closed` `product_unavailable` `invalid_discount` `underpayment{remaining}` `overpayment_non_cash` `usd_disabled` `invalid_amount` `customer_required_for_debt` `credit_limit_exceeded` `loyalty_unavailable` `not_enough_points` `sale_not_voidable` `sale_voided` `nothing_to_return` `no_debt_to_reduce` `customer_has_debt` `overpayment` `phone_taken` `number_taken` `sale_not_synced` `unknown_entity` `invalid_id`

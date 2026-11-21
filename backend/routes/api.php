@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CatalogueController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DelegateController;
 use App\Http\Controllers\Api\V1\ExpenseController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\V1\StockController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\SystemController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\WholesaleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +43,27 @@ Route::get('/health', fn () => ['ok' => true, 'app' => 'lattafa', 'time' => (int
 Route::get('/menu', [MenuController::class, 'index'])->middleware('throttle:120,1');
 // a shop ordering from the menu: no sign-in either, so it is held to a few an hour per address
 Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:10,60');
+
+// ── the wholesale catalogue, as a buyer abroad meets it — no staff account, a code or nothing ──
+// Nothing here returns a price. A session is not a Sanctum token (see ResolveWholesaleSession).
+Route::prefix('wholesale')->group(function () {
+    Route::get('open', [WholesaleController::class, 'open'])->middleware('throttle:120,1');
+    // the collection itself — public, and with no price anywhere in it
+    Route::get('products', [WholesaleController::class, 'products'])->middleware('throttle:120,1');
+    Route::post('unlock', [WholesaleController::class, 'unlock'])->middleware('throttle:30,1');
+    Route::middleware('wholesale')->group(function () {
+        Route::get('me', [WholesaleController::class, 'me']);
+        // the only route by which a wholesale price ever leaves the server
+        Route::get('prices', [WholesaleController::class, 'prices']);
+        Route::post('quote', [WholesaleController::class, 'quote']);
+        // sending an order. `Idempotency-Key` makes the same checkout sent twice one order, not two.
+        Route::post('orders', [WholesaleController::class, 'placeOrder'])->middleware('throttle:30,1');
+        Route::get('orders', [WholesaleController::class, 'orders']);
+        Route::get('orders/{reference}', [WholesaleController::class, 'order'])->where('reference', '[A-Za-z0-9]{4,40}');
+        Route::post('orders/{reference}/whatsapp-opened', [WholesaleController::class, 'whatsappOpened'])->where('reference', '[A-Za-z0-9]{4,40}');
+        Route::post('lock', [WholesaleController::class, 'lock']);
+    });
+});
 
 // ── first run + sign-in (no token yet) ──
 Route::get('/setup/status', [SetupController::class, 'status']);
@@ -167,6 +190,79 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::post('expenses', [ExpenseController::class, 'store']);
     Route::put('expenses/{id}', [ExpenseController::class, 'store']);
     Route::delete('expenses/{id}', [ExpenseController::class, 'destroy']);
+
+    // running the wholesale catalogue (its screens live in the admin panel; each service checks its own permission)
+    Route::prefix('catalogue')->group(function () {
+        Route::get('countries', [CatalogueController::class, 'countries']);
+        Route::post('countries', [CatalogueController::class, 'saveCountry']);
+        Route::put('countries/{id}', [CatalogueController::class, 'saveCountry']);
+        Route::delete('countries/{id}', [CatalogueController::class, 'deleteCountry']);
+
+        Route::get('languages', [CatalogueController::class, 'languages']);
+        Route::put('languages', [CatalogueController::class, 'saveLanguage']);
+        Route::delete('languages/{code}', [CatalogueController::class, 'deleteLanguage'])->where('code', '[a-z]{2,3}(-[a-z0-9]{2,8})?');
+
+        Route::get('translations', [CatalogueController::class, 'translationProgress']);
+        Route::get('translations/{language}', [CatalogueController::class, 'translations'])->where('language', '[a-z]{2,3}(-[a-z0-9]{2,8})?');
+        Route::put('translations/{language}', [CatalogueController::class, 'saveTranslations'])->where('language', '[a-z]{2,3}(-[a-z0-9]{2,8})?');
+
+        Route::get('customers', [CatalogueController::class, 'customers']);
+        Route::post('customers', [CatalogueController::class, 'saveCustomer']);
+        Route::get('customers/{id}', [CatalogueController::class, 'customer']);
+        Route::put('customers/{id}', [CatalogueController::class, 'saveCustomer']);
+        Route::patch('customers/{id}/status', [CatalogueController::class, 'setCustomerStatus']);
+
+        // the one reply in the whole API that carries an access code in full is POST .../codes
+        Route::get('customers/{customerId}/codes', [CatalogueController::class, 'codes'])->whereUuid('customerId');
+        Route::post('customers/{customerId}/codes', [CatalogueController::class, 'generateCode'])->whereUuid('customerId');
+        Route::patch('codes/{codeId}/active', [CatalogueController::class, 'setCodeActive'])->whereUuid('codeId');
+        Route::post('codes/{codeId}/revoke', [CatalogueController::class, 'revokeCode'])->whereUuid('codeId');
+
+        // wholesale prices: by country, then what a particular business has been promised on top
+        Route::get('prices/history', [CatalogueController::class, 'priceHistory']);
+        Route::get('prices/{countryId}', [CatalogueController::class, 'countryPrices'])->whereUuid('countryId');
+        Route::put('prices/{countryId}', [CatalogueController::class, 'saveCountryPrices'])->whereUuid('countryId');
+        Route::get('customers/{id}/terms', [CatalogueController::class, 'customerTerms']);
+        Route::put('customers/{id}/terms', [CatalogueController::class, 'saveCustomerTerms']);
+        Route::put('customers/{id}/discount', [CatalogueController::class, 'setCustomerDiscount']);
+        Route::get('customers/{id}/exemptions', [CatalogueController::class, 'exemptions']);
+        Route::put('customers/{id}/exemptions', [CatalogueController::class, 'setExemptions']);
+
+        // wholesale orders: the shop's side of them
+        Route::get('orders', [CatalogueController::class, 'orders']);
+        Route::get('orders/{id}', [CatalogueController::class, 'order']);
+        Route::post('orders/{id}/approve', [CatalogueController::class, 'approveOrder']);
+        Route::post('orders/{id}/reject', [CatalogueController::class, 'rejectOrder']);
+        Route::post('orders/{id}/cancel', [CatalogueController::class, 'cancelOrder']);
+        Route::post('orders/{id}/release-hold', [CatalogueController::class, 'releaseHold']);
+        Route::get('orders/{id}/payments', [CatalogueController::class, 'payments']);
+        Route::post('orders/{id}/payments', [CatalogueController::class, 'recordPayment']);
+        Route::patch('payments/{paymentId}', [CatalogueController::class, 'setPaymentStatus'])->whereUuid('paymentId');
+        Route::delete('payments/{paymentId}', [CatalogueController::class, 'deletePayment'])->whereUuid('paymentId');
+
+        // how the catalogue looks, and what it says about the house
+        Route::get('appearance', [CatalogueController::class, 'appearance']);
+        Route::put('appearance/hero', [CatalogueController::class, 'setHero']);
+        Route::put('appearance/{key}', [CatalogueController::class, 'saveAppearance'])->where('key', 'brand|homepage|footer');
+
+        // editorial collections, and the catalogue's own view of a perfume the POS owns
+        Route::get('collections', [CatalogueController::class, 'collections']);
+        Route::post('collections', [CatalogueController::class, 'saveCollection']);
+        Route::put('collections/{id}', [CatalogueController::class, 'saveCollection']);
+        Route::delete('collections/{id}', [CatalogueController::class, 'deleteCollection']);
+        Route::put('collections/{id}/products', [CatalogueController::class, 'setCollectionProducts']);
+
+        Route::get('perfumes/{id}', [CatalogueController::class, 'catalogueProduct']);
+        Route::put('perfumes/{id}', [CatalogueController::class, 'setCatalogueProduct']);
+        Route::put('perfumes/{id}/text/{language}', [CatalogueController::class, 'setProductText'])->where('language', '[a-z]{2,3}(-[a-z0-9]{2,8})?');
+        Route::post('perfumes/{id}/images', [CatalogueController::class, 'addProductImage']);
+        Route::delete('images/{imageId}', [CatalogueController::class, 'deleteProductImage'])->whereUuid('imageId');
+
+        // how little the shop will sell
+        Route::get('rules', [CatalogueController::class, 'rules']);
+        Route::put('rules', [CatalogueController::class, 'saveRule']);
+        Route::delete('rules/{id}', [CatalogueController::class, 'deleteRule']);
+    });
 
     // being told about new orders with the app closed
     Route::get('push/key', [PushController::class, 'key']);

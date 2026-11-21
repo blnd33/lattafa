@@ -24,7 +24,7 @@ class ExampleTest extends TestCase
     public function test_every_app_knows_where_the_others_are(): void
     {
         // one domain: just the paths
-        $this->getJson('/api/v1/apps')->assertOk()->assertExactJson(['menu' => '/menu/', 'pos' => '/pos/', 'delegate' => '/delegate/', 'admin' => '/admin/']);
+        $this->getJson('/api/v1/apps')->assertOk()->assertExactJson(['menu' => '/menu/', 'pos' => '/pos/', 'delegate' => '/delegate/', 'admin' => '/admin/', 'catalogue' => '/catalogue/']);
         // an address per app (e.g. one local port each)
         config(['app.addresses.pos' => 'http://localhost:8002/', 'app.addresses.admin' => 'http://localhost:8004/']);
         $this->getJson('/api/v1/apps')->assertJsonPath('pos', 'http://localhost:8002/')->assertJsonPath('admin', 'http://localhost:8004/')->assertJsonPath('menu', '/menu/');

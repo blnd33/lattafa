@@ -41,6 +41,14 @@ export function errorMessage(e: unknown, t: TFn): string {
   return t('err.unknown')
 }
 
+/**
+ * One perfume, two perfumes: the `key_1` wording when there is exactly one, otherwise `key`.
+ *
+ * Arabic and Kurdish do not split the same way English does, but each has a wording that reads badly with "1" in
+ * front of it, so every language gets the same two slots and says what suits it in each.
+ */
+export const plural = (t: TFn, key: string, n: number) => t(n === 1 ? `${key}_1` : key, { n })
+
 /** Pick the right language of a multilingual text, falling back sensibly. */
 export function pick(text: Record<Lang, string> | undefined, lang: Lang): string {
   if (!text) return ''

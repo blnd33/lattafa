@@ -7,8 +7,9 @@ import { ku } from './ku'
 import { ALL_PERMISSIONS, PERMISSION_GROUPS } from '@/lib/permissions'
 
 const SRC = join(import.meta.dirname, '..')
-// the delegate app (/delegate/) uses the same dictionaries
+// the delegate app (/delegate/) and the admin panel (/admin/) use the same dictionaries
 const DELEGATE = join(import.meta.dirname, '..', '..', '..', 'delegate', 'src')
+const ADMIN = join(import.meta.dirname, '..', '..', '..', 'admin', 'src')
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
@@ -24,7 +25,7 @@ function usedKeys(): Map<string, string> {
   const re = /\b(?:t|tr)\(\s*(['"])([a-z][\w]*(?:\.[\w]+)+)\1/g
   const re2 = /translate\(\s*[\w.]+\s*,\s*(['"])([a-z][\w]*(?:\.[\w]+)+)\1/g
   const re3 = /(?:label|title|hint|success|error|placeholder|text)\s*[:=]\s*(['"])((?:nav|sell|pay|shift|receipt|sales|ret|cust|prod|inv|rep|users|roles|settings|account|auth|setup|common|err|perm|method|cat|family|gender|unit|theme|sync|approval|scan|noaccess|stock|dl)\.[\w.]+)\1/g
-  for (const file of [...walk(SRC), ...walk(DELEGATE)]) {
+  for (const file of [...walk(SRC), ...walk(DELEGATE), ...walk(ADMIN)]) {
     const s = readFileSync(file, 'utf8')
     for (const r of [re, re2, re3]) for (const m of s.matchAll(r)) if (!found.has(m[2])) found.set(m[2], file.replace(SRC, ''))
   }
@@ -64,6 +65,13 @@ const DYNAMIC: string[] = [
   ...['visit', 'no_sale', 'closed'].map((x) => `dl.outcome_${x}`),
   ...['pending', 'submitted', 'approved', 'rejected'].flatMap((x) => [`dl.status_${x}`, `dl.closing_${x}`]),
   ...['open', 'fulfilled', 'cancelled'].map((x) => `dl.req_${x}`),
+  // wholesale catalogue: tabs and sections named from data, and the two countings that read `plural(t, …)`
+  ...['orders', 'perfumes', 'look', 'countries', 'translations', 'buyers', 'prices', 'rules'].map((x) => `wc.tab_${x}`),
+  ...['perfumes', 'collections'].map((x) => `wc.sub_${x}`),
+  ...['ink', 'ivory', 'gold'].map((x) => `wc.colour_${x}`),
+  ...['hero', 'kinds', 'collections', 'featured', 'new', 'story', 'how'].map((x) => `wc.section_${x}`),
+  ...['email', 'phone', 'instagram', 'website'].map((x) => `wc.footer_${x}`),
+  ...['wc.perfumes_in', 'wc.collection_filled'].flatMap((k) => [k, `${k}_1`]),
 ]
 
 /** Every AppError('code') thrown anywhere in the services needs a translated message. */

@@ -3,6 +3,7 @@
 use App\Exceptions\AppException;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\ResolveDevice;
+use App\Http\Middleware\ResolveWholesaleSession;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -23,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['perm' => EnsurePermission::class, 'device' => ResolveDevice::class]);
+        $middleware->alias(['perm' => EnsurePermission::class, 'device' => ResolveDevice::class, 'wholesale' => ResolveWholesaleSession::class]);
         $middleware->append(SecurityHeaders::class);
         // An API has no login page to redirect to; without this a request missing `Accept: application/json` and a valid
         // token would fail with "Route [login] not defined" (a 500) instead of a clean 401.

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 |   /pos/        store point of sale (built from ../pos)
 |   /delegate/   delegate web app   (built from ../delegate)
 |   /admin/      admin panel        (built from ../admin)
+|   /catalogue/  wholesale catalogue (built from ../catalogue)
 |   /api/v1/...  this API
 |
 | The web apps are static files in public/<app>/ (copied there by `npm run build:backend` in the project root). A web
@@ -28,5 +29,5 @@ Route::withoutMiddleware('web')->group(function () {
 
         // always revalidate the page itself; its hashed /assets/* files are what get cached
         return response()->file($file, ['Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'no-cache']);
-    })->whereIn('app', ['pos', 'delegate', 'menu', 'admin']);
+    })->whereIn('app', ['pos', 'delegate', 'menu', 'admin', 'catalogue']);
 });

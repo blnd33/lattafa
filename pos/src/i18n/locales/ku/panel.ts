@@ -126,6 +126,7 @@ export const panel: Record<string, string> = {
   'ap.nav_purchasing': 'کڕین',
   'ap.nav_expenses': 'خەرجییەکان',
   'ap.nav_menu': 'لیستی کڕیاران',
+  'ap.nav_catalogue': 'کاتالۆگی کۆ',
   'ap.after_expenses': '{amount} دوای خەرجییەکان',
   'ap.att_orders': 'داواکاری چاوەڕێی گەیشتن',
   'ap.sup_title': 'قەرزی دابینکەران',
