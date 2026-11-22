@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Models\CatalogueCountry;
 use App\Models\Variant;
 use App\Models\WholesaleOrder;
-use App\Models\WholesaleReservation;
-use App\Services\Catalogue\Inventory;
 use Illuminate\Support\Facades\DB;
 use Tests\ApiTestCase;
 
@@ -73,14 +71,9 @@ class WholesaleOrderTest extends ApiTestCase
         ;
     }
 
-    private function available(): int
-    {
-        return app(Inventory::class)->available($this->khamrah->id);
-    }
-
     // ───────────────────────── §44 Scenario 7 — a direct order ─────────────────────────
 
-    public function test_an_order_is_written_and_the_bottles_are_held_without_leaving_the_shelf(): void
+    public function test_an_order_is_written_and_the_shop_shelf_is_not_touched(): void
     {
         $before = $this->stockOf($this->khamrah);
 
@@ -91,57 +84,23 @@ class WholesaleOrderTest extends ApiTestCase
         $this->assertSame(20000, $res->json('order.subtotalCents'));    // 10 × $20.00
         $this->assertSame(10, $res->json('order.units'));
 
-        // the shelf has not moved — the bottles are promised, not gone
+        // nothing is held and nothing is taken: the catalogue is its own channel
         $this->assertSame($before, $this->stockOf($this->khamrah));
-        // but they are no longer available to anyone else
-        $this->assertSame($before - 10, $this->available());
-        $this->assertSame(WholesaleReservation::ACTIVE, WholesaleReservation::firstOrFail()->status);
+        $this->assertSame(0, \DB::table('stock_movements')->where('ref_type', 'wholesale_order')->count());
     }
 
-    public function test_a_buyer_cannot_order_what_another_order_is_already_holding(): void
+    public function test_a_buyer_can_order_far_more_than_the_shop_holds(): void
     {
         $this->api('POST', 'stock/adjust', ['variantId' => $this->khamrah->id, 'newQty' => 12, 'reason' => 'adjustment'])->assertOk();
 
-        $this->place(10)->assertCreated();
-        // 12 on the shelf, 10 promised: only 2 left, so 10 more is refused
-        $this->place(10)->assertStatus(422)->assertJsonPath('error.code', 'out_of_stock');
+        // 12 on the shelf and two orders of 500: both are taken, because the shop decides, not the shelf
+        $this->place(500)->assertCreated();
+        $this->place(500)->assertCreated();
 
-        $this->assertSame(1, WholesaleOrder::count());
+        $this->assertSame(2, WholesaleOrder::count());
+        $this->assertSame(12, $this->stockOf($this->khamrah), 'and the shelf is exactly where it was');
     }
 
-    /**
-     * Two buyers reaching for the same last bottle.
-     *
-     * What makes this safe is that `place()` locks the stock rows for everything in the basket *before* it works
-     * out what is available, and does the lot in one transaction — so the second request waits for the first to
-     * commit, then re-reads and is refused. The sequential half of that is proved above; this checks the lock is
-     * actually asked for, which is the half a reader cannot see from the outcome.
-     *
-     * A real parallel race needs two connections and a database that blocks on row locks; the suite runs on
-     * in-memory SQLite by default, where `lockForUpdate` compiles to nothing, so this skips there rather than
-     * passing for the wrong reason. On PostgreSQL — which this suite is also run against — it is checked.
-     */
-    public function test_the_stock_rows_are_locked_before_anything_is_worked_out(): void
-    {
-        if (DB::connection()->getDriverName() !== 'pgsql') {
-            $this->markTestSkipped('row locks are a no-op on SQLite; run this suite on PostgreSQL to check it');
-        }
-
-        DB::enableQueryLog();
-        $this->place(10)->assertCreated();
-        $log = DB::getQueryLog();
-        DB::disableQueryLog();
-
-        $locking = array_filter($log, fn (array $q) => str_contains(strtolower($q['query']), 'from "stock"') && str_contains(strtolower($q['query']), 'for update'));
-        $this->assertNotEmpty($locking, 'the stock rows must be locked before availability is read');
-
-        // and it has to come before the availability read, not after it
-        $queries = array_map(fn (array $q) => strtolower($q['query']), $log);
-        $lockAt = array_key_first($locking);
-        $readAt = array_search(true, array_map(fn (string $q) => str_contains($q, 'wholesale_reservation_items'), $queries), true);
-        $this->assertNotFalse($readAt);
-        $this->assertLessThan($readAt, $lockAt, 'the lock has to be taken first, or the check is worthless');
-    }
 
     public function test_the_basket_is_priced_and_checked_again_on_the_server(): void
     {
@@ -152,7 +111,6 @@ class WholesaleOrderTest extends ApiTestCase
         // $200.00 is well under Türkiye's $500.00 minimum, whatever the browser thought
         $this->place(10)->assertStatus(422)->assertJsonPath('error.code', 'min_order');
         $this->assertSame(0, WholesaleOrder::count());
-        $this->assertSame(0, WholesaleReservation::count(), 'nothing is held for an order that was never written');
     }
 
     public function test_the_price_on_an_order_is_the_price_that_was_agreed_that_day(): void
@@ -192,13 +150,11 @@ class WholesaleOrderTest extends ApiTestCase
         $first = $this->buyer()->postJson("/api/v1/wholesale/orders/$reference/whatsapp-opened")->assertOk();
         $this->assertNotNull($first->json('order.whatsappOpenedAt'));
 
-        // opened again, and again: still one order, still one hold
+        // opened again, and again: still one order
         $this->buyer()->postJson("/api/v1/wholesale/orders/$reference/whatsapp-opened")->assertOk();
         $this->buyer()->postJson("/api/v1/wholesale/orders/$reference/whatsapp-opened")->assertOk();
 
         $this->assertSame(1, WholesaleOrder::count());
-        $this->assertSame(1, WholesaleReservation::count());
-        $this->assertSame(10, app(Inventory::class)->held($this->khamrah->id));
     }
 
     public function test_the_same_checkout_sent_twice_is_one_order(): void
@@ -210,22 +166,21 @@ class WholesaleOrderTest extends ApiTestCase
 
         $this->assertSame($first, $second);
         $this->assertSame(1, WholesaleOrder::count());
-        $this->assertSame(10, app(Inventory::class)->held($this->khamrah->id), 'the bottles are held once, not twice');
+        $this->assertSame(1, WholesaleOrder::first()->items()->count(), 'one order with one line, not two of either');
     }
 
     // ───────────────────────── §44 Scenario 8 — approval ─────────────────────────
 
-    public function test_approving_takes_the_stock_off_the_shelf_exactly_once(): void
+    public function test_approving_moves_no_stock_at_all(): void
     {
         $before = $this->stockOf($this->khamrah);
         $id = $this->place(10)->assertCreated()->json('order.id');
 
         $this->api('POST', 'catalogue/orders/'.$id.'/approve')->assertOk()->assertJsonPath('order.status', 'approved');
 
-        $this->assertSame($before - 10, $this->stockOf($this->khamrah));
-        $this->assertSame(WholesaleReservation::CONSUMED, WholesaleReservation::firstOrFail()->status);
-        // the hold is gone and the shelf is lower, so what is available has not moved twice
-        $this->assertSame($before - 10, $this->available());
+        // accepting the order is a decision; the bottles are ordered or shipped however the owner arranges it
+        $this->assertSame($before, $this->stockOf($this->khamrah));
+        $this->assertSame(0, \DB::table('stock_movements')->where('ref_id', $id)->count());
     }
 
     public function test_approving_the_same_order_again_changes_nothing(): void
@@ -237,8 +192,8 @@ class WholesaleOrderTest extends ApiTestCase
         $this->api('POST', 'catalogue/orders/'.$id.'/approve')->assertOk()->assertJsonPath('order.status', 'approved');
         $this->api('POST', 'catalogue/orders/'.$id.'/approve')->assertOk();
 
-        $this->assertSame($before - 10, $this->stockOf($this->khamrah), 'the stock came off once, however many times approve was pressed');
-        $this->assertSame(1, \DB::table('stock_movements')->where('ref_id', $id)->count());
+        $this->assertSame($before, $this->stockOf($this->khamrah));
+        $this->assertSame(1, WholesaleOrder::where('status', 'approved')->count(), 'still one approved order, not three');
     }
 
     public function test_an_approved_order_counts_towards_what_the_business_has_bought(): void
@@ -253,25 +208,22 @@ class WholesaleOrderTest extends ApiTestCase
 
     // ───────────────────────── §44 Scenario 9 — refusal ─────────────────────────
 
-    public function test_refusing_an_order_puts_the_bottles_back(): void
+    public function test_refusing_an_order_leaves_the_shelf_exactly_as_it_was(): void
     {
-        $before = $this->available();
+        $before = $this->stockOf($this->khamrah);
         $id = $this->place(10)->assertCreated()->json('order.id');
-        $this->assertSame($before - 10, $this->available());
 
         $this->api('POST', 'catalogue/orders/'.$id.'/reject', ['reason' => 'Shipping to Türkiye is paused'])
             ->assertOk()->assertJsonPath('order.status', 'rejected');
 
-        $this->assertSame($before, $this->available(), 'the bottles are available again');
-        $this->assertSame($before, $this->stockOf($this->khamrah), 'and the shelf never moved at all');
-        $this->assertSame(WholesaleReservation::RELEASED, WholesaleReservation::firstOrFail()->status);
+        // there was nothing to give back, because nothing was ever taken or held
+        $this->assertSame($before, $this->stockOf($this->khamrah));
     }
 
     public function test_cancelling_does_the_same_and_an_approved_order_cannot_be_cancelled(): void
     {
         $id = $this->place(10)->assertCreated()->json('order.id');
         $this->api('POST', 'catalogue/orders/'.$id.'/cancel')->assertOk()->assertJsonPath('order.status', 'cancelled');
-        $this->assertSame(WholesaleReservation::RELEASED, WholesaleReservation::firstOrFail()->status);
 
         $other = $this->place(5)->assertCreated()->json('order.id');
         $this->api('POST', 'catalogue/orders/'.$other.'/approve')->assertOk();
@@ -279,40 +231,22 @@ class WholesaleOrderTest extends ApiTestCase
             ->assertStatus(422)->assertJsonPath('error.code', 'order_already_approved');
     }
 
-    public function test_the_shop_can_let_a_hold_go_without_deciding_on_the_order(): void
-    {
-        $before = $this->available();
-        $id = $this->place(10)->assertCreated()->json('order.id');
-
-        $this->api('POST', 'catalogue/orders/'.$id.'/release-hold', ['reason' => 'waiting on the buyer'])->assertOk();
-
-        $this->assertSame($before, $this->available(), 'the bottles are free again');
-        $this->assertSame('pending_approval', WholesaleOrder::findOrFail($id)->status, 'the order is still waiting');
-    }
 
     // ───────────────────────── §44 Scenario 10 — nothing expires ─────────────────────────
 
-    public function test_a_hold_stays_for_as_long_as_it_takes(): void
+    public function test_an_order_nobody_looked_at_is_still_waiting_weeks_later(): void
     {
-        $before = $this->available();
         $id = $this->place(10)->assertCreated()->json('order.id');
 
-        // the order was placed three weeks ago and nobody has looked at it
-        $longAgo = now()->subWeeks(3)->getTimestampMs();
-        WholesaleOrder::whereKey($id)->update(['placed_at' => $longAgo]);
-        WholesaleReservation::query()->update(['held_at' => $longAgo]);
+        // placed three weeks ago and nobody has looked at it
+        WholesaleOrder::whereKey($id)->update(['placed_at' => now()->subWeeks(3)->getTimestampMs()]);
 
-        // reading the catalogue, pricing a basket, listing orders — none of it releases anything
+        // reading the catalogue, pricing a basket, listing orders — none of it decides anything
         $this->buyer()->getJson('/api/v1/wholesale/prices')->assertOk();
         $this->getJson('/api/v1/wholesale/products')->assertOk();
         $this->api('GET', 'catalogue/orders')->assertOk();
 
-        $this->assertSame(WholesaleReservation::ACTIVE, WholesaleReservation::firstOrFail()->status);
-        $this->assertSame($before - 10, $this->available());
-
-        // and the shop is told how long it has been held, so it can decide
-        $order = $this->api('GET', 'catalogue/orders/'.$id)->assertOk()->json('order');
-        $this->assertGreaterThan(14 * 86400_000, $order['reservation']['heldForMs']);
+        $this->assertSame('pending_approval', WholesaleOrder::findOrFail($id)->status, 'only a person decides');
     }
 
     // ───────────────────────── what a buyer may see ─────────────────────────
@@ -364,7 +298,7 @@ class WholesaleOrderTest extends ApiTestCase
         $this->auth = ['Authorization' => 'Bearer '.$res->json('token')];
 
         $this->api('POST', 'catalogue/orders/'.$id.'/approve')->assertStatus(403)->assertJsonPath('error.params.permission', 'catalogue.orders');
-        $this->assertSame(WholesaleReservation::ACTIVE, WholesaleReservation::firstOrFail()->status);
+        $this->assertSame('pending_approval', WholesaleOrder::findOrFail($id)->status, 'and it is still waiting');
 
         $this->auth = $owner;
     }

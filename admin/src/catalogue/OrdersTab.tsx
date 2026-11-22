@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Check, Clock, MessageCircle, Package, Trash2, Unlock, Wallet } from 'lucide-react'
+import { ArrowLeft, Ban, Check, Clock, MessageCircle, Package, Trash2, Wallet } from 'lucide-react'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Badge, Card, EmptyState, PageHeader, Spinner } from '@/components/ui/Controls'
 import { Field, Input, SearchInput, Select, Textarea } from '@/components/ui/Field'
@@ -23,9 +23,6 @@ const PAYMENT_TONE: Record<string, 'ok' | 'warn' | 'danger' | 'neutral'> = {
 }
 
 const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-/** How long bottles have been held, in days — the figure that matters when nothing expires on its own. */
-const days = (ms: number) => Math.floor(ms / 86_400_000)
 
 /**
  * Wholesale orders, from the shop's side.
@@ -78,7 +75,6 @@ export function OrdersTab({ canSeePayments }: { canSeePayments: boolean }) {
                   <th className="px-3 py-2.5 text-end font-semibold">{t('wc.col_total')}</th>
                   <th className="px-3 py-2.5 text-start font-semibold">{t('wc.status')}</th>
                   <th className="px-3 py-2.5 text-start font-semibold">{t('wc.col_payment')}</th>
-                  <th className="px-3 py-2.5 text-start font-semibold">{t('wc.col_held')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,11 +89,6 @@ export function OrdersTab({ canSeePayments }: { canSeePayments: boolean }) {
                     <td className="num px-3 py-2.5 text-end font-semibold">{money(o.subtotalCents)}</td>
                     <td className="px-3 py-2.5"><Badge tone={STATUS_TONE[o.status] ?? 'neutral'}>{t(`wc.os_${o.status}`)}</Badge></td>
                     <td className="px-3 py-2.5"><Badge tone={PAYMENT_TONE[o.paymentStatus] ?? 'neutral'}>{t(`wc.ps_${o.paymentStatus}`)}</Badge></td>
-                    <td className="num px-3 py-2.5 text-fg-2">
-                      {o.reservation?.status === 'active' && o.reservation.heldForMs !== null
-                        ? <span className={cn(days(o.reservation.heldForMs) >= 7 && 'font-semibold text-warn-fg')}>{t('wc.days_n', { n: days(o.reservation.heldForMs) })}</span>
-                        : '—'}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -122,12 +113,10 @@ function OrderDetail({ id, canSeePayments, onBack }: { id: string; canSeePayment
   }
 
   const act = useMutation({
-    mutationFn: async (what: 'approve' | 'reject' | 'cancel' | 'release') => {
+    mutationFn: async (what: 'approve' | 'reject' | 'cancel') => {
       if (what === 'approve') return cat.approveOrder(id)
-      const reason = window.prompt(t(what === 'release' ? 'wc.release_why' : 'wc.decline_why')) ?? ''
-      if (what === 'reject') return cat.rejectOrder(id, reason)
-      if (what === 'cancel') return cat.cancelOrder(id, reason)
-      return cat.releaseHold(id, reason)
+      const reason = window.prompt(t('wc.decline_why')) ?? ''
+      return what === 'reject' ? cat.rejectOrder(id, reason) : cat.cancelOrder(id, reason)
     },
     onSuccess: () => { refresh(); toast.success(t('wc.order_saved')) },
     onError: (e) => toast.error(errorMessage(e, t)),
@@ -136,7 +125,6 @@ function OrderDetail({ id, canSeePayments, onBack }: { id: string; canSeePayment
   if (order.isLoading || !o) return <div className="grid h-60 place-items-center"><Spinner className="size-9" /></div>
 
   const open = o.status === 'pending_approval' || o.status === 'integration_error'
-  const held = o.reservation?.status === 'active'
 
   return (
     <div className="space-y-4">
@@ -201,25 +189,6 @@ function OrderDetail({ id, canSeePayments, onBack }: { id: string; canSeePayment
             </dl>
           </Card>
 
-          <Card>
-            <h3 className="mb-1 font-serif text-lg">{t('wc.the_hold')}</h3>
-            <p className="mb-3 text-sm text-fg-2">{t('wc.hold_never_expires')}</p>
-            {!o.reservation ? <p className="text-sm text-fg-2">—</p> : (
-              <>
-                <Badge tone={o.reservation.status === 'active' ? 'warn' : o.reservation.status === 'consumed' ? 'ok' : 'neutral'}>
-                  {t(`wc.res_${o.reservation.status}`)}
-                </Badge>
-                {held && o.reservation.heldForMs !== null && (
-                  <p className="num mt-2 text-sm">{t('wc.held_for', { n: days(o.reservation.heldForMs) })}</p>
-                )}
-                {held && (
-                  <Button variant="secondary" className="mt-3" icon={<Unlock className="size-4" />} onClick={() => act.mutate('release')}>
-                    {t('wc.release_hold')}
-                  </Button>
-                )}
-              </>
-            )}
-          </Card>
         </div>
       </div>
 

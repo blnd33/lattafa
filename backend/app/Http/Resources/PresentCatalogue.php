@@ -149,7 +149,7 @@ final class PresentCatalogue
      */
     public static function order(WholesaleOrder $o, bool $forBuyer = false): array
     {
-        $o->loadMissing(['items', 'reservation']);
+        $o->loadMissing(['items']);
 
         $base = [
             'id' => $o->id,
@@ -197,14 +197,6 @@ final class PresentCatalogue
             'adminNote' => $o->admin_note,
             'integrationError' => $o->integration_error,
             'priceSources' => $o->items->pluck('price_source', 'variantId')->all(),
-            'reservation' => $o->reservation ? [
-                'status' => $o->reservation->status,
-                'heldAt' => $o->reservation->held_at,
-                'consumedAt' => $o->reservation->consumed_at,
-                'releasedAt' => $o->reservation->released_at,
-                // how long the bottles have been held, since nothing ever releases them on its own
-                'heldForMs' => $o->reservation->status === 'active' ? max(0, Time::nowMs() - $o->reservation->held_at) : null,
-            ] : null,
             'history' => $o->relationLoaded('history') ? $o->history->sortBy('occurred_at')->map(fn (WholesaleOrderStatus $h) => [
                 'from' => $h->from_status, 'to' => $h->to_status, 'byName' => $h->by_name, 'reason' => $h->reason, 'at' => $h->occurred_at,
             ])->values()->all() : null,

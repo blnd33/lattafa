@@ -42,8 +42,6 @@ final class CatalogueStrings
         'cat.err_too_many' => 'Too many attempts. Please wait a little and try again.',
 
         // the collection
-        'cat.in_stock' => 'In stock',
-        'cat.out_of_stock' => 'Out of stock',
         'cat.collections' => 'Collections',
         'cat.categories' => 'Categories',
         'cat.search' => 'Search perfumes',
@@ -62,7 +60,6 @@ final class CatalogueStrings
         'cat.err_min_qty' => '{sku}: at least {qty} bottles.',
         'cat.err_qty_step' => '{sku}: in steps of {step} bottles.',
         'cat.err_unpriced' => '{sku} has no price yet. Please ask us.',
-        'cat.err_out_of_stock' => '{sku} is out of stock.',
         'cat.err_invalid_quantity' => '{sku}: choose how many.',
         'cat.err_cart_empty' => 'Your order is empty.',
         'cat.err_offline' => 'We could not reach Lattafa. Please try again.',
@@ -119,8 +116,6 @@ final class CatalogueStrings
         'cat.kind' => 'Kind',
         'cat.brand' => 'Brand',
         'cat.gender' => 'For',
-        'cat.availability' => 'Availability',
-        'cat.in_stock_only' => 'In stock only',
         'cat.any' => 'Any',
         'cat.no_results' => 'No perfumes match that',
         'cat.no_results_hint' => 'Try a different word, or clear the filters.',

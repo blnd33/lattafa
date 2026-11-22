@@ -51,16 +51,6 @@ export function Bottle({ perfume, className, eager }: { perfume: Perfume; classN
 
 /* ───────────────────────── small pieces ───────────────────────── */
 
-export function Stock({ inStock }: { inStock: boolean }) {
-  const t = useT()
-  return (
-    <span className={cx('inline-flex items-center gap-1.5 text-xs font-medium', inStock ? 'text-fg-2' : 'text-danger-fg')}>
-      <span className={cx('size-1.5 rounded-full', inStock ? 'bg-success' : 'bg-danger')} />
-      {t(inStock ? 'cat.in_stock' : 'cat.out_of_stock')}
-    </span>
-  )
-}
-
 export function Pill({ children, tone = 'gold' }: { children: ReactNode; tone?: 'gold' | 'quiet' }) {
   return (
     <span className={cx(

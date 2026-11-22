@@ -451,14 +451,6 @@ class CatalogueController extends Controller
         return response()->json(['order' => PresentCatalogue::order($this->orders->cancel($r->user(), $id, $data['reason'] ?? ''))]);
     }
 
-    /** Lets the bottles go without deciding on the order — for one that has sat far too long. */
-    public function releaseHold(Request $r, string $id): JsonResponse
-    {
-        $data = $r->validate(['reason' => ['nullable', 'string', 'max:300']]);
-
-        return response()->json(['order' => PresentCatalogue::order($this->orders->releaseHold($r->user(), $id, $data['reason'] ?? ''))]);
-    }
-
     // ───────────────────────── money against an order ─────────────────────────
 
     public function payments(Request $r, string $id): JsonResponse

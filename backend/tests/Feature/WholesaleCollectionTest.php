@@ -51,20 +51,20 @@ class WholesaleCollectionTest extends ApiTestCase
         $this->assertStringNotContainsString('45000', $body);
     }
 
-    public function test_a_buyer_learns_whether_a_size_is_in_stock_and_never_how_many(): void
+    public function test_a_buyer_is_told_nothing_whatever_about_the_shelf(): void
     {
         $khamrah = $this->variantOf('Khamrah');
-        $have = $this->stockOf($khamrah);
-        $this->assertGreaterThan(0, $have);
 
         $size = $this->sizeOf($this->collection()->assertOk()->json('products'), $khamrah->id);
-        $this->assertTrue($size['inStock']);
-        $this->assertArrayNotHasKey('stock', $size);
-        $this->assertArrayNotHasKey('qty', $size);
+        foreach (['stock', 'qty', 'inStock', 'available'] as $key) {
+            $this->assertArrayNotHasKey($key, $size, "a size must not carry $key");
+        }
 
-        // sold out: still listed, still readable, just not orderable
+        // sold out in the shop changes nothing: the catalogue sells with no limit
         $this->api('POST', 'stock/adjust', ['variantId' => $khamrah->id, 'newQty' => 0, 'reason' => 'adjustment'])->assertOk();
-        $this->assertFalse($this->sizeOf($this->collection()->assertOk()->json('products'), $khamrah->id)['inStock']);
+        $sold = $this->collection()->assertOk();
+        $this->assertNotNull($this->sizeOf($sold->json('products'), $khamrah->id), 'still listed');
+        $this->assertStringNotContainsString('inStock', $sold->getContent());
     }
 
     public function test_each_size_carries_the_rules_it_is_held_to(): void

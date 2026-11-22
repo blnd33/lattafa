@@ -71,8 +71,6 @@ export interface Size {
   size: number
   unit: string
   ml: number
-  /** all a visitor is told about the shelf */
-  inStock: boolean
   minQty: number
   step: number
 }
@@ -96,7 +94,6 @@ export interface Perfume {
   art: { c1: string; c2: string; shape: string }
   featured: boolean
   isNew: boolean
-  inStock: boolean
   sizes: Size[]
 }
 
@@ -136,7 +133,6 @@ export interface PriceLine {
   category: string
   priceCents: number
   source: string
-  inStock: boolean
   minQty: number
   step: number
 }

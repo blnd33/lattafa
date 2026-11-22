@@ -23,7 +23,7 @@ final class CatalogueRules
     /**
      * Checks a basket and says what, if anything, is wrong with it.
      *
-     * @param  array<int, array{variantId: string, sku: string, category: string, qty: int, unitCents: int|null, available: int}>  $lines
+     * @param  array<int, array{variantId: string, sku: string, category: string, qty: int, unitCents: int|null}>  $lines
      * @param  array{minOrderCents?: int, minQty?: int, qtyIncrement?: int, enabled?: bool}|null  $global
      * @param  array<string, array{minQty?: int, qtyIncrement?: int, enabled?: bool}>  $byCategory
      * @param  string[]  $exempt  which of KINDS this business is let off
@@ -69,10 +69,9 @@ final class CatalogueRules
             if ($step > 1 && $qty > 0 && $qty % $step !== 0) {
                 $lineProblems[] = ['code' => 'qty_step', 'params' => ['sku' => $line['sku'], 'step' => $step]];
             }
-            // only ever "we haven't got that many" — never how many there are
-            if ($qty > max(0, (int) $line['available'])) {
-                $lineProblems[] = ['code' => 'out_of_stock', 'params' => ['sku' => $line['sku']]];
-            }
+            // Nothing here refuses an order for want of stock. The catalogue sells with no limit: a shop abroad
+            // orders what it wants and the shop here decides when the order arrives, so the shelf is not part of
+            // the arithmetic and no quantity on it is ever implied by a refusal.
 
             $lineCents = $unit === null ? 0 : CataloguePricing::line($unit, $qty);
             $subtotal += $lineCents;

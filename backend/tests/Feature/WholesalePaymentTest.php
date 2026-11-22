@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Variant;
 use App\Models\WholesaleOrder;
-use App\Models\WholesaleReservation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -136,7 +135,6 @@ class WholesalePaymentTest extends ApiTestCase
         $this->assertSame('paid', $order['paymentStatus']);
         $this->assertSame('pending_approval', $order['status'], 'money is not approval');
         $this->assertSame($before, $this->stockOf($this->khamrah), 'and nothing came off the shelf');
-        $this->assertSame(WholesaleReservation::ACTIVE, WholesaleReservation::firstOrFail()->status);
     }
 
     public function test_approving_an_order_does_not_pretend_it_was_paid(): void
@@ -156,7 +154,6 @@ class WholesalePaymentTest extends ApiTestCase
         $order = $this->order();
         $this->assertSame('rejected', $order['status']);
         $this->assertSame('paid', $order['paymentStatus'], 'the money is still recorded — what to do about it is the shop’s call');
-        $this->assertSame(WholesaleReservation::RELEASED, WholesaleReservation::firstOrFail()->status);
     }
 
     // ───────────────────────── what is not built ─────────────────────────

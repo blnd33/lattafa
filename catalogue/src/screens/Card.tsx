@@ -1,7 +1,7 @@
 import { Heart } from 'lucide-react'
 import type { Perfume, PriceLine } from '../api'
 import { money } from '../api'
-import { Bottle, Pill, Stock, cx } from '../ui'
+import { Bottle, Pill, cx } from '../ui'
 import { useT } from '../words'
 
 /**
@@ -49,7 +49,6 @@ export function Card({ perfume, price, unlocked, favourite, onOpen, onFavourite 
         </span>
 
         <span className="mt-2 flex items-center justify-between gap-2">
-          <Stock inStock={perfume.inStock} />
           {price
             ? <span className="num font-semibold">{money(price.priceCents)}</span>
             // unlocked and still no price means the shop has not set one for this buyer — not that they need a code

@@ -14,7 +14,7 @@ class CatalogueRulesTest extends TestCase
     /** @param array<string, mixed> $over */
     private function line(array $over = []): array
     {
-        return $over + ['variantId' => 'v1', 'sku' => 'KHAM-100', 'category' => 'perfume', 'qty' => 12, 'unitCents' => 1800, 'available' => 500];
+        return $over + ['variantId' => 'v1', 'sku' => 'KHAM-100', 'category' => 'perfume', 'qty' => 12, 'unitCents' => 1800];
     }
 
     private function codes(array $result): array
@@ -156,13 +156,13 @@ class CatalogueRulesTest extends TestCase
         $this->assertSame(0, $out['subtotalCents'], 'a line with no price adds nothing to the total');
     }
 
-    public function test_more_than_the_shop_has_is_refused_without_saying_how_many_there_are(): void
+    public function test_the_shelf_is_no_part_of_the_arithmetic(): void
     {
-        $out = R::check([$this->line(['qty' => 12, 'available' => 5])]);
+        // the catalogue sells with no limit, so a basket far past anything the shop holds is simply fine
+        $out = R::check([$this->line(['qty' => 100000])]);
 
-        $this->assertSame(['out_of_stock'], $this->codes($out));
-        $this->assertSame(['sku' => 'KHAM-100'], $out['problems'][0]['params'], 'the number on the shelf stays in the shop');
-        $this->assertStringNotContainsString('5', json_encode($out['problems']));
+        $this->assertSame([], $this->codes($out), 'no stock refusal exists any more');
+        $this->assertTrue($out['ok']);
     }
 
     public function test_nothing_at_all_of_a_size_is_not_an_order_for_it(): void

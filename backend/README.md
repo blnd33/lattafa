@@ -12,7 +12,7 @@ sync used by the POS tills and delegate phones.
 | `/` → `/pos/` | Store point of sale (tills, tablets) — the domain opens it; its sidebar (phones: More) and sign-in screen link to the other sections | `../pos` |
 | `/delegate/` | Delegate field-sales app — a POS for the road, in the phone's browser (installable, works offline) | `../delegate` |
 | `/admin/` | Admin panel for the owner and managers — any computer or tablet, signs in with username + password and is never registered as a till; dashboard, sales to check, purchasing & suppliers, expenses, and every management screen (products, stock, customers, delegates, users, settings…) | `../admin` |
-| `/catalogue/` | Wholesale catalogue for perfume shops and distributors abroad — the whole collection to anyone, each buyer's own USD prices to whoever holds an access code, and orders that hold stock until the shop approves them. Its management screens live in `/admin/` | `../catalogue` |
+| `/catalogue/` | Wholesale catalogue for perfume shops and distributors abroad — the whole collection to anyone, each buyer's own USD prices to whoever holds an access code, and orders the shop approves before anything ships. Its management screens live in `/admin/` | `../catalogue` |
 | `/api/v1/…` | This API | here |
 
 * **API reference:** [docs/api.md](docs/api.md)
@@ -292,9 +292,10 @@ The full step-by-step is in **[docs/deploy.md](docs/deploy.md)**. In short:
 ### Wholesale catalogue (`/catalogue/`)
 
 The international wholesale channel: perfume shops and distributors abroad browse the whole collection, unlock their
-own USD prices with a private access code, and send orders that hold stock until the owner approves them. It is the
-same database as everything above, so there is nothing to synchronise — a reservation and the stock it holds commit
-together, and approving an order deducts through `StockService::applyMovement` like every other stock change.
+own USD prices with a private access code, and send orders the owner approves before anything ships. It is the same
+database as everything above, so there is nothing to synchronise — but it is its own channel: **the catalogue sells
+with no limit and never touches stock.** A buyer orders what they want, the owner decides when the order arrives,
+and the shop’s shelf is not part of it.
 
 The plan, phase by phase, with the decisions behind it: **[../docs/catalogue-plan.md](../docs/catalogue-plan.md)**.
 
@@ -319,14 +320,17 @@ The plan, phase by phase, with the decisions behind it: **[../docs/catalogue-pla
   prices, favourites, and a basket the server prices and checks against the wholesale rules. Reads in any enabled
   language, mirrors in Arabic and Kurdish, and is built for a phone first. The collection endpoint is public and
   carries **no price field at all**; prices come only from the session endpoint and are joined in the browser.
-* **Built (Phase 5):** sending an order. A buyer checks out in the catalogue (WhatsApp or straight through); the
-  server prices and checks the basket again, writes the order and **holds** the bottles — in one transaction, with
-  the stock rows locked, so two buyers cannot take the same last bottle. Held stock has not left the shelf, but no
-  one else can order it. **Nothing releases a hold because time has passed**: the shop approves (stock comes off
-  through `StockService::applyMovement`, exactly once), refuses or cancels (the bottles go back), or lets the hold
-  go by hand. Payment is a separate track — recording money moves no stock, and approving marks nothing paid.
-  Bank transfer and cash are real; card payment is refused rather than faked, because no provider is chosen.
+* **Built (Phase 5):** sending an order. A buyer checks out in the catalogue (WhatsApp or straight through) and
+  the server prices and checks the basket again — the minimum order, the smallest quantity and the quantity steps,
+  never what the browser claimed. **No stock is held and no quantity is capped**: a shop abroad may order 500 of
+  something the shop has ten of, and approving it moves nothing off the shelf. Approving records that the owner
+  accepted it; the bottles are then ordered from the supplier or shipped as they arrange. Payment is a separate
+  track — recording money approves nothing, and approving marks nothing paid. Bank transfer and cash are real;
+  card payment is refused rather than faked, because no provider is chosen.
   Admin panel → Wholesale catalogue → **Orders**.
+
+  *Two things this gives up on purpose: approving does not tell you whether you can fill the order, and wholesale
+  sales do not appear in stock value or the sales reports, because the system was never told the bottles left.*
 * **Built (Phase 6):** how it looks, and what the catalogue says about each perfume. The owner sets the three
   colours and the wordmark, writes the headline, puts up an opening picture, and **arranges the homepage as a list
   of sections** — moved and switched on or off, which is literally the order the page is drawn in. Collections are

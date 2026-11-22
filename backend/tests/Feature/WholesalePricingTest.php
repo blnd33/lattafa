@@ -218,18 +218,20 @@ class WholesalePricingTest extends ApiTestCase
         $this->assertSame(0, $quote->json('minOrderCents'));
     }
 
-    public function test_more_than_the_shop_has_is_refused_without_saying_how_many_there_are(): void
+    public function test_a_quote_for_far_more_than_the_shop_has_is_perfectly_fine(): void
     {
         $khamrah = $this->variantOf('Khamrah');
         $this->setCountryPrice($khamrah, 2000);
         $have = $this->stockOf($khamrah);
 
         $quote = $this->asBuyer($this->unlocked($this->istanbul))->postJson('/api/v1/wholesale/quote', [
-            'lines' => [['variantId' => $khamrah->id, 'qty' => $have + 50]],
+            'lines' => [['variantId' => $khamrah->id, 'qty' => $have + 5000]],
         ])->assertOk();
 
-        $this->assertSame(['out_of_stock'], array_column($quote->json('problems'), 'code'));
-        $this->assertStringNotContainsString((string) $have, json_encode($quote->json('problems')));
+        // the catalogue sells with no limit, and the quote never hints at what is on a shelf in Duhok
+        $this->assertSame([], $quote->json('problems'));
+        $this->assertTrue($quote->json('ok'));
+        $this->assertStringNotContainsString('stock', $quote->getContent());
     }
 
     public function test_the_same_size_twice_in_one_basket_is_one_line(): void

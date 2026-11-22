@@ -66,6 +66,23 @@ If either of those turns out to matter, the middle answer from the question — 
 e.g. 200, kept apart from the shop's* — gives you both back without tying the catalogue to the shop's shelf. It is
 roughly the same amount of work. Say so and I will build that instead.
 
+> **Built, 22 November.** `Catalogue\Inventory`, the two reservation tables and their models, the `out_of_stock`
+> refusal, the row locking, the held-stock column, "held for N days" and the **Release hold** button are all gone.
+> `wholesale_orders` and `wholesale_order_items` are untouched, so no order lost anything: a reservation only ever
+> recorded stock, never what was agreed. Migration `2026_11_22_100001` drops the two tables and its `down()` puts
+> the schema back.
+>
+> Approving is now a decision and nothing else — no `StockService` call, no movement row. A buyer sees no "In
+> stock", no "Out of stock", no availability filter, and the public reply has no such field to leak: a test asserts
+> a size carries none of `stock`, `qty`, `inStock` or `available`, and that selling out in the shop changes the
+> reply not at all.
+>
+> Every price rule stayed: minimum order, smallest quantity, quantity steps, agreed prices and discounts.
+>
+> 358 backend tests pass on PostgreSQL and SQLite, 253 on the front end. Four tests that pinned holding were
+> rewritten to pin the opposite, including one that now orders 500 of a perfume the shop has 12 of — twice — and
+> checks the shelf never moves.
+
 ---
 
 ## 4 · The delegate app: its own van stock again

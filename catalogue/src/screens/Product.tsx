@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, Heart } from 'lucide-react'
 import type { Perfume, PriceLine, Size } from '../api'
 import { money } from '../api'
-import { Bottle, Button, Pill, Quantity, Rule, SectionTitle, Stock, cx } from '../ui'
+import { Bottle, Button, Pill, Quantity, Rule, SectionTitle, cx } from '../ui'
 import { genderKey, kindKey, useT } from '../words'
 import { Card } from './Card'
 
@@ -81,7 +81,6 @@ export function Product({ perfume, prices, related, favourite, basket, unlocked,
           <h1 className="font-serif mt-1 text-3xl leading-tight sm:text-4xl">{perfume.name}</h1>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-2">
-            <Stock inStock={perfume.inStock} />
             {perfume.category && <span>· {t(kindKey(perfume.category))}</span>}
             {perfume.gender && <span>· {t(genderKey(perfume.gender))}</span>}
             {perfume.concentration && <span>· {perfume.concentration}</span>}
@@ -103,7 +102,7 @@ export function Product({ perfume, prices, related, favourite, basket, unlocked,
               {perfume.sizes.map((s) => {
                 const price = priceOf(s)
                 const qty = basket[s.variantId] ?? 0
-                const orderable = !!price && s.inStock
+                const orderable = !!price
                 return (
                   <li key={s.variantId} className="flex flex-wrap items-center gap-3 p-4">
                     <div className="min-w-0 flex-1">
@@ -122,9 +121,7 @@ export function Product({ perfume, prices, related, favourite, basket, unlocked,
                       {price ? <span className="num text-lg font-semibold">{money(price.priceCents)}</span>
                         : <span className="text-xs font-medium text-gold-text">{t(unlocked ? 'cat.err_unpriced' : 'cat.locked_prices', { sku: s.sku })}</span>}
 
-                      {!s.inStock ? <span className="text-xs text-danger-fg">{t('cat.out_of_stock')}</span>
-                        : orderable ? <Quantity qty={qty} minQty={s.minQty} step={s.step} onChange={(n) => onQty(s.variantId, n)} />
-                          : null}
+                      {orderable ? <Quantity qty={qty} minQty={s.minQty} step={s.step} onChange={(n) => onQty(s.variantId, n)} /> : null}
                     </div>
                   </li>
                 )

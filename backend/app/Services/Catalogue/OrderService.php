@@ -10,48 +10,41 @@ use App\Models\WholesaleCustomer;
 use App\Models\WholesaleOrder;
 use App\Models\WholesaleOrderItem;
 use App\Models\WholesaleOrderStatus;
-use App\Models\WholesaleReservation;
-use App\Models\WholesaleReservationItem;
 use App\Models\WholesaleSession;
 use App\Services\AuditService;
 use App\Services\Concerns\RequiresPermission;
 use App\Services\Counters;
-use App\Services\StockService;
 use App\Support\CataloguePricing;
 use App\Support\Time;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 
 /**
- * Wholesale orders: placing one, holding the stock for it, and the shop's decision on it.
+ * Wholesale orders: placing one, and the shop’s decision on it.
  *
- * ## The two moments that matter
+ * ## The catalogue sells with no limit
+ *
+ * Nothing here looks at the shop’s shelf. A buyer abroad orders what they want, in any quantity, and the shop
+ * decides when the order arrives — so there is no hold, no reservation, nothing locked, and no refusal that
+ * could tell a buyer how many bottles are on a shelf in Duhok.
  *
  * **Placing an order.** The basket is priced and checked again on the server — never trusted from the browser —
- * and then the order, its lines and its reservation are written in **one transaction** with the stock rows locked.
- * Two buyers racing for the last bottle cannot both win: the second one waits for the first to commit, re-reads
- * what is left, and is refused. An idempotency key makes a checkout sent twice return the same order rather than
- * creating a second.
+ * and the order and its lines are written in one transaction. An idempotency key makes a checkout sent twice
+ * return the same order rather than creating a second.
  *
- * **Approving one.** The stock comes off the shelf through `StockService::applyMovement`, which is the only thing
- * in the whole system that writes stock, and the reservation is marked consumed — in the same transaction. A
- * repeated approval is a no-op, because the order is no longer pending by the time the second one looks.
+ * **Approving one.** A decision and nothing more: no stock moves. The bottles are ordered from the supplier or
+ * shipped as the owner arranges, and if any of them do come off the shop’s shelf that is recorded there, in the
+ * ordinary way, by whoever takes them. A repeated approval is a no-op.
  *
  * ## What this service will not do
  *
- * It will not expire a reservation. Nothing here releases stock because of time passing; a person does that by
- * deciding on the order. It will not treat opening WhatsApp as an order being sent, which is why that is recorded
- * as its own fact. And it will not mark an order approved if taking the stock failed — that lands in
- * `integration_error`, where it can be seen and tried again.
- */
-class OrderService
+ * It will not treat opening WhatsApp as an order being sent, which is why that is recorded as its own fact.
+ */class OrderService
 {
     use RequiresPermission;
 
     public function __construct(
         private RulesService $rules,
-        private StockService $stock,
         private AuditService $audit,
         private Counters $counters,
     ) {}
@@ -89,12 +82,8 @@ class OrderService
         $country = $session->country_id ? CatalogueCountry::find($session->country_id) : null;
 
         return DB::transaction(function () use ($session, $customer, $country, $lines, $who, $method, $idempotencyKey) {
-            // Lock the stock rows for every size in the basket before anything is worked out. Whoever gets here
-            // second waits, then re-reads — which is what stops two orders taking the same last bottle.
-            $wanted = array_values(array_unique(array_map(fn ($l) => (string) $l['variantId'], $lines)));
-            DB::table('stock')->whereIn('variant_id', $wanted)->lockForUpdate()->get();
-
-            // priced and checked again here, inside the lock: what the browser was shown is never trusted
+            // Priced and checked again here, never trusting what the browser was shown. No stock is locked:
+            // the catalogue sells with no limit, so two orders for the same bottle is not a race to lose.
             $checked = $this->rules->check($customer, $country, $lines);
             if (! $checked['ok']) {
                 $first = $checked['problems'][0] ?? ['code' => 'cart_empty', 'params' => []];
@@ -103,6 +92,7 @@ class OrderService
 
             $now = Time::nowMs();
             $number = 10000 + $this->counters->next('wholesale_order');
+            $wanted = array_values(array_unique(array_map(fn ($l) => (string) $l['variantId'], $lines)));
             $variants = Variant::with('product')->whereIn('id', $wanted)->get()->keyBy('id');
 
             $order = WholesaleOrder::create([
@@ -125,12 +115,6 @@ class OrderService
                 'placed_at' => $now,
             ]);
 
-            $reservation = WholesaleReservation::create([
-                'order_id' => $order->id,
-                'status' => WholesaleReservation::ACTIVE,
-                'held_at' => $now,
-            ]);
-
             foreach ($checked['lines'] as $line) {
                 $variant = $variants->get($line['variantId']);
                 WholesaleOrderItem::create([
@@ -145,11 +129,6 @@ class OrderService
                     'unit_cents' => (int) $line['unitCents'],
                     'line_cents' => (int) $line['lineCents'],
                     'price_source' => (string) ($line['source'] ?? ''),
-                ]);
-                WholesaleReservationItem::create([
-                    'reservation_id' => $reservation->id,
-                    'variant_id' => $line['variantId'],
-                    'qty' => $line['qty'],
                 ]);
             }
 
@@ -202,37 +181,17 @@ class OrderService
             $order = WholesaleOrder::lockForUpdate()->findOrFail($orderId);
 
             if ($order->status === WholesaleOrder::APPROVED) {
-                return $order;   // already done; deducting again would take the stock twice
+                return $order;   // already done
             }
             if (! $order->isOpen()) {
                 throw new AppException('order_not_open', ['status' => $order->status]);
             }
 
-            $reservation = WholesaleReservation::where('order_id', $order->id)->lockForUpdate()->first();
-            if (! $reservation || $reservation->status === WholesaleReservation::CONSUMED) {
-                throw new AppException('reservation_missing');
-            }
-
             $was = $order->status;
             $now = Time::nowMs();
 
-            try {
-                foreach ($reservation->items as $item) {
-                    // the one writer of stock in the whole system; the hold is what made this quantity safe
-                    $this->stock->applyMovement($item->variant_id, -$item->qty, 'sale', $actor, [
-                        'refType' => 'wholesale_order',
-                        'refId' => $order->id,
-                        'note' => 'Wholesale order '.$order->reading(),
-                        'occurredAt' => $now,
-                    ]);
-                }
-            } catch (Throwable $e) {
-                // Nothing is marked approved when the stock could not be taken. The transaction rolls back, so
-                // the hold stands and the order can be tried again once the shop has looked at it.
-                throw new AppException('order_stock_failed', ['sku' => $e instanceof AppException ? (string) ($e->params['sku'] ?? '') : '']);
-            }
-
-            $reservation->update(['status' => WholesaleReservation::CONSUMED, 'consumed_at' => $now]);
+            // Approving takes nothing off the shop's shelf. The catalogue is its own channel: these bottles are
+            // ordered from the supplier or shipped as the owner arranges, and the till's stock is not part of it.
             $order->update(['status' => WholesaleOrder::APPROVED, 'decided_at' => $now, 'decided_by' => $actor->id]);
             $this->remember($order, $was, WholesaleOrder::APPROVED, $actor, '');
 
@@ -273,7 +232,7 @@ class OrderService
                 return $order;
             }
             if ($order->status === WholesaleOrder::APPROVED) {
-                // the stock is already gone; undoing that is a return, not a cancellation
+                // an approved order has been accepted and may already have shipped; undoing it is a return
                 throw new AppException('order_already_approved');
             }
             if (! $order->isOpen()) {
@@ -282,7 +241,6 @@ class OrderService
 
             $was = $order->status;
             $now = Time::nowMs();
-            $this->release($order, $now, $reason);
 
             $order->update(['status' => $to, 'decided_at' => $now, 'decided_by' => $actor->id, 'reject_reason' => $reason]);
             $this->remember($order, $was, $to, $actor, $reason);
@@ -295,37 +253,6 @@ class OrderService
         });
     }
 
-    /**
-     * Lets a hold go by hand, leaving the order where it is.
-     *
-     * For an order that has sat so long the shop would rather have the bottles back without deciding on it yet.
-     * The brief asks for this precisely because nothing expires on its own.
-     */
-    public function releaseHold(User $actor, string $orderId, string $reason = ''): WholesaleOrder
-    {
-        $this->need($actor, 'catalogue.orders');
-
-        return DB::transaction(function () use ($actor, $orderId, $reason) {
-            $order = WholesaleOrder::lockForUpdate()->findOrFail($orderId);
-            $this->release($order, Time::nowMs(), $reason);
-
-            $this->audit->log($actor, 'catalogue.hold_released', 'wholesale_order', $order->id, [
-                'order' => $order->reading(), 'reason' => $reason ?: '—',
-            ]);
-
-            return $order->fresh();
-        });
-    }
-
-    private function release(WholesaleOrder $order, int $now, string $reason): void
-    {
-        $reservation = WholesaleReservation::where('order_id', $order->id)->lockForUpdate()->first();
-        if (! $reservation || $reservation->status !== WholesaleReservation::ACTIVE) {
-            return;   // already consumed or already let go
-        }
-        $reservation->update(['status' => WholesaleReservation::RELEASED, 'released_at' => $now, 'note' => $reason]);
-    }
-
     // ───────────────────────── reading them ─────────────────────────
 
     /**
@@ -336,7 +263,7 @@ class OrderService
     {
         $this->need($actor, 'catalogue.orders');
 
-        return WholesaleOrder::with(['customer', 'country', 'reservation'])
+        return WholesaleOrder::with(['customer', 'country'])
             ->when($filters['status'] ?? null, fn ($b, $s) => $b->where('status', $s))
             ->when($filters['customerId'] ?? null, fn ($b, $c) => $b->where('customer_id', $c))
             ->when($filters['countryId'] ?? null, fn ($b, $c) => $b->where('country_id', $c))
@@ -353,7 +280,7 @@ class OrderService
     {
         $this->need($actor, 'catalogue.orders');
 
-        return WholesaleOrder::with(['items', 'reservation.items', 'history', 'payments', 'customer', 'country'])->findOrFail($orderId);
+        return WholesaleOrder::with(['items', 'history', 'payments', 'customer', 'country'])->findOrFail($orderId);
     }
 
     /**

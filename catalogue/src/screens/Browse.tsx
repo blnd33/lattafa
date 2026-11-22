@@ -9,12 +9,11 @@ export interface Filters {
   kind: string
   brand: string
   gender: string
-  inStockOnly: boolean
   /** the id of one of the owner's collections, when the buyer came in through it */
   collection: string
 }
 
-export const NO_FILTERS: Filters = { kind: '', brand: '', gender: '', inStockOnly: false, collection: '' }
+export const NO_FILTERS: Filters = { kind: '', brand: '', gender: '', collection: '' }
 
 /** Everything the search box and the filters leave standing. */
 export function sift(products: Perfume[], search: string, f: Filters, inCollection?: Set<string> | null): Perfume[] {
@@ -24,7 +23,6 @@ export function sift(products: Perfume[], search: string, f: Filters, inCollecti
     if (f.kind && p.category !== f.kind) return false
     if (f.brand && p.brand !== f.brand) return false
     if (f.gender && p.gender !== f.gender) return false
-    if (f.inStockOnly && !p.inStock) return false
     if (!needle) return true
     // what a buyer would type: a name, a house, a note, or the code off the box
     return [p.name, p.brand, p.concentration, ...p.scentFamilies, ...p.notes.top, ...p.notes.heart, ...p.notes.base]
@@ -60,7 +58,7 @@ export function Browse({ collection, prices, favourites, search, filters, onFilt
 
   const shown = useMemo(() => sift(collection.products, search, filters, inCollection), [collection.products, search, filters, inCollection])
   const genders = useMemo(() => [...new Set(collection.products.map((p) => p.gender))].filter(Boolean), [collection.products])
-  const dirty = search.trim() !== '' || filters.kind || filters.brand || filters.gender || filters.inStockOnly || filters.collection
+  const dirty = search.trim() !== '' || filters.kind || filters.brand || filters.gender || filters.collection
 
   const cheapest = (p: Perfume): PriceLine | null => {
     if (!prices) return null
@@ -86,13 +84,6 @@ export function Browse({ collection, prices, favourites, search, filters, onFilt
         <Group label={t('cat.brand')} value={filters.brand} onPick={(v) => set('brand', v)}
           options={collection.brands.map((b) => ({ value: b, label: b }))} anyLabel={t('cat.any')} />
       )}
-      <div>
-        <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-fg-2 uppercase">{t('cat.availability')}</p>
-        <button type="button" onClick={() => set('inStockOnly', !filters.inStockOnly)} aria-pressed={filters.inStockOnly}
-          className={cx('rounded-full border px-4 py-2 text-sm transition', filters.inStockOnly ? 'border-gold bg-gold-soft text-gold-text' : 'border-line hover:border-gold')}>
-          {t('cat.in_stock_only')}
-        </button>
-      </div>
     </div>
   )
 

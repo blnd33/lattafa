@@ -34,7 +34,8 @@ function usedKeys(): Map<string, string> {
 /** Built at runtime from a server code or a column, so every possible value has to exist. */
 const DYNAMIC = [
   // App\Support\CatalogueRules problem codes, and the ones AccessCodeService can refuse an unlock with
-  ...['min_order', 'min_qty', 'qty_step', 'unpriced', 'out_of_stock', 'invalid_quantity', 'cart_empty'].map((c) => `cat.err_${c}`),
+  // no `out_of_stock`: the catalogue sells with no limit, so the server has no such refusal to make
+  ...['min_order', 'min_qty', 'qty_step', 'unpriced', 'invalid_quantity', 'cart_empty'].map((c) => `cat.err_${c}`),
   ...['code_invalid', 'code_expired', 'code_revoked', 'customer_inactive', 'code_country', 'too_many', 'offline', 'unknown', 'not_unlocked'].map((c) => `cat.err_${c}`),
   // the `category` column on products, and `gender`
   ...['perfume', 'oud', 'mist', 'oil', 'set', 'home'].map(kindKey),

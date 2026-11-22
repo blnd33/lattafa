@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class CollectionService
 {
-    public function __construct(private TranslationService $translations, private Inventory $inventory) {}
+    public function __construct(private TranslationService $translations) {}
 
     /**
      * The whole collection in one language.
@@ -30,7 +30,6 @@ class CollectionService
      */
     public function all(string $language): array
     {
-        $stock = $this->inventory->availableMap();
         [$minQty, $step] = $this->ruleColumns();
 
         $products = Product::with(['variants', 'catalogueTranslations', 'catalogueImages', 'catalogueSetting'])
@@ -38,7 +37,7 @@ class CollectionService
             ->get()
             // a perfume the owner has hidden from this channel: still the shop's, just not shown here
             ->reject(fn (Product $p) => (bool) ($p->catalogueSetting?->hidden ?? false))
-            ->map(function (Product $p) use ($language, $stock, $minQty, $step) {
+            ->map(function (Product $p) use ($language, $minQty, $step) {
                 $sizes = $p->variants
                     ->filter(fn (Variant $v) => $v->active && ! $v->is_tester)
                     ->sortBy('ml')
@@ -49,8 +48,6 @@ class CollectionService
                         'size' => (float) $v->size,
                         'unit' => $v->unit,
                         'ml' => $v->ml,
-                        // the only thing a buyer is told about the shelf
-                        'inStock' => ($stock[$v->id] ?? 0) > 0,
                         'minQty' => $minQty[$p->category] ?? $minQty[''] ?? 0,
                         'step' => $step[$p->category] ?? $step[''] ?? 0,
                     ])->values();
@@ -84,7 +81,6 @@ class CollectionService
                     // the catalogue's own view of it where there is one, else what the shop marked on the product
                     'featured' => $p->catalogueSetting?->featured ?? $p->featured,
                     'isNew' => $p->is_new,
-                    'inStock' => $sizes->contains(fn (array $s) => $s['inStock']),
                     'sizes' => $sizes->all(),
                 ];
             })

@@ -235,7 +235,6 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
         Route::post('orders/{id}/approve', [CatalogueController::class, 'approveOrder']);
         Route::post('orders/{id}/reject', [CatalogueController::class, 'rejectOrder']);
         Route::post('orders/{id}/cancel', [CatalogueController::class, 'cancelOrder']);
-        Route::post('orders/{id}/release-hold', [CatalogueController::class, 'releaseHold']);
         Route::get('orders/{id}/payments', [CatalogueController::class, 'payments']);
         Route::post('orders/{id}/payments', [CatalogueController::class, 'recordPayment']);
         Route::patch('payments/{paymentId}', [CatalogueController::class, 'setPaymentStatus'])->whereUuid('paymentId');

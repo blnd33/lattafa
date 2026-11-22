@@ -26,7 +26,7 @@ class RulesService
 {
     use RequiresPermission;
 
-    public function __construct(private AuditService $audit, private PricingService $pricing, private Inventory $inventory) {}
+    public function __construct(private AuditService $audit, private PricingService $pricing) {}
 
     // ───────────────────────── the rules themselves ─────────────────────────
 
@@ -131,7 +131,6 @@ class RulesService
     public function priceList(?WholesaleCustomer $customer, ?CatalogueCountry $country): array
     {
         $prices = $this->pricing->forCustomer($customer, $country);
-        $stock = $this->inventory->availableMap();
         $exempt = $customer ? CatalogueRuleExemption::where('customer_id', $customer->id)->pluck('kind')->all() : [];
 
         [$global, $byCategory] = $this->ruleShapes();
@@ -139,7 +138,7 @@ class RulesService
         $globalOn = ($global['enabled'] ?? false) === true;
 
         $lines = Variant::with('product')->whereIn('id', array_keys($prices))->get()
-            ->map(function (Variant $v) use ($prices, $stock, $byCategory, $global, $globalOn, $letOff) {
+            ->map(function (Variant $v) use ($prices, $byCategory, $global, $globalOn, $letOff) {
                 $price = $prices[$v->id];
                 if ($price['cents'] === null) {
                     return null;    // no price agreed anywhere: not orderable, so not listed
@@ -157,7 +156,6 @@ class RulesService
                     'category' => $category,
                     'priceCents' => $price['cents'],
                     'source' => $price['source'],
-                    'inStock' => ($stock[$v->id] ?? 0) > 0,
                     'minQty' => $letOff('min_qty') ? 0 : (int) ($useCategory ? ($rule['minQty'] ?? 0) : ($globalOn ? ($global['minQty'] ?? 0) : 0)),
                     'step' => $letOff('qty_increment') ? 0 : (int) ($useCategory ? ($rule['qtyIncrement'] ?? 0) : ($globalOn ? ($global['qtyIncrement'] ?? 0) : 0)),
                 ];
@@ -213,7 +211,6 @@ class RulesService
         $variants = Variant::with('product')->whereIn('id', array_keys($wanted))
             ->where('active', true)->where('is_tester', false)->get()->keyBy('id');
         $prices = $this->pricing->forCustomer($customer, $country, array_keys($wanted));
-        $stock = $this->inventory->availableMap();
 
         [$global, $byCategory] = $this->ruleShapes();
 
@@ -229,7 +226,6 @@ class RulesService
                 'category' => $variant->product?->category ?? '',
                 'qty' => $qty,
                 'unitCents' => $prices[$variantId]['cents'] ?? null,
-                'available' => $stock[$variantId] ?? 0,
             ];
         }
 

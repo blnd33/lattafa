@@ -109,15 +109,14 @@ const perfume = (id: string, name: string, over: Partial<Perfume> = {}): Perfume
   art: { c1: '#C9A227', c2: '#7A5C12', shape: 'rect' },
   featured: false,
   isNew: false,
-  inStock: true,
-  sizes: [{ variantId: `${id}-100`, sku: `${name.toUpperCase()}-100`, label: '100 ml', size: 100, unit: 'ml', ml: 100, inStock: true, minQty: 6, step: 6 }],
+  sizes: [{ variantId: `${id}-100`, sku: `${name.toUpperCase()}-100`, label: '100 ml', size: 100, unit: 'ml', ml: 100, minQty: 6, step: 6 }],
   ...over,
 })
 
 const PRODUCTS = [
   perfume('p-kham', 'Khamrah', { featured: true }),
   perfume('p-asad', 'Asad', { isNew: true }),
-  perfume('p-oud', 'Oud Mood', { category: 'oud', inStock: false, sizes: [{ variantId: 'p-oud-100', sku: 'OUD-100', label: '100 ml', size: 100, unit: 'ml', ml: 100, inStock: false, minQty: 2, step: 2 }] }),
+  perfume('p-oud', 'Oud Mood', { category: 'oud', sizes: [{ variantId: 'p-oud-100', sku: 'OUD-100', label: '100 ml', size: 100, unit: 'ml', ml: 100, minQty: 2, step: 2 }] }),
 ]
 
 const COLLECTIONS = [
@@ -175,8 +174,10 @@ function stubServer() {
       return json({
         minOrderCents: 50000,
         lines: [
-          { variantId: 'p-kham-100', productId: 'p-kham', sku: 'KHAMRAH-100', label: '100 ml', ml: 100, category: 'perfume', priceCents: 2400, source: 'country', inStock: true, minQty: 6, step: 6 },
-          { variantId: 'p-asad-100', productId: 'p-asad', sku: 'ASAD-100', label: '100 ml', ml: 100, category: 'perfume', priceCents: 1900, source: 'customer', inStock: true, minQty: 6, step: 6 },
+          { variantId: 'p-kham-100', productId: 'p-kham', sku: 'KHAMRAH-100', label: '100 ml', ml: 100, category: 'perfume', priceCents: 2400, source: 'country', minQty: 6, step: 6 },
+          { variantId: 'p-asad-100', productId: 'p-asad', sku: 'ASAD-100', label: '100 ml', ml: 100, category: 'perfume', priceCents: 1900, source: 'customer', minQty: 6, step: 6 },
+          // the one that used to be out of stock: priced, and so orderable like any other
+          { variantId: 'p-oud-100', productId: 'p-oud', sku: 'OUD-100', label: '100 ml', ml: 100, category: 'oud', priceCents: 3200, source: 'country', minQty: 2, step: 2 },
         ],
       })
     }
@@ -241,10 +242,10 @@ describe('finding a perfume', () => {
     expect(sift(PRODUCTS, 'nothing like this', NO_FILTERS)).toEqual([])
   })
 
-  it('narrows by kind, and by what is actually on the shelf', () => {
+  it('narrows by kind', () => {
     expect(sift(PRODUCTS, '', { ...NO_FILTERS, kind: 'oud' }).map((p) => p.id)).toEqual(['p-oud'])
-    expect(sift(PRODUCTS, '', { ...NO_FILTERS, inStockOnly: true }).map((p) => p.id)).toEqual(['p-kham', 'p-asad'])
-    expect(sift(PRODUCTS, '', { ...NO_FILTERS, kind: 'oud', inStockOnly: true })).toEqual([])
+    expect(sift(PRODUCTS, '', NO_FILTERS)).toHaveLength(3)
+    expect(sift(PRODUCTS, '', { ...NO_FILTERS, kind: 'mist' })).toEqual([])
   })
 })
 
@@ -469,16 +470,25 @@ describe('sending an order', () => {
 /* ───────────────────────── the shelf stays in the shop ───────────────────────── */
 
 describe('what a buyer is told about stock', () => {
-  it('says in stock or out of stock, and never a number', async () => {
+  it('is told nothing at all: the catalogue sells with no limit', async () => {
     alreadyIn()
     const { container } = render(<CatalogueApp />)
     await user.click(await waitFor(() => screen.getByRole('button', { name: 'All perfumes' }), wait))
+    await waitFor(() => expect(screen.getByText('Oud Mood')).toBeInTheDocument(), wait)
 
-    const sold = await waitFor(() => screen.getByText('Oud Mood').closest('article')!, wait)
-    expect(within(sold).getByText('Out of stock')).toBeInTheDocument()
-    expect(within(screen.getByText('Khamrah').closest('article')!).getByText('In stock')).toBeInTheDocument()
-    // nothing in the page is a quantity on a shelf
-    expect(container.textContent).not.toMatch(/\b\d+ (left|in stock|available)\b/i)
+    // no badge, no filter, no quantity — a shelf in Duhok is nobody abroad's business
+    expect(container.textContent).not.toMatch(/in stock|out of stock/i)
+    expect(container.textContent).not.toMatch(/\b\d+ (left|available)\b/i)
+  })
+
+  it('every size with a price can be ordered, however many are on the shelf', async () => {
+    alreadyIn({ token: 'tok-1' })
+    render(<CatalogueApp />)
+    await user.click(await waitFor(() => screen.getByRole('button', { name: 'All perfumes' }), wait))
+    await user.click(await waitFor(() => screen.getByText('Oud Mood'), wait))
+
+    // Oud Mood was the sold-out one in the old world; now it is orderable like any other
+    await waitFor(() => expect(screen.getByLabelText('Add to order')).toBeEnabled(), wait)
   })
 })
 

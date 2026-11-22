@@ -245,15 +245,6 @@ export interface OrderItem {
   lineCents: number
 }
 
-export interface Reservation {
-  status: 'active' | 'consumed' | 'released' | 'error'
-  heldAt: number
-  consumedAt: number | null
-  releasedAt: number | null
-  /** how long the bottles have been held — nothing ever releases them on its own */
-  heldForMs: number | null
-}
-
 export interface OrderPayment {
   id: string
   orderId: string
@@ -293,7 +284,6 @@ export interface WholesaleOrder {
   countryId: string | null
   country: { iso2: string; name: Record<string, string> } | null
   items: OrderItem[]
-  reservation: Reservation | null
   history: { from: string; to: string; byName: string; reason: string; at: number }[] | null
   payments: OrderPayment[] | null
 }
@@ -308,7 +298,6 @@ export const getOrder = (id: string) => api<{ order: WholesaleOrder }>('GET', `/
 export const approveOrder = (id: string) => api<{ order: WholesaleOrder }>('POST', `/catalogue/orders/${id}/approve`).then((r) => r.order)
 export const rejectOrder = (id: string, reason: string) => api<{ order: WholesaleOrder }>('POST', `/catalogue/orders/${id}/reject`, { reason }).then((r) => r.order)
 export const cancelOrder = (id: string, reason: string) => api<{ order: WholesaleOrder }>('POST', `/catalogue/orders/${id}/cancel`, { reason }).then((r) => r.order)
-export const releaseHold = (id: string, reason: string) => api<{ order: WholesaleOrder }>('POST', `/catalogue/orders/${id}/release-hold`, { reason }).then((r) => r.order)
 
 export const recordPayment = (orderId: string, body: { method: string; amountCents: number; reference?: string; note?: string; status?: string }) =>
   api<{ payment: OrderPayment }>('POST', `/catalogue/orders/${orderId}/payments`, body).then((r) => r.payment)
