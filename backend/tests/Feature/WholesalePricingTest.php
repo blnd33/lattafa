@@ -346,6 +346,19 @@ class WholesalePricingTest extends ApiTestCase
         $this->assertSame($sorted, $names, 'the grid should read A–Z, not Z–A');
     }
 
+    public function test_a_perfume_named_only_in_arabic_shows_its_arabic_name_in_the_grid(): void
+    {
+        $khamrah = $this->variantOf('Khamrah');
+        $product = $khamrah->product;
+        $product->name = ['en' => '', 'ar' => 'خمرة', 'ku' => ''];   // how a perfume never named in English is stored
+        $product->save();
+
+        $row = collect($this->api('GET', 'catalogue/prices/'.$this->turkeyId)->assertOk()->json('rows'))
+            ->firstWhere('variantId', $khamrah->id);
+
+        $this->assertSame('خمرة', $row['name'], 'an empty English name falls through to Arabic, not to nothing');
+    }
+
     public function test_a_countrys_price_grid_shows_what_is_still_missing(): void
     {
         $khamrah = $this->variantOf('Khamrah');

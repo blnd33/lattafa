@@ -369,11 +369,21 @@ class PricingService
         ]);
     }
 
-    /** A perfume's name in whichever language it has one, for an admin grid. */
+    /**
+     * A perfume's name in whichever language it has one, for an admin grid. Every language is stored as text, empty
+     * where the perfume was never named in it, so an empty English name must fall through to Arabic and Kurdish —
+     * `??` alone stops at the empty string and the grid showed nothing but the brand.
+     */
     public static function productName(mixed $product): string
     {
         $name = $product?->name ?? [];
+        foreach (['en', 'ar', 'ku'] as $language) {
+            $text = trim((string) ($name[$language] ?? ''));
+            if ($text !== '') {
+                return $text;
+            }
+        }
 
-        return (string) ($name['en'] ?? $name['ar'] ?? $name['ku'] ?? '');
+        return '';
     }
 }
