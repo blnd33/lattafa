@@ -29,6 +29,12 @@ class DelegateTest extends ApiTestCase
         $this->auth = ['Authorization' => 'Bearer '.$res->json('token')];
     }
 
+    /** Puts bottles in a delegate's van, as a manager would before sending them out. */
+    private function loadVan(string $delegateId, Variant $v, int $qty = 10): void
+    {
+        $this->api('POST', "delegates/$delegateId/load", ['items' => [['variantId' => $v->id, 'qty' => $qty]]])->assertOk();
+    }
+
     /** A sale exactly as the delegate app stores it. */
     private function delegateSale(string $uid, Variant $v, int $qty, int $unit, array $over = []): array
     {
@@ -106,30 +112,58 @@ class DelegateTest extends ApiTestCase
         $this->api('GET', 'delegates')->assertStatus(403);
     }
 
-    public function test_a_delegate_sale_comes_out_of_the_shops_stock_at_wholesale_price(): void
+    public function test_a_delegate_sale_comes_out_of_their_own_van_at_wholesale_price(): void
     {
         $this->shop();
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah'); // 14 in the shop
-        $this->asDelegate($id);
 
+        // the van is loaded from the shop first: 14 on the shelf becomes 9 there and 5 in the van
+        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 5]]])->assertOk();
+        $this->assertSame([9, 5], [$this->stockOf($v), $this->vanOf($v, $id)]);
+
+        $this->asDelegate($id);
         $sale = $this->delegateSale($id, $v, 3, $v->wholesale_iqd);
         $r = $this->push([['entity' => 'sale', 'id' => $sale['id'], 'data' => $sale]]);
         $this->assertSame(['ok', []], [$r[0]['status'], $r[0]['flags']]); // wholesale is a valid list price for a delegate
-        $this->assertSame(11, $this->stockOf($v));
-        $stored = Sale::find($sale['id']);
-        $this->assertSame(['delegate', 'loc-store', 'IQD'], [$stored->channel, $stored->location_id, $stored->currency]);
 
-        // more than the shop has: still recorded (it was sold), flagged for a manager
-        $over = $this->delegateSale($id, $v, 12, $v->wholesale_iqd);
+        // the van paid for it, and the shop's shelf never moved
+        $this->assertSame([9, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
+        $stored = Sale::find($sale['id']);
+        $this->assertSame(['delegate', 'van:'.$id, 'IQD'], [$stored->channel, $stored->location_id, $stored->currency]);
+
+        // more than the van holds: still recorded (it was sold out there), flagged for a manager
+        $over = $this->delegateSale($id, $v, 5, $v->wholesale_iqd);
         $r = $this->push([['entity' => 'sale', 'id' => $over['id'], 'data' => $over]]);
         $this->assertContains('negative_stock', $r[0]['flags']);
-        $this->assertSame(-1, $this->stockOf($v));
+        $this->assertSame([9, -3], [$this->stockOf($v), $this->vanOf($v, $id)], 'the van goes short, never the shop');
 
-        // voiding it puts the bottles back on the shop's shelf
+        // voiding it puts the bottles back in the van it left
         $this->asOwner();
         $this->api('POST', "sales/{$over['id']}/void", ['reason' => 'wrong customer'])->assertOk();
-        $this->assertSame(11, $this->stockOf($v));
+        $this->assertSame([9, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
+    }
+
+    public function test_a_delegates_phone_carries_its_own_van_and_a_till_carries_the_shop(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 5]]])->assertOk();
+
+        // the same perfume, pulled onto a delegate's phone: the number is the van's
+        $this->asDelegate($id);
+        $onPhone = collect($this->api('GET', 'sync/pull?stock=van')->assertOk()->json('products'))->firstWhere('id', $v->product_id);
+        $this->assertSame(5, collect($onPhone['variants'])->firstWhere('id', $v->id)['stock'], 'the phone sees its van');
+
+        // the same delegate at a till asks for the shop and gets it
+        $sameUserAtTill = collect($this->api('GET', 'sync/pull')->assertOk()->json('products'))->firstWhere('id', $v->product_id);
+        $this->assertSame(9, collect($sameUserAtTill['variants'])->firstWhere('id', $v->id)['stock']);
+
+        // and at the till it is the shop's shelf
+        $this->asOwner();
+        $atTill = collect($this->api('GET', 'sync/pull')->assertOk()->json('products'))->firstWhere('id', $v->product_id);
+        $this->assertSame(9, collect($atTill['variants'])->firstWhere('id', $v->id)['stock'], 'the till sees the shop');
     }
 
     public function test_a_dollar_bill_uses_dollar_prices_and_keeps_where_it_was_sold(): void
@@ -138,6 +172,7 @@ class DelegateTest extends ApiTestCase
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah');
         $noor = $this->customerNamed('Al-Noor Perfumes');
+        $this->loadVan($id, $v);   // a delegate sells from their van, so it has to hold something
         $this->asDelegate($id);
 
         // 36,000 IQD at 1,460 is $24.66 → $24.50 a bottle (35,770): two are $49
@@ -169,6 +204,10 @@ class DelegateTest extends ApiTestCase
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah');
         $v->update(['wholesale_usd_cents' => 2370]); // the shop's dollar price list: $23.70 to shops
+        $plain = $this->variantOf('Asad');
+        // a delegate sells from their van, so it has to hold both of the sizes sold below
+        $this->loadVan($id, $v, 2);
+        $this->loadVan($id, $plain, 1);
         $this->asDelegate($id);
 
         // $23.70 × 1,460 = 34,602 a bottle — exact to the cent, not nudged to the nearest half dollar
@@ -178,7 +217,6 @@ class DelegateTest extends ApiTestCase
         $this->assertSame(['ok', []], [$r[0]['status'], $r[0]['flags']]);
 
         // the converted price still works for sizes with no dollar price of their own
-        $plain = $this->variantOf('Asad');
         $old = $this->delegateSale($id, $plain, 1, SaleService::usdListPrice($plain->wholesale_iqd, 1460), ['currency' => 'USD']);
         $this->assertSame([], $this->push([['entity' => 'sale', 'id' => $old['id'], 'data' => $old]])[0]['flags']);
     }
@@ -302,6 +340,7 @@ class DelegateTest extends ApiTestCase
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah');
         $noor = $this->customerNamed('Al-Noor Perfumes');
+        $this->loadVan($id, $v);   // a delegate sells from their van, so it has to hold something
         $this->asDelegate($id);
 
         // a dollar bill: 2 × 36,000 = 72,000 rounded to whole dollars at 1,460 → $49 = 71,540 (rounding −460)

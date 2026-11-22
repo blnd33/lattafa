@@ -219,9 +219,12 @@ tests/                       Feature (HTTP) + Unit (pricing, permissions)
   bill, then **"Where did you sell?"** — pick the shop (nearest first when the phone has GPS) or add a new one on the
   spot, or "not a shop" with a note of the place — choose cash / debt / partly paid, and finish. The phone's position is
   saved with the sale.
-* Delegates sell **the shop's own stock** (no van): every sale takes the bottles off the shop's shelf, and the phone
-  refreshes the stock each time it syncs. A sale can't go over what the phone last saw; if two sellers sold the same
-  last bottle meanwhile, the server still records it and flags it for a manager.
+* Delegates sell **out of their own van**: a manager loads it from the shop (Admin panel → Delegates → **Van**),
+  which moves the bottles off the shop's shelf and into `van:<delegate>`, and every sale takes them off that van and
+  never off the shop. Unloading brings them back. Each line is a pair of stock movements, so both balances explain
+  themselves in the stock history. The phone carries its own van — it asks for it with `GET /sync/pull?stock=van`,
+  and the server works out whose van from who is asking, so a phone can never read or sell another's. A sale made
+  with an emptier van than the phone last saw is still recorded (it happened out there) and flagged for a manager.
 * **Dollars or dinars:** each bill is shown and paid in USD (the default) or IQD at the shop's rate (Settings → currency).
   On a dollar bill each bottle is its price converted and rounded to 50 cents (36,000 IQD at 1,460 = $24.50), and the
   bill to 50 cents after a discount. Debts always stay in IQD. Debt payments can be taken in dollars too; the dollar

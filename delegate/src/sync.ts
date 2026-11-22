@@ -128,7 +128,9 @@ export async function applyPull(p: DelegatePull, forUserId: string | null): Prom
 export async function pull(full = false, forUserId: string | null = null): Promise<void> {
   const meta = await getMeta()
   const since = full || meta.pulledFor !== forUserId ? 0 : meta.lastPullAt
-  const p = await api<DelegatePull>('GET', `/sync/pull?since=${since}`, undefined, { timeoutMs: 60_000 })
+  // `stock=van` asks for this delegate's own van rather than the shop's shelf — they sell what they are carrying.
+  // The server works out whose van from who is asking, so this says which stock, never whose.
+  const p = await api<DelegatePull>('GET', `/sync/pull?since=${since}&stock=van`, undefined, { timeoutMs: 60_000 })
   // same self-repair as the POS mirror: changes that can't be written, or a copy out of step with the server → fetch it all
   try {
     await applyPull(p, forUserId)

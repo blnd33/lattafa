@@ -30,6 +30,11 @@ class SyncController extends Controller
     /** Changes since `since` (epoch ms; omit or 0 for everything). Push first, then pull. */
     public function pull(Request $r): JsonResponse
     {
-        return response()->json($this->sync->pull($r->user(), max(0, (int) $r->query('since', 0)), $r->attributes->get('device')));
+        return response()->json($this->sync->pull(
+            $r->user(),
+            max(0, (int) $r->query('since', 0)),
+            $r->attributes->get('device'),
+            vanStock: $r->query('stock') === 'van',
+        ));
     }
 }

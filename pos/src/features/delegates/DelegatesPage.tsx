@@ -17,15 +17,15 @@ import {
 } from '@/services/delegates'
 import { useUI } from '@/store/ui'
 
-// delegates sell the shop's own stock (no van), so their page is about sales: what, to which shop and where
-type Tab = 'sales' | 'location' | 'closings' | 'visits'
+// a delegate sells out of their own van, so their page is the van, the sales, and where they were made
+type Tab = 'sales' | 'van' | 'location' | 'closings' | 'visits'
 const IQD = ({ v, className }: { v: number; className?: string }) => <span className={cn('num whitespace-nowrap', className)}>{fmt(v)} <small className="text-fg-2">IQD</small></span>
 
 /**
  * Managers: every delegate's sales (and where), live location, visits and daily closings.
  * `reports` (the admin panel passes it in): their own reports, as a second tab of this section.
  */
-export function DelegatesPage({ reports, prices }: { reports?: ReactNode; prices?: ReactNode }) {
+export function DelegatesPage({ reports, prices, van }: { reports?: ReactNode; prices?: ReactNode; van?: (delegateId: string) => ReactNode }) {
   const t = useT()
   const [selected, setSelected] = useState<string | null>(null)
   const [section, setSection] = useState<'team' | 'prices' | 'reports'>('team')
@@ -62,14 +62,14 @@ export function DelegatesPage({ reports, prices }: { reports?: ReactNode; prices
               </li>
             ))}
           </ul>
-          {current && <Detail d={current} />}
+          {current && <Detail d={current} van={van} />}
         </div>
       )}
     </div>
   )
 }
 
-function Detail({ d }: { d: DelegateRow }) {
+function Detail({ d, van }: { d: DelegateRow; van?: (delegateId: string) => ReactNode }) {
   const t = useT()
   const [tab, setTab] = useState<Tab>('sales')
   return (
@@ -80,8 +80,9 @@ function Detail({ d }: { d: DelegateRow }) {
         ))}
         <Card className="!p-3"><p className="text-xs text-fg-2">{t('dlg.today_visits')}</p><p className="num text-lg font-semibold">{d.todayVisits}</p></Card>
       </div>
-      <Segmented value={tab} onChange={setTab} options={(['sales', 'location', 'closings', 'visits'] as Tab[]).map((x) => ({ value: x, label: t(`dlg.tab_${x}`) }))} />
+      <Segmented value={tab} onChange={setTab} options={(['sales', 'van', 'location', 'closings', 'visits'] as Tab[]).filter((x) => x !== 'van' || van).map((x) => ({ value: x, label: t(`dlg.tab_${x}`) }))} />
       {tab === 'sales' && <SalesTab d={d} />}
+      {tab === 'van' && van?.(d.id)}
       {tab === 'location' && <LocationTab d={d} />}
       {tab === 'closings' && <ClosingsTab d={d} />}
       {tab === 'visits' && <VisitsTab d={d} />}

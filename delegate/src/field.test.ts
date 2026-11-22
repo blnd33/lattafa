@@ -215,14 +215,15 @@ describe('pull', () => {
     vi.stubGlobal('fetch', async (url: string) => {
       paths.push(url.replace('/api/v1', ''))
       const body = {
-        serverTime: now + 1, since: url.endsWith('since=0') ? 0 : 1, settings: { ...settings, setupDone: true }, roles: [], users: [],
-        products: url.endsWith('since=0') ? [{ ...product, variants: [{ ...variant, stock: 10 }] }] : [], customers: [], deleted: { products: [], users: [], roles: [] },
+        serverTime: now + 1, since: url.includes('since=0') ? 0 : 1, settings: { ...settings, setupDone: true }, roles: [], users: [],
+        products: url.includes('since=0') ? [{ ...product, variants: [{ ...variant, stock: 10 }] }] : [], customers: [], deleted: { products: [], users: [], roles: [] },
         catalog: { products: 1, variants: 1 }, device: null, counters: null, van: null,
       }
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
     })
     await pull(false, 'u-ahmed')
-    expect(paths).toEqual(['/sync/pull?since=1', '/sync/pull?since=0'])
+    // every pull asks for this delegate's van, not the shop's shelf
+    expect(paths).toEqual(['/sync/pull?since=1&stock=van', '/sync/pull?since=0&stock=van'])
     expect((await ddb.stock.get('v-kh'))?.qty).toBe(8)
     expect(await ddb.outbox.count()).toBeGreaterThan(0)
   })

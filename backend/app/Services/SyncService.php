@@ -252,7 +252,10 @@ class SyncService
      *
      * @return array<string, mixed>
      */
-    public function pull(User $actor, int $since, ?Device $device = null): array
+    /**
+     * @param  bool  $vanStock  the delegate app asking for its own van rather than the shop's shelf
+     */
+    public function pull(User $actor, int $since, ?Device $device = null, bool $vanStock = false): array
     {
         $now = Time::nowMs();
         // `updated_at` has whole-second precision, so a row edited in the same second as the till's previous pull would
@@ -260,7 +263,13 @@ class SyncService
         $overlap = $since > 0 ? self::PULL_OVERLAP_MS : 0;
         $after = Time::at(max(0, $since - $overlap)); // in the app timezone, like the stored updated_at values it is compared with
         $showCost = $actor->can('prices.edit') || $actor->can('reports.financial');
-        $stockMap = $this->stock->map();
+
+        // A delegate's phone carries its own van; a till carries the shop. The app says which it wants, because
+        // one person can be both — the owner account is a delegate *and* works the till, and the same laptop may
+        // be registered as one device. Asking is only ever a read, and the van is still worked out from who is
+        // asking, so a request cannot name someone else's van.
+        $van = $vanStock && DelegateService::isDelegate($actor);
+        $stockMap = $this->stock->map($van ? DelegateService::van($actor->id) : StockService::LOCATION);
 
         $changedProductIds = Product::where('updated_at', '>', $after)->pluck('id')
             ->merge(Variant::where('updated_at', '>', $after)->pluck('product_id'))

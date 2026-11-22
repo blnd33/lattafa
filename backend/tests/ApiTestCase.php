@@ -88,9 +88,16 @@ abstract class ApiTestCase extends TestCase
     }
 
     /** Units in the shop (not in delegates' vans). */
-    protected function stockOf(Variant $v): int
+    /** What is on the shop's shelf, or in one van when a location is named. */
+    protected function stockOf(Variant $v, string $location = 'loc-store'): int
     {
-        return (int) \DB::table('stock')->where('variant_id', $v->id)->where('location_id', 'loc-store')->value('qty');
+        return (int) \DB::table('stock')->where('variant_id', $v->id)->where('location_id', $location)->value('qty');
+    }
+
+    /** What is in one delegate's van. */
+    protected function vanOf(Variant $v, string $delegateId): int
+    {
+        return $this->stockOf($v, 'van:'.$delegateId);
     }
 
     protected function customerNamed(string $name): Customer

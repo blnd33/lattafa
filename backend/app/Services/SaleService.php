@@ -320,7 +320,8 @@ class SaleService
             if ($actor->id !== ($s['userId'] ?? null)) {
                 $flags[] = 'unknown_cashier';
             }
-            // a delegate sells the shop's own stock (never trust a location sent by the phone)
+            // a delegate sells out of their own van. The van is worked out from who sold it, never from a
+            // location the phone sent — otherwise a phone could name any location and take stock off it.
             $delegate = ($s['channel'] ?? 'store') === 'delegate';
             $rate = (int) ($s['exchangeRate'] ?? $cfg['currency']['rate']);
             if ($delegate && ! $actor->can('delegate.sell')) {
@@ -388,7 +389,9 @@ class SaleService
                 'points_redeemed' => (int) ($s['pointsRedeemed'] ?? 0), 'rate' => (int) ($s['exchangeRate'] ?? $cfg['currency']['rate']), 'note' => (string) ($s['note'] ?? ''),
                 'approved_by' => is_string($s['approvedBy'] ?? null) ? $s['approvedBy'] : null, 'device_id' => $device?->id ?? ($s['deviceId'] ?? null),
                 'sold_at' => (int) ($s['createdAt'] ?? Time::nowMs()), 'totals' => $totals,
-                'channel' => $delegate ? 'delegate' : 'store', 'location_id' => StockService::LOCATION,
+                // a delegate sells out of their own van, so the bottles come off that and never off the shop's shelf
+                'channel' => $delegate ? 'delegate' : 'store',
+                'location_id' => $delegate ? DelegateService::van($actor->id) : StockService::LOCATION,
                 'currency' => ($s['currency'] ?? 'IQD') === 'USD' ? 'USD' : 'IQD', ...self::place($s),
             ], allowNegativeStock: true, flags: $flags);
 
