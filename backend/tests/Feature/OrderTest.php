@@ -146,7 +146,7 @@ class OrderTest extends ApiTestCase
         $this->assertSame(2500, $kham->fresh()->wholesale_usd_cents);
     }
 
-    public function test_the_delegate_adds_a_perfume_from_his_phone_and_it_shares_the_shop_s_stock(): void
+    public function test_the_delegate_adds_a_perfume_from_his_phone_and_it_opens_in_his_own_van(): void
     {
         $this->shop();
         $ahmed = $this->delegate();
@@ -158,12 +158,13 @@ class OrderTest extends ApiTestCase
         $this->assertStringStartsWith('DLG-ROAD-SPECIAL', $v['sku']);
         $this->assertNotSame('', $v['barcode']);                       // it can be scanned like any other
 
-        // it is the shop's one list and one stock: the till sees it, with 12 bottles
+        // one list, two stocks: the till knows the perfume but holds none of it — the 12 are in his van
         $this->asOwner();
         $stored = Variant::whereKey($v['id'])->first();
-        $this->assertSame(12, $this->stockOf($stored));
+        $this->assertSame(12, $this->vanOf($stored, $ahmed), 'the bottles he took are his');
+        $this->assertSame(0, $this->stockOf($stored), 'and the shop has none of them');
         $onTill = collect($this->api('GET', 'products')->json('products'))->flatMap(fn ($p) => $p['variants'])->firstWhere('sku', $v['sku']);
-        $this->assertSame(12, $onTill['stock']);
+        $this->assertSame(0, $onTill['stock'], 'the till sees the perfume, priced, with nothing on the shelf');
         // the shop may reprice it in dinars without touching the delegate's dollar price
         $stored->update(['retail_iqd' => 40000]);
         $this->assertSame([40000, 1850], [$stored->fresh()->retail_iqd, $stored->fresh()->wholesale_usd_cents]);

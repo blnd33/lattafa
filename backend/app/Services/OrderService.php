@@ -247,7 +247,9 @@ class OrderService
             ]);
             $opening = max(0, (int) ($in['openingStock'] ?? 0));
             if ($opening > 0) {
-                $stock->applyMovement($variant->id, $opening, 'opening', $actor, ['note' => 'Added by the delegate']);
+                // a delegate opens it in their own van; a manager adding one opens it on the shop's shelf
+                $where = DelegateService::isDelegate($actor) ? DelegateService::van($actor->id) : StockService::LOCATION;
+                $stock->applyMovement($variant->id, $opening, 'opening', $actor, ['note' => 'Added by the delegate', 'locationId' => $where]);
             }
             $this->audit->log($actor, 'delegate.product_added', 'variant', $variant->id, [
                 'name' => $nameEn ?: $nameAr, 'size' => $variant->label, 'usd' => $cents / 100, 'opening' => $opening,

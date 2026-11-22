@@ -45,17 +45,26 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
 
 /* ───────── the shop's stock ───────── */
 
-/** One size a delegate can sell, and how many the shop has (as of the last sync, less this phone's sales since). */
-export interface ShopItem { variant: Variant; product: Product; qty: number }
+/** One size this delegate carries, how many of it, and their own price for it if they have set one. */
+export interface ShopItem { variant: Variant; product: Product; qty: number; ownCents: number | null }
 
-/** Every perfume on sale (sold-out sizes too, so the delegate sees them), A–Z, big bottles first. */
+/**
+ * What this delegate carries — their van, not the shop's shelf.
+ *
+ * A size is theirs once it is in their van or they have priced it, so the app starts empty and fills as they
+ * stock up. A size they have taken down to nothing stays listed, because selling out of something is worth
+ * seeing; a size they never carried is not there at all.
+ */
 export async function shopItems(): Promise<ShopItem[]> {
-  const [products, variants, stock] = await Promise.all([ddb.products.toArray(), ddb.variants.toArray(), ddb.stock.toArray()])
+  const [products, variants, stock, prices] = await Promise.all([
+    ddb.products.toArray(), ddb.variants.toArray(), ddb.stock.toArray(), ddb.prices.toArray(),
+  ])
   const pm = new Map(products.filter((p) => p.active).map((p) => [p.id, p]))
   const qty = new Map(stock.map((r) => [r.variantId, r.qty]))
+  const own = new Map(prices.map((r) => [r.variantId, r.cents]))
   const nameOf = (p: Product) => p.name.en || p.name.ar || p.name.ku
-  return variants.filter((v) => v.active && !v.isTester && pm.has(v.productId))
-    .map((v) => ({ variant: v, product: pm.get(v.productId)!, qty: qty.get(v.id) ?? 0 }))
+  return variants.filter((v) => v.active && !v.isTester && pm.has(v.productId) && (qty.has(v.id) || own.has(v.id)))
+    .map((v) => ({ variant: v, product: pm.get(v.productId)!, qty: qty.get(v.id) ?? 0, ownCents: own.get(v.id) ?? null }))
     .sort((a, b) => nameOf(a.product).localeCompare(nameOf(b.product)) || b.variant.ml - a.variant.ml)
 }
 
@@ -83,7 +92,9 @@ export function usdListPrice(iqd: number, rate: number): number {
  * sheet, exact to the cent, the same price for every shop). Without one it falls back to the dinar price at the day's
  * rate, to the nearest 50 cents — how every dollar bill worked before the list existed.
  */
-export function unitPrice(v: Variant, list: PriceList, currency: Currency = 'IQD', rate = 0): number {
+export function unitPrice(v: Variant, list: PriceList, currency: Currency = 'IQD', rate = 0, ownCents: number | null = null): number {
+  // their own price first, then the shop's dollar list, then the dinar price converted
+  if (currency === 'USD' && list === 'wholesale' && (ownCents ?? 0) > 0 && rate > 0) return Math.round((ownCents! / 100) * rate)
   const usd = v.wholesaleUSDCents ?? 0
   if (currency === 'USD' && list === 'wholesale' && usd > 0 && rate > 0) return Math.round((usd / 100) * rate)
   const iqd = list === 'wholesale' ? v.wholesaleIQD || v.retailIQD : v.retailIQD
@@ -117,8 +128,9 @@ export async function priceDelegateCart(cart: DelegateCart) {
   const { rate, usdEnabled, rounding } = await currencySettings()
   const currency: Currency = usdEnabled && cart.currency === 'USD' ? 'USD' : 'IQD'
   const variants = new Map((await ddb.variants.bulkGet(cart.lines.map((l) => l.variantId))).filter((v): v is Variant => !!v).map((v) => [v.id, v]))
+  const own = new Map((await ddb.prices.bulkGet(cart.lines.map((l) => l.variantId))).filter((r) => !!r).map((r) => [r!.variantId, r!.cents]))
   const price = (step: number) => priceCart({
-    lines: cart.lines.map((l) => ({ key: l.variantId, unitPriceIQD: variants.get(l.variantId) ? unitPrice(variants.get(l.variantId)!, cart.priceList, currency, rate) : 0, qty: l.qty, discountPct: 0 })),
+    lines: cart.lines.map((l) => ({ key: l.variantId, unitPriceIQD: variants.get(l.variantId) ? unitPrice(variants.get(l.variantId)!, cart.priceList, currency, rate, own.get(l.variantId) ?? null) : 0, qty: l.qty, discountPct: 0 })),
     orderDiscount: cart.discountPct > 0 ? { type: 'pct', value: cart.discountPct } : null,
     rounding: step,
     taxPct: 0,
@@ -156,22 +168,22 @@ export async function completeSale(cart: DelegateCart, position: Position | null
     if (customer.balanceIQD + due > customer.creditLimitIQD) throw new AppError('credit_limit_exceeded', { limit: customer.creditLimitIQD, balance: customer.balanceIQD })
   }
   let sale!: Sale
-  await ddb.transaction('rw', [ddb.stock, ddb.sales, ddb.customers, ddb.counters, ddb.outbox, ddb.products], async () => {
+  await ddb.transaction('rw', [ddb.stock, ddb.sales, ddb.customers, ddb.counters, ddb.outbox, ddb.products, ddb.prices], async () => {
     const items: SaleItem[] = []
     for (let i = 0; i < cart.lines.length; i++) {
       const l = cart.lines[i]
       const v = variants.get(l.variantId)
       if (!v || !Number.isInteger(l.qty) || l.qty <= 0) throw new AppError('invalid_quantity')
-      const inShop = (await ddb.stock.get(v.id))?.qty ?? 0
-      // the shop's stock is the limit: a delegate can't sell what the shop doesn't have
-      if (l.qty > inShop) throw new AppError('insufficient_stock', { sku: v.sku, available: Math.max(0, inShop) })
+      const inVan = (await ddb.stock.get(v.id))?.qty ?? 0
+      // their own van is the limit: a delegate cannot sell what they are not carrying
+      if (l.qty > inVan) throw new AppError('insufficient_stock', { sku: v.sku, available: Math.max(0, inVan) })
       const p = await ddb.products.get(v.productId)
       const line = priced.lines[i]
       items.push({
         variantId: v.id, productId: v.productId, name: p?.name ?? { en: v.sku, ar: v.sku, ku: v.sku }, brand: p?.brand ?? '', label: v.label, sku: v.sku, barcode: v.barcode,
-        qty: l.qty, unitPriceIQD: unitPrice(v, cart.priceList, currency, rate), unitCostIQD: 0, discountPct: 0, discountIQD: line.discount, lineTotalIQD: line.net, returnedQty: 0,
+        qty: l.qty, unitPriceIQD: unitPrice(v, cart.priceList, currency, rate, (await ddb.prices.get(v.id))?.cents ?? null), unitCostIQD: 0, discountPct: 0, discountIQD: line.discount, lineTotalIQD: line.net, returnedQty: 0,
       })
-      await ddb.stock.put({ variantId: v.id, qty: inShop - l.qty })
+      await ddb.stock.put({ variantId: v.id, qty: inVan - l.qty })
     }
     const payments: Payment[] = []
     if (paid > 0) {
@@ -229,6 +241,52 @@ export async function collect(customerId: string, amount: number, method: Paymen
 }
 
 export interface NewCustomer { name: string; phone: string; type: CustomerType; city: string; notes: string; position: Position | null }
+
+/**
+ * Stock this delegate put into their own van.
+ *
+ * Queued like a sale, so it works with no signal and reaches the server when there is one. The van goes up here
+ * straight away; the server puts the same quantity into `van:<them>` when the movement arrives, and until then a
+ * pull adds it back on top rather than losing it.
+ *
+ * It is their own count, not the shop's record of what it handed over — the admin panel shows who added each lot.
+ */
+export async function addStock(variantId: string, qty: number, note = ''): Promise<void> {
+  const actor = requireActor()
+  if (!hasPerm(actor.permissions, 'delegate.sell')) throw new AppError('forbidden')
+  if (!Number.isFinite(qty) || qty === 0) throw new AppError('invalid_quantity')
+
+  const row = {
+    id: uuid(),
+    variantId,
+    qty: Math.trunc(qty),
+    type: 'purchase' as const,
+    userId: actor.id,
+    note: note.trim(),
+    createdAt: Date.now(),
+  }
+
+  await ddb.transaction('rw', [ddb.movements, ddb.stock, ddb.outbox], async () => {
+    await ddb.movements.put(row)
+    const have = (await ddb.stock.get(variantId))?.qty ?? 0
+    await ddb.stock.put({ variantId, qty: have + row.qty })
+  })
+  await queue('stock_movement', row.id)
+}
+
+/**
+ * This delegate's own selling price for a size, in whole US cents. `null` goes back to the shop's dollar list.
+ *
+ * Unlike stocking up this needs a connection: a price is a setting rather than something that happened, and the
+ * next pull replaces whatever is on the phone with what the server holds — so a price typed offline would simply
+ * disappear, which is worse than being told to try again.
+ */
+export async function setMyPrice(variantId: string, cents: number | null): Promise<void> {
+  const actor = requireActor()
+  await api('PUT', `/delegates/${actor.id}/prices`, { prices: { [variantId]: cents } })
+  if (cents === null || cents <= 0) await ddb.prices.delete(variantId)
+  else await ddb.prices.put({ variantId, cents: Math.trunc(cents) })
+}
 
 export async function addCustomer(input: NewCustomer): Promise<Customer> {
   need('customers.create')

@@ -200,7 +200,7 @@ describe('pull', () => {
       serverTime: now + 1, since: 0, settings: { ...settings, setupDone: true }, roles: [], users: [],
       products: [{ ...product, variants: [{ ...variant, stock: 10 }] }], customers: [shop], deleted: { products: [], users: [], roles: [] },
       device: { id: 'dev-1', name: 'Phone', code: 'DL1', registeredAt: now, revoked: false }, counters: { sale: 7, return: 0 },
-      van: { locationId: 'van:u-ahmed', stock: {}, requests: [], closings: [] },
+      van: { locationId: 'van:u-ahmed', stock: {}, prices: {}, requests: [], closings: [] },
     }, 'u-ahmed')
     expect((await ddb.stock.get('v-kh'))?.qty).toBe(8)
     expect(await ddb.requests.count()).toBe(1)

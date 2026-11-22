@@ -9,8 +9,9 @@ import { api, getApiToken, isOfflineError } from '@/services/api'
 import { splitProduct, userFromServer, type PullPayload } from '@/services/serverShapes'
 import { ddb, getMeta, patchMeta, type Closing, type OutboxEntity, type OutboxRow, type StockRequest } from './data'
 
-const TABLE: Record<OutboxEntity, 'sales' | 'collections' | 'customers' | 'visits' | 'requests' | 'closings'> = {
+const TABLE: Record<OutboxEntity, 'sales' | 'collections' | 'customers' | 'visits' | 'requests' | 'closings' | 'movements'> = {
   sale: 'sales', collection: 'collections', customer: 'customers', visit: 'visits', stock_request: 'requests', closing: 'closings',
+  stock_movement: 'movements',
 }
 
 let lastQueuedAt = 0
@@ -58,7 +59,7 @@ export async function push(): Promise<{ pushed: number; failed: number }> {
   return { pushed, failed }
 }
 
-type VanPayload = { locationId: string; stock: Record<string, number>; requests: StockRequest[]; closings: Closing[] } | null
+type VanPayload = { locationId: string; stock: Record<string, number>; prices: Record<string, number>; requests: StockRequest[]; closings: Closing[] } | null
 type DelegatePull = PullPayload & { van: VanPayload }
 
 /** Not-yet-pushed sales and collections, re-applied over the server's numbers. */
@@ -72,13 +73,15 @@ async function pendingEffects() {
     if (s.customerId && s.dueIQD) balance.set(s.customerId, (balance.get(s.customerId) ?? 0) + s.dueIQD)
   }
   for (const c of (await ddb.collections.bulkGet(ids('collection'))).filter((x) => !!x)) balance.set(c!.customerId, (balance.get(c!.customerId) ?? 0) - c!.amountIQD)
+  // stock they added that has not reached the server: added back on top, or a pull would lose it
+  for (const m of (await ddb.movements.bulkGet(ids('stock_movement'))).filter((x) => !!x)) sold.set(m!.variantId, (sold.get(m!.variantId) ?? 0) + m!.qty)
   return { sold, balance, customers: new Set(ids('customer')), requests: new Set(ids('stock_request')), closings: new Set(ids('closing')) }
 }
 
 export async function applyPull(p: DelegatePull, forUserId: string | null): Promise<void> {
   const full = !p.since
   const fx = await pendingEffects()
-  await ddb.transaction('rw', [ddb.meta, ddb.roles, ddb.users, ddb.products, ddb.variants, ddb.stock, ddb.van, ddb.customers, ddb.requests, ddb.closings, ddb.counters, ddb.creds], async () => {
+  await ddb.transaction('rw', [ddb.meta, ddb.roles, ddb.users, ddb.products, ddb.variants, ddb.stock, ddb.van, ddb.prices, ddb.movements, ddb.customers, ddb.requests, ddb.closings, ddb.counters, ddb.creds], async () => {
     const meta = await getMeta()
     await ddb.meta.put({
       ...meta, settings: p.settings, lastPullAt: p.serverTime, pulledFor: forUserId,
@@ -113,6 +116,9 @@ export async function applyPull(p: DelegatePull, forUserId: string | null): Prom
     // requests and closings belong to whoever signed in — replace them wholesale (vans are no longer used)
     await ddb.van.clear()
     if (p.van) {
+      // their own prices, replaced wholesale: the server is the only thing that writes them
+      await ddb.prices.clear()
+      await ddb.prices.bulkPut(Object.entries(p.van.prices ?? {}).map(([variantId, cents]) => ({ variantId, cents })))
       const localReq = (await ddb.requests.toArray()).filter((r) => fx.requests.has(r.id))
       await ddb.requests.clear(); await ddb.requests.bulkPut([...p.van.requests, ...localReq])
       const localCl = (await ddb.closings.toArray()).filter((c) => fx.closings.has(c.id))

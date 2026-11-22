@@ -91,7 +91,7 @@ export function SellScreen() {
             {shown.map((r) => (
               <li key={r.variant.id}>
                 <ProductCard item={r} inBill={cart.lines.find((l) => l.variantId === r.variant.id)?.qty ?? 0}
-                  price={money(unitPrice(r.variant, cart.priceList, cur, rate), 'text-sm font-semibold text-gold-text')} onAdd={() => cart.add(r.variant.id, r.qty)} />
+                  price={money(unitPrice(r.variant, cart.priceList, cur, rate, r.ownCents), 'text-sm font-semibold text-gold-text')} onAdd={() => cart.add(r.variant.id, r.qty)} />
               </li>
             ))}
             {shown.length === 0 && (
@@ -173,7 +173,7 @@ function BillBody({ stock, lang }: { stock: Map<string, ShopItem>; lang: Lang })
         {cart.lines.map((l) => {
           const r = stock.get(l.variantId)
           if (!r) return null
-          const unit = unitPrice(r.variant, cart.priceList, cur, rate)
+          const unit = unitPrice(r.variant, cart.priceList, cur, rate, r.ownCents)
           return (
             <li key={l.variantId} className="flex items-center gap-2.5 py-2.5">
               <ProductImage product={r.product} className="size-12 shrink-0 rounded-xl bg-surface-2" />

@@ -80,7 +80,18 @@ export interface Closing {
 /** A live-location point waiting to be sent (see tracker.ts). Kept per person, so a shared phone never mixes them up. */
 export interface TrailPoint { id?: number; userId: string; lat: number; lng: number; accuracyM: number | null; at: number }
 
-export type OutboxEntity = 'sale' | 'collection' | 'customer' | 'visit' | 'stock_request' | 'closing'
+/** One lot of stock a delegate put into their own van. Sent as a `stock_movement`; the server puts it in the van. */
+export interface StockMovementRow {
+  id: string
+  variantId: string
+  qty: number
+  type: 'purchase'
+  userId: string
+  note: string
+  createdAt: number
+}
+
+export type OutboxEntity = 'sale' | 'collection' | 'customer' | 'visit' | 'stock_request' | 'closing' | 'stock_movement'
 export interface OutboxRow {
   id: string
   entity: OutboxEntity
@@ -109,6 +120,10 @@ export class DelegateDB extends Dexie {
   creds!: Table<CachedCredential, string>
   counters!: Table<Counter, string>
   trail!: Table<TrailPoint, number>
+  /** this delegate's own selling price per size, in whole US cents */
+  prices!: Table<{ variantId: string; cents: number }, string>
+  /** stock this delegate added to their own van, waiting to be sent (and kept afterwards as their own record) */
+  movements!: Table<StockMovementRow, string>
 
   constructor(name = 'lattafa-delegate') {
     super(name)
@@ -133,6 +148,10 @@ export class DelegateDB extends Dexie {
     this.version(2).stores({ trail: '++id, userId, at' })
     // v3: delegates sell the shop's own stock — its numbers come with every product; the next sync fetches them all
     this.version(3).stores({ stock: 'variantId' }).upgrade((tx) => tx.table('meta').toCollection().modify({ lastPullAt: 0 }))
+    // v4: a delegate carries their own van and their own prices; both arrive with the next full pull
+    this.version(4).stores({ prices: 'variantId' }).upgrade((tx) => tx.table('meta').toCollection().modify({ lastPullAt: 0 }))
+    // v5: a delegate can stock their own van, so the phone keeps the movements it queued
+    this.version(5).stores({ movements: 'id, createdAt' })
   }
 }
 
