@@ -66,7 +66,8 @@ export function VanTab({ delegateId }: { delegateId: string }) {
                   <th className="px-3 py-2.5 text-start font-semibold">{t('dlg.van_item')}</th>
                   <th className="px-3 py-2.5 text-start font-semibold">{t('dlg.van_size')}</th>
                   <th className="px-3 py-2.5 text-end font-semibold">{t('dlg.van_qty')}</th>
-                  <th className="px-3 py-2.5 text-end font-semibold">{t('dlg.van_value')}</th>
+                  <th className="px-3 py-2.5 text-end font-semibold">{t('dlg.van_price')}</th>
+                  <th className="px-3 py-2.5 text-start font-semibold">{t('dlg.van_stocked_by')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -78,7 +79,16 @@ export function VanTab({ delegateId }: { delegateId: string }) {
                     </td>
                     <td className="num px-3 py-2.5 text-fg-2">{r.label}</td>
                     <td className={cn('num px-3 py-2.5 text-end font-semibold', r.qty < 0 && 'text-danger-fg')}>{r.qty}</td>
-                    <td className="num px-3 py-2.5 text-end text-fg-2">{fmt(r.qty * r.wholesaleIQD)}</td>
+                    <td className="num px-3 py-2.5 text-end">
+                      {r.ownCents != null
+                        ? <span className="font-semibold text-gold-text">${(r.ownCents / 100).toFixed(2)}</span>
+                        : <span className="text-fg-2">{r.shopCents > 0 ? `$${(r.shopCents / 100).toFixed(2)}` : '—'}</span>}
+                      <span className="block text-[11px] text-fg-2">{t(r.ownCents != null ? 'dlg.van_his_price' : 'dlg.van_shop_price')}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-fg-2">
+                      {r.lastAddedBy ?? '—'}
+                      {r.lastAddedByThem && <span className="block text-warn-fg">{t('dlg.van_he_added')}</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -110,6 +120,12 @@ export interface VanRow {
   qty: number
   wholesaleIQD: number
   retailIQD: number
+  /** his own selling price in US cents, or null when he follows the shop's dollar list */
+  ownCents: number | null
+  shopCents: number
+  /** who last put stock in — a delegate can stock his own van, so this is worth seeing */
+  lastAddedBy: string | null
+  lastAddedByThem: boolean
 }
 
 /** Shop → van, or van → shop. The same sheet both ways; only the direction and what it offers differ. */

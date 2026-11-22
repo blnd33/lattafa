@@ -27,6 +27,16 @@ class DelegateController extends Controller
         return response()->json(['items' => $this->delegates->vanStock($r->user(), $id)]);
     }
 
+    /** Everything one delegate did over a stretch of days — sales, collections, what is owed, shops, perfumes. */
+    public function dashboard(Request $r, string $id): JsonResponse
+    {
+        $d = $r->validate(['from' => ['nullable', 'integer'], 'to' => ['nullable', 'integer']]);
+        $from = (int) ($d['from'] ?? Time::startOfDayMs());
+        $to = (int) ($d['to'] ?? Time::endOfDayMs());
+
+        return response()->json($this->delegates->dashboard($r->user(), $id, min($from, $to), max($from, $to)));
+    }
+
     /** What this delegate sells each size for, beside the shop's own figures. */
     public function prices(Request $r, string $id): JsonResponse
     {

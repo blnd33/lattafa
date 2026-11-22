@@ -72,6 +72,10 @@ const DYNAMIC: string[] = [
   ...['hero', 'kinds', 'collections', 'featured', 'new', 'story', 'how'].map((x) => `wc.section_${x}`),
   ...['email', 'phone', 'instagram', 'website'].map((x) => `wc.footer_${x}`),
   ...['wc.perfumes_in', 'wc.collection_filled'].flatMap((k) => [k, `${k}_1`]),
+  // the delegate dashboard: its period picker and the two countings that read `plural(t, …)`
+  ...['overview', 'sales', 'van', 'location', 'closings', 'visits'].map((x) => `dlg.tab_${x}`),
+  ...['team', 'overview', 'prices', 'reports'].map((x) => `dlg.sec_${x}`),
+  ...['dlg.d_bottles', 'dlg.d_sizes'].flatMap((k) => [k, `${k}_1`]),
 ]
 
 /** Every AppError('code') thrown anywhere in the services needs a translated message. */

@@ -1,6 +1,7 @@
 import { DelegatesPage } from '@/features/delegates/DelegatesPage'
 import { DelegatePrices } from './DelegatePrices'
 import { DelegateReports } from './DelegateReports'
+import { DelegateDashboard } from './DelegateDashboard'
 import { VanTab } from './VanTab'
 
 /**
@@ -14,6 +15,7 @@ export function DelegatesSection() {
       prices={<DelegatePrices />}
       reports={<DelegateReports />}
       van={(delegateId) => <VanTab key={delegateId} delegateId={delegateId} />}
+      overview={(delegateId) => <DelegateDashboard key={delegateId} delegateId={delegateId} />}
     />
   )
 }

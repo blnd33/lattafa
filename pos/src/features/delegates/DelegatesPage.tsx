@@ -18,14 +18,14 @@ import {
 import { useUI } from '@/store/ui'
 
 // a delegate sells out of their own van, so their page is the van, the sales, and where they were made
-type Tab = 'sales' | 'van' | 'location' | 'closings' | 'visits'
+type Tab = 'overview' | 'sales' | 'van' | 'location' | 'closings' | 'visits'
 const IQD = ({ v, className }: { v: number; className?: string }) => <span className={cn('num whitespace-nowrap', className)}>{fmt(v)} <small className="text-fg-2">IQD</small></span>
 
 /**
  * Managers: every delegate's sales (and where), live location, visits and daily closings.
  * `reports` (the admin panel passes it in): their own reports, as a second tab of this section.
  */
-export function DelegatesPage({ reports, prices, van }: { reports?: ReactNode; prices?: ReactNode; van?: (delegateId: string) => ReactNode }) {
+export function DelegatesPage({ reports, prices, van, overview }: { reports?: ReactNode; prices?: ReactNode; van?: (delegateId: string) => ReactNode; overview?: (delegateId: string) => ReactNode }) {
   const t = useT()
   const [selected, setSelected] = useState<string | null>(null)
   const [section, setSection] = useState<'team' | 'prices' | 'reports'>('team')
@@ -62,16 +62,16 @@ export function DelegatesPage({ reports, prices, van }: { reports?: ReactNode; p
               </li>
             ))}
           </ul>
-          {current && <Detail d={current} van={van} />}
+          {current && <Detail d={current} van={van} overview={overview} />}
         </div>
       )}
     </div>
   )
 }
 
-function Detail({ d, van }: { d: DelegateRow; van?: (delegateId: string) => ReactNode }) {
+function Detail({ d, van, overview }: { d: DelegateRow; van?: (delegateId: string) => ReactNode; overview?: (delegateId: string) => ReactNode }) {
   const t = useT()
-  const [tab, setTab] = useState<Tab>('sales')
+  const [tab, setTab] = useState<Tab>(overview ? 'overview' : 'sales')
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
@@ -80,7 +80,8 @@ function Detail({ d, van }: { d: DelegateRow; van?: (delegateId: string) => Reac
         ))}
         <Card className="!p-3"><p className="text-xs text-fg-2">{t('dlg.today_visits')}</p><p className="num text-lg font-semibold">{d.todayVisits}</p></Card>
       </div>
-      <Segmented value={tab} onChange={setTab} options={(['sales', 'van', 'location', 'closings', 'visits'] as Tab[]).filter((x) => x !== 'van' || van).map((x) => ({ value: x, label: t(`dlg.tab_${x}`) }))} />
+      <Segmented value={tab} onChange={setTab} options={(['overview', 'sales', 'van', 'location', 'closings', 'visits'] as Tab[]).filter((x) => (x !== 'van' || van) && (x !== 'overview' || overview)).map((x) => ({ value: x, label: t(`dlg.tab_${x}`) }))} />
+      {tab === 'overview' && overview?.(d.id)}
       {tab === 'sales' && <SalesTab d={d} />}
       {tab === 'van' && van?.(d.id)}
       {tab === 'location' && <LocationTab d={d} />}

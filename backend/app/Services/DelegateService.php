@@ -98,7 +98,14 @@ class DelegateService
         return $this->vanRows($delegateId);
     }
 
-    /** @return array<int, array{variantId: string, productId: string, name: mixed, brand: string, label: string, sku: string, qty: int, wholesaleIQD: int, retailIQD: int}> */
+    /**
+     * What is in one van, with this delegate's own price and who last put stock there.
+     *
+     * `lastAddedBy` matters because a delegate can stock their own van: a quantity they typed themselves and one a
+     * manager loaded look identical in a total, and the owner should be able to tell them apart.
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function vanRows(string $delegateId): array
     {
         $qty = $this->stock->map(self::van($delegateId));
@@ -106,13 +113,98 @@ class DelegateService
             return [];
         }
 
+        $own = DelegatePrice::forDelegate($delegateId);
+
+        // the latest movement into this van per size, for who last stocked it
+        $last = DB::table('stock_movements')
+            ->where('location_id', self::van($delegateId))
+            ->whereIn('variant_id', array_keys($qty))
+            ->where('qty', '>', 0)
+            ->orderByDesc('occurred_at')
+            ->get(['variant_id', 'user_id', 'occurred_at'])
+            ->groupBy('variant_id')->map(fn ($rows) => $rows->first());
+
+        $names = User::whereIn('id', $last->pluck('user_id')->filter()->unique())->pluck('name', 'id')->all();
+
         return Variant::with('product')->whereIn('id', array_keys($qty))->get()
             ->map(fn (Variant $v) => [
                 'variantId' => $v->id, 'productId' => $v->product_id, 'name' => $v->product->name, 'brand' => $v->product->brand,
                 'label' => $v->label, 'sku' => $v->sku, 'qty' => $qty[$v->id] ?? 0, 'wholesaleIQD' => $v->wholesale_iqd, 'retailIQD' => $v->retail_iqd,
+                // their own price, and the shop's dollar list they fall back to without one
+                'ownCents' => $own[$v->id] ?? null,
+                'shopCents' => (int) $v->wholesale_usd_cents,
+                'lastAddedBy' => isset($last[$v->id]) ? ($names[$last[$v->id]->user_id] ?? null) : null,
+                'lastAddedByThem' => isset($last[$v->id]) && $last[$v->id]->user_id === $delegateId,
             ])
             ->filter(fn ($r) => $r['qty'] !== 0)
             ->sortBy(fn ($r) => Str::lower($r['name']['en'] ?? ''))->values()->all();
+    }
+
+    /**
+     * One delegate, over a stretch of days: what they sold, what they collected, what is still owed, which shops
+     * they sold to and which perfumes moved.
+     *
+     * **Owed is owed through them**, not a shop's whole balance: the unpaid part of the sales they made, less the
+     * money they collected. A shop may owe the business for something a till sold it, and that is not this figure.
+     *
+     * @return array<string, mixed>
+     */
+    public function dashboard(User $actor, string $delegateId, int $from, int $to): array
+    {
+        $this->canSee($actor, $delegateId);
+        $delegate = $this->delegateOrFail($delegateId);
+
+        $sales = Sale::where('user_id', $delegateId)->where('channel', 'delegate')
+            ->where('status', '!=', 'voided')->whereBetween('sold_at', [$from, $to]);
+
+        $soldIQD = (int) (clone $sales)->sum('total_iqd');
+        $dueIQD = (int) (clone $sales)->sum('due_iqd');
+        $collectedIQD = (int) Collection::where('user_id', $delegateId)->whereBetween('occurred_at', [$from, $to])->sum('amount_iqd');
+
+        $ids = (clone $sales)->pluck('id');
+        $units = (int) SaleItem::whereIn('sale_id', $ids)->sum('qty');
+
+        // which shops, and how much from each
+        $shops = (clone $sales)->selectRaw('customer_id, customer_name, count(*) as sales, sum(total_iqd) as total, sum(due_iqd) as owed')
+            ->groupBy('customer_id', 'customer_name')->orderByDesc('total')->limit(50)->get()
+            ->map(fn ($r) => [
+                'customerId' => $r->customer_id, 'name' => $r->customer_name ?: null,
+                'sales' => (int) $r->sales, 'totalIQD' => (int) $r->total, 'owedIQD' => (int) $r->owed,
+            ])->all();
+
+        // Which perfumes moved, by bottles. Grouped by the id alone: `sale_items.name` is a json column and
+        // PostgreSQL has no equality operator for json, so grouping by it is an error there (and silently fine
+        // on SQLite). The names are read back from the variants afterwards.
+        $moved = SaleItem::whereIn('sale_id', $ids)
+            ->selectRaw('variant_id, sum(qty) as qty, sum(line_total_iqd) as total')
+            ->groupBy('variant_id')->orderByDesc('qty')->limit(50)->get();
+
+        $named = Variant::with('product')->whereIn('id', $moved->pluck('variant_id')->filter())->get()->keyBy('id');
+        $moved = $moved->map(fn ($r) => [
+            'variantId' => $r->variant_id,
+            'name' => $named[$r->variant_id]?->product?->name ?? ['en' => '', 'ar' => '', 'ku' => ''],
+            'label' => $named[$r->variant_id]?->label ?? '',
+            'qty' => (int) $r->qty, 'totalIQD' => (int) $r->total,
+        ])->all();
+
+        $van = $this->vanRows($delegateId);
+
+        return [
+            'delegate' => ['id' => $delegate->id, 'name' => $delegate->name, 'color' => $delegate->color],
+            'from' => $from, 'to' => $to,
+            'soldIQD' => $soldIQD,
+            'salesCount' => (clone $sales)->count(),
+            'units' => $units,
+            'collectedIQD' => $collectedIQD,
+            // what the shops he sold to still owe through him
+            'owedIQD' => max(0, $dueIQD - $collectedIQD),
+            'dueIQD' => $dueIQD,
+            'visits' => Visit::where('user_id', $delegateId)->whereBetween('occurred_at', [$from, $to])->count(),
+            'carrying' => ['sizes' => count($van), 'units' => array_sum(array_column($van, 'qty')),
+                'valueIQD' => array_sum(array_map(fn ($r) => $r['qty'] * $r['wholesaleIQD'], $van))],
+            'shops' => $shops,
+            'moved' => $moved,
+        ];
     }
 
     /**

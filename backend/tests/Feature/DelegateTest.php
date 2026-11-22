@@ -524,4 +524,62 @@ class DelegateTest extends ApiTestCase
         $this->assertSame($shopHas, $this->stockOf($v), 'and the shop’s shelf never moved');
     }
 
+    // ───────────────────────── what the owner can see ─────────────────────────
+
+    public function test_the_owner_sees_what_one_delegate_sold_collected_and_is_still_owed(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $this->loadVan($id, $v, 10);
+        $noor = $this->customerNamed('Al-Noor Perfumes');
+
+        $this->asDelegate($id);
+        // one paid in full, one left half on the slate
+        $paid = $this->delegateSale($id, $v, 2, $v->wholesale_iqd, ['customerId' => $noor->id, 'customerName' => $noor->name]);
+        $this->push([['entity' => 'sale', 'id' => $paid['id'], 'data' => $paid]]);
+
+        $owed = $v->wholesale_iqd * 2;
+        $debt = $this->delegateSale($id, $v, 2, $v->wholesale_iqd, [
+            'customerId' => $noor->id, 'customerName' => $noor->name,
+            'payments' => [], 'dueIQD' => $owed,
+        ]);
+        $this->push([['entity' => 'sale', 'id' => $debt['id'], 'data' => $debt]]);
+
+        $this->asOwner();
+        $d = $this->api('GET', "delegates/$id/dashboard")->assertOk()->json();
+
+        $this->assertSame(2, $d['salesCount']);
+        $this->assertSame(4, $d['units'], 'four bottles left the van');
+        $this->assertSame($v->wholesale_iqd * 4, $d['soldIQD']);
+        $this->assertSame($owed, $d['owedIQD'], 'what the shop still owes through him');
+        $this->assertSame(6, $d['carrying']['units'], 'and he is still carrying the rest');
+
+        // which shop, and which perfume
+        $this->assertSame('Al-Noor Perfumes', $d['shops'][0]['name']);
+        $this->assertSame(2, $d['shops'][0]['sales']);
+        $this->assertSame(4, $d['moved'][0]['qty']);
+    }
+
+    public function test_the_van_says_who_put_each_lot_there(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $kham = $this->variantOf('Khamrah');
+        $asad = $this->variantOf('Asad');
+
+        // the manager loads one; the delegate adds the other himself
+        $this->loadVan($id, $kham, 4);
+        $this->asDelegate($id);
+        $mine = ['id' => (string) Str::uuid(), 'variantId' => $asad->id, 'qty' => 6, 'type' => 'purchase', 'userId' => $id, 'note' => '', 'createdAt' => (int) (microtime(true) * 1000)];
+        $this->push([['entity' => 'stock_movement', 'id' => $mine['id'], 'data' => $mine]]);
+
+        $this->asOwner();
+        $van = collect($this->api('GET', "delegates/$id/van")->assertOk()->json('items'));
+
+        $this->assertFalse($van->firstWhere('variantId', $kham->id)['lastAddedByThem'], 'the shop loaded this one');
+        $this->assertTrue($van->firstWhere('variantId', $asad->id)['lastAddedByThem'], 'he put this one in himself');
+        $this->assertSame('Ahmed', $van->firstWhere('variantId', $asad->id)['lastAddedBy']);
+    }
+
 }
