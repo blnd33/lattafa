@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\AppException;
 use App\Models\Customer;
+use App\Models\DelegatePrice;
 use App\Models\Device;
 use App\Models\Sale;
 use App\Models\Shift;
@@ -327,6 +328,8 @@ class SaleService
             if ($delegate && ! $actor->can('delegate.sell')) {
                 $flags[] = 'not_a_delegate';
             }
+            // their own prices, by who sold it — so one delegate's figure is never accepted on another's bill
+            $ownPrices = $delegate ? DelegatePrice::forDelegate($actor->id) : [];
             $customer = ! empty($s['customerId']) ? Customer::lockForUpdate()->find($s['customerId']) : null;
             if (! empty($s['customerId']) && ! $customer) {
                 $flags[] = 'customer_missing';
@@ -343,10 +346,16 @@ class SaleService
                 if (! $v) {
                     throw new AppException('product_unavailable', ['variantId' => (string) ($it['variantId'] ?? '')]);
                 }
-                // a delegate's dollar bill uses the shop's dollar price list for that size when it has one, else the
-                // dinar price at the bill's rate rounded to 50 cents (see usdListPrice)
+                // A delegate's dollar bill uses, in order: their own price for that size, the shop's dollar list,
+                // or the dinar price at the bill's rate rounded to 50 cents (see usdListPrice). Their own price
+                // is looked up by who sold it, never sent from the phone.
                 $listPrices = $delegate
-                    ? array_filter([$v->retail_iqd, $v->wholesale_iqd, self::usdListPrice($v->retail_iqd, $rate), self::usdListPrice($v->wholesale_iqd, $rate), self::usdPrice($v->wholesale_usd_cents, $rate)])
+                    ? array_filter([
+                        $v->retail_iqd, $v->wholesale_iqd,
+                        self::usdListPrice($v->retail_iqd, $rate), self::usdListPrice($v->wholesale_iqd, $rate),
+                        self::usdPrice($v->wholesale_usd_cents, $rate),
+                        self::usdPrice($ownPrices[$v->id] ?? 0, $rate),
+                    ])
                     : [$v->retail_iqd];
                 if (! in_array((int) $it['unitPriceIQD'], $listPrices, true) && ! in_array('price_mismatch', $flags, true)) {
                     $flags[] = 'price_mismatch';

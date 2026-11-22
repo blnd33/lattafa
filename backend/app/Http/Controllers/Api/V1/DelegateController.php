@@ -27,6 +27,23 @@ class DelegateController extends Controller
         return response()->json(['items' => $this->delegates->vanStock($r->user(), $id)]);
     }
 
+    /** What this delegate sells each size for, beside the shop's own figures. */
+    public function prices(Request $r, string $id): JsonResponse
+    {
+        return response()->json(['items' => $this->delegates->prices($r->user(), $id)]);
+    }
+
+    /** `{prices:{variantId: cents|null}}` — `null` falls the size back to the shop's dollar list. */
+    public function setPrices(Request $r, string $id): JsonResponse
+    {
+        $d = $r->validate([
+            'prices' => ['present', 'array', 'max:5000'],
+            'prices.*' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+        ]);
+
+        return response()->json(['changed' => $this->delegates->setPrices($r->user(), $id, $d['prices'])]);
+    }
+
     public function load(Request $r, string $id): JsonResponse
     {
         $d = $r->validate(self::ITEMS + ['requestId' => ['nullable', 'uuid']]);

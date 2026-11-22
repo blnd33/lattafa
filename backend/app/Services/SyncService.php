@@ -6,6 +6,7 @@ use App\Exceptions\AppException;
 use App\Http\Resources\Present;
 use App\Models\CashMovement;
 use App\Models\Customer;
+use App\Models\DelegatePrice;
 use App\Models\Device;
 use App\Models\Product;
 use App\Models\Role;
@@ -221,9 +222,13 @@ class SyncService
                 throw new AppException('product_unavailable');
             }
             $by = self::user($m['userId'] ?? null) ?? $tokenUser;
+            // A delegate stocking up puts it in their own van, never on the shop's shelf. Worked out from who
+            // sent it, like a delegate sale, so a phone cannot name a location and move stock somewhere else.
+            $location = DelegateService::isDelegate($by) ? DelegateService::van($by->id) : StockService::LOCATION;
             $mv = $this->stock->applyMovement($m['variantId'], (int) $m['qty'], $m['type'], $by, [
                 'id' => $m['id'], 'note' => (string) ($m['note'] ?? ''), 'refType' => $m['refType'] ?? null, 'refId' => $m['refId'] ?? null,
                 'allowNegative' => true, 'deviceId' => $device?->id, 'occurredAt' => (int) ($m['createdAt'] ?? Time::nowMs()),
+                'locationId' => $location,
             ]);
 
             $action = ['purchase' => 'stock.receive', 'tester' => 'stock.tester', 'count' => 'stock.count', 'opening' => 'stock.opening'][$m['type']] ?? 'stock.adjust';
@@ -303,6 +308,8 @@ class SyncService
             'van' => DelegateService::isDelegate($actor) ? [
                 'locationId' => DelegateService::van($actor->id),
                 'stock' => (object) $this->stock->map(DelegateService::van($actor->id)),
+                // this delegate's own selling prices, so the phone bills at them with no connection
+                'prices' => (object) DelegatePrice::forDelegate($actor->id),
                 'requests' => $this->delegates->requests($actor)->take(50)->map(fn ($x) => Present::stockRequest($x))->values()->all(),
                 'closings' => $this->delegates->closings($actor)->take(14)->map(fn ($x) => Present::closing($x))->values()->all(),
             ] : null,

@@ -284,6 +284,9 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::get('delegates/{id}/van', [DelegateController::class, 'van']);
     Route::post('delegates/{id}/load', [DelegateController::class, 'load']);
     Route::post('delegates/{id}/unload', [DelegateController::class, 'unload']);
+    // a delegate's own selling prices: they may set their own, a manager may set anyone's
+    Route::get('delegates/{id}/prices', [DelegateController::class, 'prices']);
+    Route::put('delegates/{id}/prices', [DelegateController::class, 'setPrices']);
     Route::get('stock-requests', [DelegateController::class, 'requests']);
     Route::post('stock-requests', [DelegateController::class, 'createRequest']);
     Route::post('stock-requests/{id}/cancel', [DelegateController::class, 'cancelRequest']);

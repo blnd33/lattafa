@@ -447,4 +447,81 @@ class DelegateTest extends ApiTestCase
         $this->assertNotContains('delegate.sell', json_decode(\DB::table('roles')->where('key', 'cashier')->value('permissions'), true));
         $this->assertContains('delegate', json_decode(\DB::table('roles')->where('key', 'super_admin')->value('apps'), true));
     }
+    // ───────────────────────── their own prices, their own stock ─────────────────────────
+
+    public function test_a_delegate_sets_their_own_price_and_sells_at_it(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $this->loadVan($id, $v, 5);
+
+        $this->asDelegate($id);
+        $this->api('PUT', "delegates/$id/prices", ['prices' => [$v->id => 2850]])->assertOk()->assertJsonPath('changed', 1);
+
+        // $28.50 at 1,460 is 41,610 dinars — their own figure, and the server takes it without a quibble
+        $sale = $this->delegateSale($id, $v, 2, 41610, ['currency' => 'USD',
+            'payments' => [['method' => 'cash_usd', 'amountIQD' => 83220, 'tendered' => 57.0, 'currency' => 'USD', 'rate' => 1460, 'reference' => '']]]);
+        $r = $this->push([['entity' => 'sale', 'id' => $sale['id'], 'data' => $sale]]);
+        $this->assertSame(['ok', []], [$r[0]['status'], $r[0]['flags']]);
+    }
+
+    public function test_one_delegates_price_is_not_a_price_on_another_delegates_bill(): void
+    {
+        $this->shop();
+        $honar = $this->delegate();
+        $other = $this->delegate('6262', 'sheraz', 'Sheraz');
+        $v = $this->variantOf('Khamrah');
+        $this->loadVan($other, $v, 5);
+
+        // Honar prices it at $28.50; Sheraz has no price of their own
+        $this->asDelegate($honar);
+        $this->api('PUT', "delegates/$honar/prices", ['prices' => [$v->id => 2850]])->assertOk();
+
+        $this->asDelegate($other, '6262');
+        $sale = $this->delegateSale($other, $v, 1, 41610, ['currency' => 'USD', 'userName' => 'Sheraz']);
+        $r = $this->push([['entity' => 'sale', 'id' => $sale['id'], 'data' => $sale]]);
+        $this->assertContains('price_mismatch', $r[0]['flags'], 'a price is one delegate’s, not everyone’s');
+    }
+
+    public function test_a_manager_can_correct_a_delegates_price_and_taking_it_away_falls_back_to_the_shop(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $v->update(['wholesale_usd_cents' => 2000]);   // the shop's own dollar list
+
+        $this->api('PUT', "delegates/$id/prices", ['prices' => [$v->id => 2850]])->assertOk();
+        $row = collect($this->api('GET', "delegates/$id/prices")->assertOk()->json('items'))->firstWhere('variantId', $v->id);
+        $this->assertSame([2850, 2000], [$row['ownCents'], $row['shopCents']], 'their own, and what they fall back to');
+
+        // taken away: the row goes, and the shop's list applies again. With an empty van and no price of their
+        // own there is nothing left to list for that size, which is the fallback showing as itself.
+        $this->api('PUT', "delegates/$id/prices", ['prices' => [$v->id => null]])->assertOk()->assertJsonPath('changed', 1);
+        $this->assertNull(collect($this->api('GET', "delegates/$id/prices")->assertOk()->json('items'))->firstWhere('variantId', $v->id));
+
+        // once they carry it, it is listed again — priced at the shop's figure until they say otherwise
+        $this->loadVan($id, $v, 3);
+        $back = collect($this->api('GET', "delegates/$id/prices")->assertOk()->json('items'))->firstWhere('variantId', $v->id);
+        $this->assertSame([null, 2000, 3], [$back['ownCents'], $back['shopCents'], $back['qty']]);
+    }
+
+    public function test_a_delegate_stocking_up_fills_their_own_van_and_never_the_shop(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $shopHas = $this->stockOf($v);
+
+        $this->asDelegate($id);
+        $movement = [
+            'id' => (string) Str::uuid(), 'variantId' => $v->id, 'qty' => 20, 'type' => 'purchase',
+            'userId' => $id, 'note' => 'picked up at the warehouse', 'createdAt' => (int) (microtime(true) * 1000),
+        ];
+        $this->assertSame('ok', $this->push([['entity' => 'stock_movement', 'id' => $movement['id'], 'data' => $movement]])[0]['status']);
+
+        $this->assertSame(20, $this->vanOf($v, $id), 'it went into their van');
+        $this->assertSame($shopHas, $this->stockOf($v), 'and the shop’s shelf never moved');
+    }
+
 }

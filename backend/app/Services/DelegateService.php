@@ -11,6 +11,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\SaleReturn;
+use App\Models\DelegatePrice;
 use App\Models\StockRequest;
 use App\Models\User;
 use App\Models\Variant;
@@ -112,6 +113,78 @@ class DelegateService
             ])
             ->filter(fn ($r) => $r['qty'] !== 0)
             ->sortBy(fn ($r) => Str::lower($r['name']['en'] ?? ''))->values()->all();
+    }
+
+    /**
+     * What this delegate sells each size for, beside the shop’s own figures.
+     *
+     * A size they carry but have not priced is still listed, showing what they would fall back to, so a manager
+     * can see at a glance which are their own figures and which follow the shop’s dollar list.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function prices(User $actor, string $delegateId): array
+    {
+        $this->canSee($actor, $delegateId);
+        $this->delegateOrFail($delegateId);
+
+        $own = DelegatePrice::forDelegate($delegateId);
+        $qty = $this->stock->map(self::van($delegateId));
+        $wanted = array_values(array_unique([...array_keys($own), ...array_keys(array_filter($qty))]));
+
+        return Variant::with('product')->whereIn('id', $wanted)->get()
+            ->map(fn (Variant $v) => [
+                'variantId' => $v->id, 'productId' => $v->product_id, 'name' => $v->product->name, 'brand' => $v->product->brand,
+                'label' => $v->label, 'sku' => $v->sku,
+                'qty' => $qty[$v->id] ?? 0,
+                // their own price, and what they would charge without one
+                'ownCents' => $own[$v->id] ?? null,
+                'shopCents' => (int) $v->wholesale_usd_cents,
+                'retailIQD' => $v->retail_iqd,
+            ])
+            ->sortBy(fn ($r) => Str::lower($r['name']['en'] ?? ''))->values()->all();
+    }
+
+    /**
+     * Sets this delegate’s own prices. A delegate may set their own; a manager may set anyone’s.
+     *
+     * `null` or zero removes the row, so the size falls back to the shop’s dollar list. Who wrote it is kept,
+     * because a delegate pricing their own round and a manager correcting them are different things.
+     *
+     * @param  array<string, int|null>  $rows  variantId => cents, or null to remove
+     */
+    public function setPrices(User $actor, string $delegateId, array $rows): int
+    {
+        $actor->id === $delegateId ? $this->need($actor, 'delegate.sell') : $this->need($actor, 'delegates.manage');
+        $this->delegateOrFail($delegateId);
+
+        $known = Variant::whereIn('id', array_keys($rows))->pluck('id')->all();
+        $changed = 0;
+
+        DB::transaction(function () use ($actor, $delegateId, $rows, $known, &$changed) {
+            foreach ($rows as $variantId => $cents) {
+                if (! in_array($variantId, $known, true)) {
+                    continue;   // a size that is not on file is ignored, never created
+                }
+                if ($cents === null || (int) $cents <= 0) {
+                    $changed += DelegatePrice::where('user_id', $delegateId)->where('variant_id', $variantId)->delete();
+
+                    continue;
+                }
+                $row = DelegatePrice::firstOrNew(['user_id' => $delegateId, 'variant_id' => $variantId]);
+                if ($row->exists && $row->usd_cents === (int) $cents) {
+                    continue;   // setting a price to what it already is changes nothing
+                }
+                $row->fill(['usd_cents' => (int) $cents, 'set_by' => $actor->id])->save();
+                $changed++;
+            }
+        });
+
+        if ($changed) {
+            $this->audit->log($actor, 'delegate.prices', 'user', $delegateId, ['sizes' => $changed, 'own' => $actor->id === $delegateId]);
+        }
+
+        return $changed;
     }
 
     /**
