@@ -85,6 +85,7 @@ export const audit: Record<string, string> = {
   'act.catalogue.customer_added': 'Wholesale customer added',
   'act.catalogue.customer_updated': 'Wholesale customer changed',
   'act.catalogue.customer_status': 'Wholesale customer on hold / let back in',
+  'act.catalogue.customer_deleted': 'Wholesale customer removed',
   'act.catalogue.code_issued': 'Wholesale access code given out',
   'act.catalogue.code_enabled': 'Wholesale access code switched on',
   'act.catalogue.code_disabled': 'Wholesale access code switched off',

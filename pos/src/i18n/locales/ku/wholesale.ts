@@ -346,4 +346,7 @@ export const wholesale: Dict = {
   'wc.footer_website': 'ماڵپەر',
   'wc.footer_note': 'دێڕی کۆتایی',
   'wc.look_saved': 'پاشەکەوت کرا',
+  'wc.remove_buyer_q': '«{name}» بسڕدرێتەوە؟',
+  'wc.remove_buyer_hint': 'کۆدەکانی دەستپێگەیشتن و هەر دانیشتنێکی کراوە و ئەو نرخانەی لەگەڵی ڕێککەوتوون و داشکاندنەکەی لەگەڵیدا دەڕۆن. ئەمە ناگەڕێتەوە.',
+  'wc.buyer_removed': '«{name}» سڕدرایەوە',
 }

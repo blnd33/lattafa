@@ -85,6 +85,7 @@ export const audit: Record<string, string> = {
   'act.catalogue.customer_added': 'إضافة زبون جملة',
   'act.catalogue.customer_updated': 'تعديل زبون جملة',
   'act.catalogue.customer_status': 'إيقاف زبون جملة أو إعادته',
+  'act.catalogue.customer_deleted': 'حذف عميل جملة',
   'act.catalogue.code_issued': 'منح رمز دخول للجملة',
   'act.catalogue.code_enabled': 'تفعيل رمز دخول الجملة',
   'act.catalogue.code_disabled': 'تعطيل رمز دخول الجملة',

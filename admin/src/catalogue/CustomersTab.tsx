@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Ban, Copy, KeyRound, Pencil, Plus, ShieldOff, Store } from 'lucide-react'
+import { ArrowLeft, Ban, Copy, KeyRound, Pencil, Plus, ShieldOff, Store, Trash2 } from 'lucide-react'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Badge, Card, EmptyState, PageHeader, Segmented, Spinner } from '@/components/ui/Controls'
 import { Field, Input, SearchInput, Select, Textarea } from '@/components/ui/Field'
@@ -130,6 +130,26 @@ function BuyerDetail({ id, countries, canEditPrices, canEditRules, onBack, onEdi
     } catch (e) { toast.error(errorMessage(e, t)) }
   }
 
+  /**
+   * Removes the business altogether — for one entered by mistake.
+   *
+   * Its codes, sessions, agreed prices and discount go with it. A business that has ever ordered cannot be
+   * removed, and the server says so by name; closing it is the answer there, and the message says that too.
+   */
+  const remove = async () => {
+    if (!(await confirm({
+      title: t('wc.remove_buyer_q', { name: b.businessName }),
+      message: t('wc.remove_buyer_hint'),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    }))) return
+    try {
+      await cat.deleteBuyer(b.id)
+      toast.success(t('wc.buyer_removed', { name: b.businessName }))
+      onBack()
+    } catch (e) { toast.error(errorMessage(e, t)) }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -141,6 +161,8 @@ function BuyerDetail({ id, countries, canEditPrices, canEditRules, onBack, onEdi
           {b.status === 'active'
             ? <Button variant="secondary" icon={<Ban className="size-5" />} onClick={() => void setStatus('suspended')}>{t('wc.put_on_hold')}</Button>
             : <Button variant="secondary" onClick={() => void setStatus('active')}>{t('wc.let_back_in')}</Button>}
+          {/* last, and the only one that is not reversible */}
+          {!b.ordersCount && <IconButton label={t('common.delete')} variant="ghost" onClick={() => void remove()}><Trash2 className="size-5 text-danger-fg" /></IconButton>}
         </>}
       />
 

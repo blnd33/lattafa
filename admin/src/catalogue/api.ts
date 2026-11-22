@@ -195,6 +195,9 @@ export const setBuyerStatus = (id: string, status: CustomerStatus) =>
 
 // ───────────────────────── access codes ─────────────────────────
 
+/** Removes a business and everything that was only its own. Refused with `customer_has_orders` once it has traded. */
+export const deleteBuyer = (id: string) => api<{ ok: true }>('DELETE', `/catalogue/customers/${id}`)
+
 export const getCodes = (customerId: string) => api<{ codes: AccessCode[] }>('GET', `/catalogue/customers/${customerId}/codes`).then((r) => r.codes)
 /** The one call that ever returns a code in full — show it once, then it is gone for good. */
 export const generateCode = (customerId: string, body: { countryId?: string | null; expiresAt?: number | null } = {}) =>

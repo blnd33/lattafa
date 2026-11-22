@@ -391,4 +391,28 @@ class WholesaleOrderTest extends ApiTestCase
         $iraq = CatalogueCountry::where('iso2', 'IQ')->firstOrFail();
         $this->assertSame([], $this->api('GET', 'catalogue/orders', ['countryId' => $iraq->id])->assertOk()->json('orders'));
     }
+
+    /**
+     * A business that has traded is closed, not deleted.
+     *
+     * Its orders are commercial records, one of them may be holding stock off the shelf this minute, and the
+     * payments and status history hang off them. The owner is told why, by name, rather than meeting a database
+     * error — the schema refuses it too (`restrictOnDelete`), but that is the net, not the message.
+     */
+    public function test_a_business_that_has_ordered_cannot_be_removed(): void
+    {
+        $this->place(10)->assertCreated();
+
+        $this->api('DELETE', 'catalogue/customers/'.$this->customerId)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'customer_has_orders')
+            ->assertJsonPath('error.params.orders', 1);
+
+        $this->assertDatabaseHas('wholesale_customers', ['id' => $this->customerId]);
+        $this->assertSame(1, WholesaleOrder::where('customer_id', $this->customerId)->count(), 'and the order is untouched');
+
+        // closing it is the way: it stops buying, and every figure stays where it is
+        $this->api('PATCH', 'catalogue/customers/'.$this->customerId.'/status', ['status' => 'closed'])->assertOk();
+        $this->assertSame(1, WholesaleOrder::where('customer_id', $this->customerId)->count());
+    }
 }

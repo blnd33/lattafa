@@ -211,6 +211,7 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
         Route::get('customers/{id}', [CatalogueController::class, 'customer']);
         Route::put('customers/{id}', [CatalogueController::class, 'saveCustomer']);
         Route::patch('customers/{id}/status', [CatalogueController::class, 'setCustomerStatus']);
+        Route::delete('customers/{id}', [CatalogueController::class, 'deleteCustomer']);
 
         // the one reply in the whole API that carries an access code in full is POST .../codes
         Route::get('customers/{customerId}/codes', [CatalogueController::class, 'codes'])->whereUuid('customerId');

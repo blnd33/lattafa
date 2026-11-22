@@ -147,4 +147,37 @@ class WholesaleCustomerService
 
         return $customer->fresh();
     }
+
+    /**
+     * Removes a business entirely — for one entered by mistake, or that never traded.
+     *
+     * What belongs to the business goes with it: its access codes, any open sessions, the prices agreed with it,
+     * its whole-order discount and the rules it was let off. Those are all `cascadeOnDelete` in the schema, so
+     * the database does it in the same statement and nothing is left pointing at a business that is gone.
+     *
+     * **An order is where this stops.** `wholesale_orders` is `restrictOnDelete` on purpose: an order is a
+     * commercial record, it may be holding stock off the shelf this minute, and its payments and status history
+     * hang off it. A business that has ever ordered is closed instead, which stops it buying while every figure
+     * stays where it is. The guard is here as well as in the schema so the owner is told why rather than meeting
+     * a database error.
+     */
+    public function delete(User $actor, string $id): void
+    {
+        $this->need($actor, 'catalogue.customers');
+
+        $customer = WholesaleCustomer::withCount('orders')->findOrFail($id);
+        if ($customer->orders_count > 0) {
+            throw new AppException('customer_has_orders', [
+                'business' => $customer->business_name, 'orders' => $customer->orders_count,
+            ]);
+        }
+
+        DB::transaction(function () use ($customer, $actor) {
+            // said before the row is gone, while there is still something to name it by
+            $this->audit->log($actor, 'catalogue.customer_deleted', 'wholesale_customer', $customer->id, [
+                'business' => $customer->business_name, 'codes' => $customer->codes()->count(),
+            ]);
+            $customer->delete();
+        });
+    }
 }

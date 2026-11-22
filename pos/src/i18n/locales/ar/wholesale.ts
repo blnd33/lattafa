@@ -346,4 +346,7 @@ export const wholesale: Dict = {
   'wc.footer_website': 'الموقع',
   'wc.footer_note': 'سطر الختام',
   'wc.look_saved': 'تم الحفظ',
+  'wc.remove_buyer_q': 'حذف «{name}»؟',
+  'wc.remove_buyer_hint': 'تُحذف معه رموز الدخول وأي جلسة مفتوحة والأسعار المتفق عليها معه وخصمه. لا يمكن التراجع عن ذلك.',
+  'wc.buyer_removed': 'تم حذف «{name}»',
 }

@@ -353,4 +353,7 @@ export const wholesale: Dict = {
   'wc.footer_website': 'Website',
   'wc.footer_note': 'Closing note',
   'wc.look_saved': 'Saved',
+  'wc.remove_buyer_q': 'Remove “{name}”?',
+  'wc.remove_buyer_hint': 'Its access codes, any open session, the prices agreed with it and its discount go too. This cannot be undone.',
+  'wc.buyer_removed': '“{name}” removed',
 }

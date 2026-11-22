@@ -7,6 +7,7 @@ use App\Models\WholesaleAccessCode;
 use App\Models\WholesaleCustomer;
 use App\Models\WholesaleSession;
 use App\Support\Time;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\ApiTestCase;
 
@@ -205,6 +206,50 @@ class WholesaleAccessTest extends ApiTestCase
         ])->assertOk();
 
         $this->unlock($this->issue())->assertOk()->assertJsonPath('session.country.iso2', 'IQ');
+    }
+
+    // ───────────────────────── removing a business ─────────────────────────
+
+    public function test_a_business_entered_by_mistake_can_be_removed_with_everything_that_was_only_its_own(): void
+    {
+        $code = $this->issue();
+        $token = $this->unlock($code)->assertOk()->json('token');
+        $variantId = (string) DB::table('variants')->value('id');
+        $this->api('PUT', 'catalogue/customers/'.$this->customerId.'/terms', [
+            'terms' => [$variantId => ['priceCents' => 1500]],
+        ])->assertOk();
+
+        $this->api('DELETE', 'catalogue/customers/'.$this->customerId)->assertOk();
+
+        $this->assertDatabaseMissing('wholesale_customers', ['id' => $this->customerId]);
+        $this->assertSame(0, WholesaleAccessCode::where('customer_id', $this->customerId)->count(), 'its codes went with it');
+        $this->assertSame(0, DB::table('wholesale_sessions')->where('customer_id', $this->customerId)->count());
+        $this->assertSame(0, DB::table('catalogue_customer_prices')->where('customer_id', $this->customerId)->count());
+
+        // and the code that was open a moment ago opens nothing
+        $this->unlock($code)->assertStatus(422)->assertJsonPath('error.code', 'code_invalid');
+        $this->app['auth']->forgetGuards();
+        $this->withHeaders(['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])
+            ->getJson('/api/v1/wholesale/prices')->assertStatus(401);
+    }
+
+    public function test_removing_a_business_is_written_down_without_its_code(): void
+    {
+        $code = $this->issue();
+        $this->api('DELETE', 'catalogue/customers/'.$this->customerId)->assertOk();
+
+        $entry = DB::table('audit_logs')->where('action', 'catalogue.customer_deleted')->value('meta');
+        $this->assertStringContainsString('Istanbul Perfumes', (string) $entry);
+        $this->assertStringNotContainsString($code, (string) $entry);
+    }
+
+    public function test_a_business_that_has_never_traded_goes_but_one_that_has_is_closed_instead(): void
+    {
+        // the guard is the service's; WholesaleOrderTest proves it against a real order
+        $this->api('DELETE', 'catalogue/customers/'.$this->customerId)->assertOk();
+
+        $gone = $this->api('DELETE', 'catalogue/customers/'.$this->customerId);
+        $this->assertSame(404, $gone->status(), 'removing it twice is not found, never a 500');
     }
 
     // ───────────────────────── guessing ─────────────────────────

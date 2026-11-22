@@ -165,6 +165,13 @@ class CatalogueController extends Controller
         return response()->json(['customer' => PresentCatalogue::customer($this->customers->setStatus($r->user(), $id, $data['status']))]);
     }
 
+    public function deleteCustomer(Request $r, string $id): JsonResponse
+    {
+        $this->customers->delete($r->user(), $id);
+
+        return response()->json(['ok' => true]);
+    }
+
     // ───────────────────────── the codes they buy with ─────────────────────────
 
     public function codes(Request $r, string $customerId): JsonResponse

@@ -85,6 +85,7 @@ export const audit: Record<string, string> = {
   'act.catalogue.customer_added': 'زیادکردنی کڕیاری کۆ',
   'act.catalogue.customer_updated': 'گۆڕینی کڕیاری کۆ',
   'act.catalogue.customer_status': 'ڕاگرتنی کڕیاری کۆ یان گەڕاندنەوەی',
+  'act.catalogue.customer_deleted': 'سڕینەوەی کڕیاری کۆمەڵفرۆشی',
   'act.catalogue.code_issued': 'دانی کۆدی چوونەژوورەوەی کۆ',
   'act.catalogue.code_enabled': 'کارخستنی کۆدی کۆ',
   'act.catalogue.code_disabled': 'ڕاگرتنی کۆدی کۆ',

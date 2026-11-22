@@ -39,6 +39,12 @@ class WholesaleCustomer extends Model
         return $this->hasMany(WholesaleSession::class, 'customer_id');
     }
 
+    /** Its orders. Unlike everything else here these do not go when the business does — see the delete guard. */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(WholesaleOrder::class, 'customer_id');
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
