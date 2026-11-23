@@ -464,8 +464,12 @@ export interface AppSettings {
   /** The customer menu (set in the admin panel; a till in local mode has none). */
   menu?: { showPrices: boolean; hideSoldOut: boolean; whatsapp: string }
   device: { id: ID; code: string; name: string; locationId: ID }
-  /** `server` = connected to the Lattafa API on this domain; `lastPullAt` = server time of the last successful pull. */
-  sync: { mode: 'local' | 'server'; serverUrl: string; lastPullAt: number }
+  /**
+   * `server` = connected to the Lattafa API on this domain; `lastPullAt` = server time of the last successful pull;
+   * `costHidden` = a pull since the last full one came from someone who can't see cost prices, so some costs here may
+   * be hidden zeros — the next pull by someone who can see them fetches the whole catalogue again.
+   */
+  sync: { mode: 'local' | 'server'; serverUrl: string; lastPullAt: number; costHidden?: boolean }
 }
 
 export const STORE_LOCATION_ID = 'loc-store'

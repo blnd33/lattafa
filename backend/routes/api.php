@@ -170,6 +170,7 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::get('reports/debtors', [ReportController::class, 'debtors']);
     Route::get('reports/table/{type}', [ReportController::class, 'table'])->where('type', '[a-z-]{3,40}');
     Route::put('delegates/{id}/commission', [ReportController::class, 'commission']);
+    Route::post('reports/missing-cost/{variantId}', [ReportController::class, 'fixMissingCost']);
 
     // buying: suppliers, purchase orders, receiving, supplier payments
     Route::get('suppliers', [PurchasingController::class, 'suppliers']);

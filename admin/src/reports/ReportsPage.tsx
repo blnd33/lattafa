@@ -5,16 +5,18 @@ import { usePrint } from '@/components/PrintHost'
 import { Button } from '@/components/ui/Button'
 import { Card, Chips, EmptyState, PageHeader, Spinner } from '@/components/ui/Controls'
 import { Input, Select } from '@/components/ui/Field'
+import { useConfirm } from '@/components/ui/Modal'
 import { cn } from '@/components/ui/cn'
 import { useAction, useSettings } from '@/hooks/queries'
 import { useCan } from '@/hooks/useAuth'
 import { errorMessage, useT } from '@/i18n'
 import { fromInputDate, toInputDate } from '@/lib/date'
+import { fmt } from '@/lib/money'
 import { hasPerm } from '@/lib/permissions'
 import { useSession } from '@/store/session'
 import { toast } from '@/store/toast'
 import { useUI } from '@/store/ui'
-import { GROUPS, presetRange, REPORTS, runReport, setCommission, type Column, type Preset, type ReportDef, type ReportId, type Row } from './api'
+import { fixMissingCost, GROUPS, presetRange, REPORTS, runReport, setCommission, type Column, type Preset, type ReportDef, type ReportId, type Row } from './api'
 import { CellContent, downloadXlsx, Period, PrintableReport, type ExportCtx } from './export'
 import { cellText, isNumeric, sortRows } from './format'
 
@@ -69,6 +71,7 @@ export function ReportView({ def }: { def: ReportDef }) {
   const { data: settings } = useSettings()
   const canExport = useCan('reports.export')
   const canRate = useCan('delegates.manage')
+  const canFixCost = useCan('prices.edit')
   const print = usePrint((s) => s.print)
   const [preset, setPreset] = useState<Preset>(def.preset)
   const [custom, setCustom] = useState(() => { const [a, b] = presetRange(def.preset); return { from: toInputDate(a), to: toInputDate(b) } })
@@ -155,7 +158,7 @@ export function ReportView({ def }: { def: ReportDef }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {rows.map((row, i) => <ReportRow key={String(row.id ?? i)} row={row} columns={r.columns} editRate={def.id === 'delegate-commission' && canRate} onSaved={() => void q.refetch()} />)}
+                    {rows.map((row, i) => <ReportRow key={String(row.id ?? i)} row={row} columns={r.columns} editRate={def.id === 'delegate-commission' && canRate} fixCost={def.id === 'missing-cost' && canFixCost} onSaved={() => void q.refetch()} />)}
                   </tbody>
                   {r.totals && (
                     <tfoot className="sticky bottom-0 bg-surface-2 font-semibold">
@@ -179,7 +182,7 @@ export function ReportView({ def }: { def: ReportDef }) {
   )
 }
 
-function ReportRow({ row, columns, editRate, onSaved }: { row: Row; columns: Column[]; editRate: boolean; onSaved: () => void }) {
+function ReportRow({ row, columns, editRate, fixCost, onSaved }: { row: Row; columns: Column[]; editRate: boolean; fixCost: boolean; onSaved: () => void }) {
   const t = useT()
   const lang = useUI((s) => s.lang)
   return (
@@ -189,7 +192,9 @@ function ReportRow({ row, columns, editRate, onSaved }: { row: Row; columns: Col
         const negative = (c.type === 'iqd' || c.type === 'money') && typeof v === 'number' && v < 0
         return (
           <td key={c.key} className={cn('whitespace-nowrap px-3 py-2', isNumeric(c) && 'num text-end', negative && 'text-danger', row.kind === 'expense' && c.type === 'label' && 'ps-8 text-fg-2')}>
-            {editRate && c.key === 'rate' && row.id ? <RateInput id={row.id} value={Number(v ?? 0)} onSaved={onSaved} label={`${t(c.label)} · ${String(row.delegate ?? '')}`} /> : <CellContent c={c} row={row} ctx={{ t, lang }} />}
+            {editRate && c.key === 'rate' && row.id ? <RateInput id={row.id} value={Number(v ?? 0)} onSaved={onSaved} label={`${t(c.label)} · ${String(row.delegate ?? '')}`} />
+              : fixCost && c.key === 'fix' && row.id ? <FixCostInput row={row} onSaved={onSaved} label={`${t(c.label)} · ${String(row.sku ?? '')}`} />
+              : <CellContent c={c} row={row} ctx={{ t, lang }} />}
           </td>
         )
       })}
@@ -211,6 +216,29 @@ function RateInput({ id, value, label, onSaved }: { id: string; value: number; l
       <Input aria-label={label} inputMode="decimal" className="num !h-9 !w-20 text-end" value={v} disabled={run.busy}
         onChange={(e) => setV(e.target.value.replace(/[^\d.]/g, ''))} onBlur={() => void save()} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
       %
+    </span>
+  )
+}
+
+/** Reports → Sales saved without cost: the real cost of one size, written into its bills that were saved with 0. */
+function FixCostInput({ row, label, onSaved }: { row: Row; label: string; onSaved: () => void }) {
+  const t = useT()
+  const confirm = useConfirm()
+  const [v, setV] = useState(Number(row.fix) > 0 ? String(row.fix) : '')
+  const run = useAction(fixMissingCost)
+  const cost = Number(v)
+  const fix = async () => {
+    if (!row.id || !(cost > 0)) return
+    const sku = String(row.sku ?? '')
+    if (!(await confirm({ title: t('rx.fix_title'), message: t('rx.fix_msg', { n: Number(row.units ?? 0), sku, cost: fmt(cost) }), confirmLabel: t('rx.fix') }))) return
+    const r = await run(row.id, cost)
+    if (r) { toast.success(t('rx.cost_fixed', { n: r.lines })); onSaved() }
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Input aria-label={label} inputMode="numeric" className="num !h-9 !w-28 text-end" value={v} disabled={run.busy}
+        onChange={(e) => setV(e.target.value.replace(/[^\d]/g, ''))} onKeyDown={(e) => { if (e.key === 'Enter') void fix() }} />
+      <Button size="sm" variant="primary" loading={run.busy} disabled={!(cost > 0)} onClick={() => void fix()}>{t('rx.fix')}</Button>
     </span>
   )
 }

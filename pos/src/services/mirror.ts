@@ -19,7 +19,7 @@ import type { PullPayload, ServerDevice, ServerSettings } from './serverShapes'
 import { splitProduct, userFromServer } from './serverShapes'
 
 /** Local settings = the server's shop settings + this till's own device/sync block. */
-function mergeSettings(cur: AppSettings, server: ServerSettings, device: ServerDevice | null, serverTime: number): AppSettings {
+function mergeSettings(cur: AppSettings, server: ServerSettings, device: ServerDevice | null, serverTime: number, costHidden: boolean): AppSettings {
   return {
     ...structuredClone(DEFAULT_SETTINGS),
     ...cur,
@@ -27,7 +27,7 @@ function mergeSettings(cur: AppSettings, server: ServerSettings, device: ServerD
     key: 'app',
     setupDone: true,
     device: device ? { ...cur.device, id: device.id, code: device.code, name: device.name } : cur.device,
-    sync: { ...cur.sync, mode: 'server', lastPullAt: serverTime },
+    sync: { ...cur.sync, mode: 'server', lastPullAt: serverTime, costHidden },
   }
 }
 
@@ -64,7 +64,9 @@ export async function applyPull(p: PullPayload): Promise<void> {
 
   await db.transaction('rw', [db.settings, db.roles, db.users, db.products, db.variants, db.stock, db.customers, db.devices, db.counters, db.creds], async () => {
     const cur = await getSettings()
-    const settings = mergeSettings(cur, p.settings, p.device, p.serverTime)
+    // a pull that hides costs leaves the copy unsure until someone who can see them pulls everything again
+    const hidden = p.costVisible === false
+    const settings = mergeSettings(cur, p.settings, p.device, p.serverTime, hidden || (!full && cur.sync.costHidden !== false))
     await db.settings.put(settings)
 
     // roles & accounts (always a complete list)
@@ -78,6 +80,9 @@ export async function applyPull(p: PullPayload): Promise<void> {
     if (gone.size) await db.creds.bulkDelete([...gone])
 
     // catalogue + stock
+    // Costs in a pull by someone who can't see them are hidden zeros. The till is shared, so it keeps the real costs
+    // it already has: otherwise the owner would see 0 later, and saving the product would send that 0 back.
+    const known = hidden ? new Map((await db.variants.toArray()).map((v) => [v.id, v])) : null
     if (full) { await db.products.clear(); await db.variants.clear(); await db.stock.where('locationId').equals(STORE_LOCATION_ID).delete() }
     // deleted first: a product added again with the same SKU must not collide with the row it replaces
     for (const id of p.deleted.products) {
@@ -87,7 +92,8 @@ export async function applyPull(p: PullPayload): Promise<void> {
       await db.products.delete(id)
     }
     for (const sp of p.products) {
-      const { product, variants, stock } = splitProduct(sp)
+      const { product, variants: pulled, stock } = splitProduct(sp)
+      const variants = known ? pulled.map((v) => { const k = known.get(v.id); return k ? { ...v, costIQD: k.costIQD } : v }) : pulled
       await db.products.put(product)
       await db.variants.bulkPut(variants)
       await db.stock.bulkPut(variants.map((v) => ({ variantId: v.id, locationId: STORE_LOCATION_ID, qty: (stock[v.id] ?? 0) + (effects.stock.get(v.id) ?? 0) })))

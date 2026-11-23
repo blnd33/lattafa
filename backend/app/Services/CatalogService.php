@@ -104,7 +104,10 @@ class CatalogService
             }
         }
 
-        return DB::transaction(function () use ($actor, $product, $variants, $id, $isNew, $name) {
+        // someone who can't see cost prices only ever has a hidden 0 to send back, never a real one
+        $seesCost = $actor->can('prices.edit') || $actor->can('reports.financial');
+
+        return DB::transaction(function () use ($actor, $product, $variants, $id, $isNew, $name, $seesCost) {
             $existing = $isNew ? null : (Product::find($id) ?? throw AppException::notFound());
             $model = $existing ?? new Product(['id' => $id ?: (string) Str::uuid7()]);
             // the request turns an empty box into null: every language stays text, or the apps can't sort or show the product
@@ -146,7 +149,7 @@ class CatalogService
                 $prev = $old->get($vid);
                 $retail = (int) ($vin['retailIQD'] ?? 0);
                 $wholesale = (int) ($vin['wholesaleIQD'] ?? $retail);
-                $cost = (int) ($vin['costIQD'] ?? 0);
+                $cost = self::keptCost($prev?->cost_iqd, $vin['costIQD'] ?? null, $seesCost);
                 if ($prev && ($prev->retail_iqd !== $retail || $prev->wholesale_iqd !== $wholesale || $prev->cost_iqd !== $cost) && ! $actor->can('prices.edit')) {
                     throw AppException::forbidden('prices.edit');
                 }
@@ -193,6 +196,21 @@ class CatalogService
 
             return $model;
         });
+    }
+
+    /**
+     * The cost a size ends up with when it is saved. A size that already has a cost keeps it when the new value
+     * is missing, empty or 0, or comes from someone who can't see costs: those only ever hold a hidden 0 (a till
+     * whose copy was downloaded by a cashier, a sheet with an empty cell), and saving it would wipe the real cost.
+     */
+    public static function keptCost(?int $current, mixed $incoming, bool $seesCost = true): int
+    {
+        $new = $incoming === null || $incoming === '' ? 0 : max(0, (int) $incoming);
+        if ($current !== null && $current > 0 && ($new === 0 || ! $seesCost)) {
+            return $current;
+        }
+
+        return $new;
     }
 
     public function setActive(User $actor, string $id, bool $active): void
@@ -303,7 +321,7 @@ class CatalogService
                     throw new AppException('barcode_taken', ['barcode' => $barcode, 'sku' => $sku]);
                 }
                 if ($existing) {
-                    $existing->update(['retail_iqd' => $retail, 'cost_iqd' => $cost, 'wholesale_iqd' => $wholesale, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : $existing->min_stock] + (! empty($r['barcode']) ? ['barcode' => $r['barcode']] : []));
+                    $existing->update(['retail_iqd' => $retail, 'cost_iqd' => self::keptCost($existing->cost_iqd, $cost), 'wholesale_iqd' => $wholesale, 'min_stock' => ($r['min_stock'] ?? '') !== '' ? (int) $r['min_stock'] : $existing->min_stock] + (! empty($r['barcode']) ? ['barcode' => $r['barcode']] : []));
                     if ($usdCents !== null) {
                         $existing->update(['wholesale_usd_cents' => $usdCents]);
                     }

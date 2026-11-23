@@ -47,6 +47,7 @@ export const audit: Record<string, string> = {
   'act.delegate.closing_approve': 'اعتماد الإغلاق اليومي',
   'act.delegate.closing_reject': 'رفض الإغلاق اليومي',
   'act.delegate.commission': 'تغيير العمولة',
+  'act.sales.cost_fixed': 'تصحيح تكلفة مبيعات سابقة',
   'act.purchase.order': 'إنشاء أمر شراء',
   'act.purchase.order_update': 'تعديل أمر شراء',
   'act.purchase.receive': 'استلام شحنة',

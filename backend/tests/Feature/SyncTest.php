@@ -401,11 +401,14 @@ class SyncTest extends ApiTestCase
     public function test_pull_hides_cost_from_tills_signed_in_as_a_cashier(): void
     {
         $this->shop();
-        $owner = $this->api('GET', 'sync/pull')->json('products');
-        $this->assertGreaterThan(0, $owner[0]['variants'][0]['costIQD']);
+        $owner = $this->api('GET', 'sync/pull')->json();
+        $this->assertGreaterThan(0, $owner['products'][0]['variants'][0]['costIQD']);
+        $this->assertTrue($owner['costVisible']);
         [$uid] = $this->till();
-        $costs = collect($this->api('GET', 'sync/pull')->json('products'))->flatMap(fn ($p) => collect($p['variants'])->pluck('costIQD'))->unique()->all();
+        $pull = $this->api('GET', 'sync/pull')->json();
+        $costs = collect($pull['products'])->flatMap(fn ($p) => collect($p['variants'])->pluck('costIQD'))->unique()->all();
         $this->assertSame([0], $costs);
+        $this->assertFalse($pull['costVisible']); // so the till keeps the real costs it already has instead of these zeros
     }
 
     public function test_every_pull_says_how_big_the_whole_catalogue_is_so_a_device_can_spot_a_gap(): void

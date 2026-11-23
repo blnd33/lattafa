@@ -195,6 +195,60 @@ describe('mirror repairs itself', () => {
   })
 })
 
+describe('cost prices on a shared till', () => {
+  const withCost = (p: ServerProduct, cost: number): ServerProduct => ({ ...p, variants: p.variants.map((v) => ({ ...v, costIQD: cost })) })
+  const khamrah = product('p-kh', 'Khamrah', [{ id: 'v-kh', stock: 10, retail: 45000 }])
+  const asad = product('p-as', 'Asad', [{ id: 'v-as', stock: 7, retail: 42000 }])
+  const pulls = () => calls.filter((c) => c.path.startsWith('/sync/pull')).map((c) => c.path)
+  const cost = async (id: string) => (await db.variants.get(id))?.costIQD
+  /** What the server sends whoever is signed in: real costs to the owner, hidden zeros to a cashier. */
+  let visible = true
+  const serve = (all: ServerProduct[], changes: ServerProduct[]) => {
+    handler = (_m, path) => {
+      const list = (path.endsWith('since=0') ? all : changes).map((p) => (visible ? p : withCost(p, 0)))
+      return { status: 200, body: payload({ serverTime: now + 5000, products: list, costVisible: visible, ...(path.endsWith('since=0') ? {} : { since: now }) }) }
+    }
+  }
+  beforeEach(async () => { await applyPull(payload({ products: [withCost(khamrah, 30000), withCost(asad, 25000)], costVisible: true })) })
+
+  it('a pull by a cashier keeps the real costs this till already has', async () => {
+    visible = false
+    serve([], [withCost(khamrah, 30000)]) // Khamrah sold: it comes down again, with its cost hidden
+    await pullNow()
+    expect(await cost('v-kh')).toBe(30000)
+    expect((await db.stock.get(['v-kh', 'loc-store']))?.qty).toBe(10)
+    expect((await db.settings.get('app'))?.sync.costHidden).toBe(true)
+  })
+
+  it('the owner’s next pull fetches everything again, once, so sizes first seen by a cashier get their cost', async () => {
+    const oud = withCost(product('p-oud', 'Oud', [{ id: 'v-oud', stock: 3, retail: 60000 }]), 40000)
+    visible = false
+    serve([], [oud]) // new while the cashier was signed in: only a hidden 0 here
+    await pullNow()
+    expect(await cost('v-oud')).toBe(0)
+
+    visible = true
+    serve([withCost(khamrah, 30000), withCost(asad, 25000), oud], [])
+    await pullNow()
+    expect(pulls().slice(1)).toEqual([`/sync/pull?since=${now + 5000}`, '/sync/pull?since=0'])
+    expect(await cost('v-oud')).toBe(40000)
+    expect((await db.settings.get('app'))?.sync.costHidden).toBe(false)
+    await pullNow() // and only once
+    expect(pulls()).toHaveLength(4)
+  })
+
+  it('a till updated from an older version cleans up its copy on the owner’s first pull', async () => {
+    const s = (await db.settings.get('app'))!
+    await db.settings.put({ ...s, sync: { mode: 'server', serverUrl: '', lastPullAt: now } }) // no costHidden yet
+    await db.variants.update('v-as', { costIQD: 0 }) // a zero left behind by the old version
+    visible = true
+    serve([withCost(khamrah, 30000), withCost(asad, 25000)], [])
+    await pullNow()
+    expect(pulls()).toEqual([`/sync/pull?since=${now}`, '/sync/pull?since=0'])
+    expect(await cost('v-as')).toBe(25000)
+  })
+})
+
 describe('outbox (push)', () => {
   it('sends each record once, oldest first, and handles every result', async () => {
     await db.sales.put({ id: 's1', number: 'ST7-000001' } as unknown as Sale)

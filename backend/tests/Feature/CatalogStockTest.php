@@ -113,6 +113,40 @@ class CatalogStockTest extends ApiTestCase
         $this->assertGreaterThan(0, $this->api('GET', 'products')->json('products.0.variants.0.retailIQD'));
     }
 
+    public function test_saving_a_product_never_wipes_its_cost_with_a_hidden_or_empty_zero(): void
+    {
+        $this->shop();
+        $p = $this->api('POST', 'products', $this->payload('KEEP-1'))->assertCreated()->json('product');
+        $vid = $p['variants'][0]['id'];
+        $v = fn () => Variant::find($vid);
+
+        // the owner on a till whose copy came down while a cashier was signed in: the editor shows 0 and sends it back
+        $this->api('PUT', "products/{$p['id']}", $this->payload('KEEP-1', [], ['id' => $vid, 'costIQD' => 0, 'openingStock' => 0]))->assertOk();
+        $this->assertSame(10000, $v()->cost_iqd);
+        // a cost left out keeps the one there is; a real new cost still replaces it
+        $this->api('PUT', "products/{$p['id']}", $this->payload('KEEP-1', [], ['id' => $vid, 'costIQD' => null, 'openingStock' => 0]))->assertOk();
+        $this->assertSame(10000, $v()->cost_iqd);
+        $this->api('PUT', "products/{$p['id']}", $this->payload('KEEP-1', [], ['id' => $vid, 'costIQD' => 12500, 'openingStock' => 0]))->assertOk();
+        $this->assertSame(12500, $v()->cost_iqd);
+
+        // a stock keeper may edit products but can't see costs: renaming one keeps the cost instead of failing on it
+        $keeper = $this->makeUser('Sara', 'saraa', 'stock_keeper', '5555');
+        $this->asUser($keeper, '5555');
+        $this->assertSame(0, $this->api('GET', 'products')->json('products.0.variants.0.costIQD'));
+        $this->api('PUT', "products/{$p['id']}", $this->payload('KEEP-1', ['name' => ['en' => 'Renamed'], 'brand' => 'Lattafa', 'category' => 'perfume', 'gender' => 'unisex', 'concentration' => 'EDP'], ['id' => $vid, 'costIQD' => 0, 'openingStock' => 0]))->assertOk();
+        $this->assertSame(12500, $v()->cost_iqd);
+        $this->assertSame('Renamed', Product::find($p['id'])->name['en']);
+        // …but still can't change it
+        $this->api('PUT', "products/{$p['id']}", $this->payload('KEEP-1', [], ['id' => $vid, 'costIQD' => 1, 'openingStock' => 0]))->assertOk();
+        $this->assertSame(12500, $v()->cost_iqd);
+
+        // a sheet with an empty or 0 cost cell keeps the cost of a size that has one
+        $this->asOwner();
+        $this->api('POST', 'products/import', ['rows' => [['sku' => 'KEEP-1', 'retail_iqd' => 21000, 'cost_iqd' => ''], ['sku' => 'LTF-KHAM-100', 'retail_iqd' => 47000, 'cost_iqd' => 0]]])->assertOk();
+        $this->assertSame([12500, 21000], [$v()->cost_iqd, $v()->retail_iqd]);
+        $this->assertGreaterThan(0, Variant::where('sku', 'LTF-KHAM-100')->value('cost_iqd'));
+    }
+
     public function test_only_permitted_users_can_change_the_catalogue(): void
     {
         $this->shop();

@@ -48,6 +48,13 @@ const commission: ReportTable = {
   totals: { net: 1_000_000, commission: 0 },
 }
 
+const missing: ReportTable = {
+  type: 'missing-cost', from: 0, to: 0, financial: true, summary: [],
+  columns: [{ key: 'product', label: 'rc.product', type: 'name' }, { key: 'sku', label: 'rc.sku', type: 'text' }, { key: 'units', label: 'rc.units', type: 'int' }, { key: 'unitCost', label: 'rc.unitCost', type: 'iqd' }, { key: 'fix', label: 'rc.fix', type: 'iqd' }],
+  rows: [{ id: 'v-pi', product: { en: 'Pride', ar: 'Pride', ku: 'Pride' }, sku: 'LAT-PIR3HF-75ML', units: 5, unitCost: 0, fix: 0 }],
+  totals: { units: 5 },
+}
+
 describe('report helpers', () => {
   it('turns a period into its first and last millisecond', () => {
     const now = new Date(2026, 9, 10, 15, 30)
@@ -91,6 +98,7 @@ describe('Reports screen', () => {
     useSession.setState({ actor: owner, token: 'tok', locked: false, lastUserId: owner.id })
     calls = []
     let rate = 0
+    let fixed = false
     vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
       const path = url.replace('/api/v1', '')
       const method = init.method ?? 'GET'
@@ -104,6 +112,8 @@ describe('Reports screen', () => {
       if (path.startsWith('/reports/table/sales-by-day')) return json(200, { ...byProduct, type: 'sales-by-day' })
       if (path.startsWith('/reports/table/delegate-commission')) return json(200, { ...commission, rows: [{ ...commission.rows[0], rate, commission: Math.round(1_000_000 * rate / 100) }] })
       if (path === '/delegates/u-ahmed/commission') { rate = body.pct; return json(200, { ok: true }) }
+      if (path.startsWith('/reports/table/missing-cost')) return json(200, { ...missing, rows: fixed ? [] : missing.rows })
+      if (path === '/reports/missing-cost/v-pi') { fixed = true; return json(200, { lines: 4, units: 5, variantUpdated: true }) }
       return json(404, { error: { code: 'not_found', params: {} } })
     })
   })
@@ -142,5 +152,23 @@ describe('Reports screen', () => {
     await user.clear(input); await user.type(input, '5'); await user.tab()
     await waitFor(() => expect(calls.find((c) => c.path === '/delegates/u-ahmed/commission')?.body).toEqual({ pct: 5 }), wait)
     expect(await screen.findAllByText('50,000', {}, wait)).not.toHaveLength(0) // 5% of 1,000,000
+  }, 40_000)
+
+  it('writes the real cost into sales that were saved without one, after asking', async () => {
+    window.location.hash = '#/reports'
+    render(<AdminApp />)
+    await user.click(await screen.findByRole('button', { name: 'Sales saved without cost' }, wait))
+    const input = await screen.findByLabelText('Real cost · LAT-PIR3HF-75ML', {}, wait)
+    expect(input).toHaveValue('') // no cost yet: nothing is guessed
+    const row = input.closest('tr')!
+    expect(within(row).getByRole('button', { name: 'Fix' })).toBeDisabled()
+    await user.type(input, '30000')
+    await user.click(within(row).getByRole('button', { name: 'Fix' }))
+    const dialog = await screen.findByRole('dialog', {}, wait)
+    expect(dialog).toHaveTextContent('5 bottles of LAT-PIR3HF-75ML were sold at a cost of 0. They will be recorded at 30,000 IQD each.')
+    expect(calls.some((c) => c.path === '/reports/missing-cost/v-pi')).toBe(false) // nothing changes before saying yes
+    await user.click(within(dialog).getByRole('button', { name: 'Fix' }))
+    await waitFor(() => expect(calls.find((c) => c.path === '/reports/missing-cost/v-pi')?.body).toEqual({ costIQD: 30000 }), wait)
+    expect(await screen.findByText('Nothing in this period.', {}, wait)).toBeInTheDocument()
   }, 40_000)
 })

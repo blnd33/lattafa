@@ -107,7 +107,11 @@ export async function pullNow(full = false): Promise<void> {
     if (!since) throw e
     return pullNow(true)
   }
-  if (since && payload.catalog && ((await db.products.count()) !== payload.catalog.products || (await db.variants.count()) !== payload.catalog.variants)) await pullNow(true)
+  if (since && payload.catalog && ((await db.products.count()) !== payload.catalog.products || (await db.variants.count()) !== payload.catalog.variants)) return pullNow(true)
+  // the copy came down (partly) while someone who can't see costs was signed in: now someone who can is, so fetch it
+  // all again — otherwise sizes first downloaded back then would show (and save) a cost of 0. A till that has never
+  // been told (`undefined`, its copy is older than this check) is treated as unsure, so it gets cleaned up once.
+  if (since && payload.costVisible === true && s.sync.costHidden !== false) await pullNow(true)
 }
 
 let running: Promise<SyncResult> | null = null

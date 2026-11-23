@@ -6,6 +6,7 @@ use App\Exceptions\AppException;
 use App\Models\Expense;
 use App\Models\Shift;
 use App\Models\User;
+use App\Models\Variant;
 use App\Support\Money;
 use App\Support\Time;
 use Illuminate\Support\Collection;
@@ -40,6 +41,7 @@ class ReportCenter
         'debt-movements' => 'customers.view',
         'supplier-balances' => 'purchasing.view',
         'supplier-movements' => 'purchasing.view',
+        'missing-cost' => 'prices.edit',
         'stock-valuation' => 'reports.financial',
         'slow-movers' => 'inventory.view',
         'purchases' => 'purchasing.view',
@@ -74,6 +76,7 @@ class ReportCenter
             'debt-movements' => $this->debtMovements('customer', $from, $to),
             'supplier-balances' => $this->supplierBalances(),
             'supplier-movements' => $this->debtMovements('supplier', $from, $to),
+            'missing-cost' => $this->missingCost(),
             'stock-valuation' => $this->stockValuation(),
             'slow-movers' => $this->slowMovers($from, $to),
             'purchases' => $this->purchases($from, $to),
@@ -95,6 +98,37 @@ class ReportCenter
         }
         $u->update(['commission_pct' => number_format($pct, 2, '.', '')]);
         app(AuditService::class)->log($actor, 'delegate.commission', 'user', $u->id, ['name' => $u->name, 'pct' => round($pct, 2)]);
+    }
+
+    /**
+     * Writes the cost of one size into every bill that was saved with a cost of 0 for it, so the profit of those
+     * sales becomes right. The price, the cash and the stock of those bills stay exactly as they were. A size whose
+     * own cost is still 0 gets this cost too, so the next sale is right as well.
+     *
+     * @return array{lines: int, units: int, variantUpdated: bool}
+     */
+    public function fixMissingCost(User $actor, string $variantId, int $costIQD): array
+    {
+        if (! $actor->can('prices.edit')) {
+            throw AppException::forbidden('prices.edit');
+        }
+        if ($costIQD <= 0) {
+            throw new AppException('invalid_price');
+        }
+        $v = Variant::find($variantId) ?? throw AppException::notFound();
+
+        return DB::transaction(function () use ($actor, $v, $costIQD) {
+            $lines = DB::table('sale_items')->where('variant_id', $v->id)->where('unit_cost_iqd', 0);
+            $units = (int) (clone $lines)->sum(DB::raw('qty - returned_qty'));
+            $n = $lines->update(['unit_cost_iqd' => $costIQD]);
+            $variantUpdated = (int) $v->cost_iqd === 0;
+            if ($variantUpdated) {
+                $v->update(['cost_iqd' => $costIQD]); // also tells the tills, which pull every size changed since their last look
+            }
+            app(AuditService::class)->log($actor, 'sales.cost_fixed', 'variant', $v->id, ['sku' => $v->sku, 'label' => $v->label, 'cost' => $costIQD, 'lines' => $n, 'units' => $units, 'variantUpdated' => $variantUpdated]);
+
+            return ['lines' => $n, 'units' => $units, 'variantUpdated' => $variantUpdated];
+        });
     }
 
     /* ───────── building blocks ───────── */
@@ -496,6 +530,34 @@ class ReportCenter
             ['label' => 'rc.debt_we_owe_now', 'type' => 'iqd', 'value' => (int) $owing->sum('leftIQD')],
             ['label' => 'rc.usd_owed', 'type' => 'usd', 'value' => round((float) $owing->where('currency', 'USD')->sum('left'), 2)],
             ['label' => 'rc.suppliers_owed', 'type' => 'int', 'value' => $owing->count()],
+        ]);
+    }
+
+    /**
+     * Sizes sold on bills that were saved with a cost of 0 — those sales count as pure profit. One row per size, all
+     * time; `fix` is the cost the screen offers to write into those bills (the size's cost now, when it has one).
+     */
+    private function missingCost(): array
+    {
+        $lines = DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.status', '!=', 'voided')->where('sale_items.unit_cost_iqd', 0)
+            ->get(['sale_items.variant_id', 'sale_items.sale_id', 'sale_items.name', 'sale_items.label', 'sale_items.sku', 'sale_items.qty', 'sale_items.returned_qty', 'sale_items.line_total_iqd', 'sales.sold_at']);
+        $cost = DB::table('variants')->whereIn('id', $lines->pluck('variant_id')->unique())->pluck('cost_iqd', 'id');
+        $rows = $lines->groupBy('variant_id')->map(function (Collection $g, string $vid) use ($cost) {
+            $first = $g->first();
+            $net = fn ($i) => max(0, (int) $i->qty - (int) $i->returned_qty);
+            $now = (int) ($cost[$vid] ?? 0);
+
+            return ['id' => $vid, 'product' => json_decode($first->name, true), 'size' => $first->label, 'sku' => $first->sku,
+                'bills' => $g->pluck('sale_id')->unique()->count(), 'units' => $g->sum($net),
+                'revenue' => $g->sum(fn ($i) => (int) $i->qty ? (int) round($i->line_total_iqd * $net($i) / (int) $i->qty) : 0),
+                'firstSold' => (int) $g->min('sold_at'), 'lastSold' => (int) $g->max('sold_at'), 'unitCost' => $now, 'fix' => $now];
+        })->sortByDesc('revenue')->values();
+        $columns = $this->cols([['product', 'name'], ['size', 'text'], ['sku', 'text'], ['bills', 'int'], ['units', 'int'], ['revenue', 'iqd'],
+            ['firstSold', 'date'], ['lastSold', 'date'], ['unitCost', 'iqd'], ['fix', 'iqd']]);
+
+        return $this->table($columns, $rows, ['bills' => $rows->sum('bills'), 'units' => $rows->sum('units'), 'revenue' => $rows->sum('revenue')], [
+            ['label' => 'rc.revenue', 'type' => 'iqd', 'value' => $rows->sum('revenue')], ['label' => 'rc.units', 'type' => 'int', 'value' => $rows->sum('units')],
         ]);
     }
 

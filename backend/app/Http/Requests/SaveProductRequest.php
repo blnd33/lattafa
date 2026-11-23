@@ -36,7 +36,7 @@ class SaveProductRequest extends ApiRequest
             'variants.*.ml' => ['integer', 'min:0'], // older clients: size in ml only (ignored when size + unit are sent)
             'variants.*.sku' => ['required', 'string', 'max:64'],
             'variants.*.barcode' => ['nullable', 'string', 'max:64'],
-            'variants.*.costIQD' => ['integer', 'min:0'],
+            'variants.*.costIQD' => ['nullable', 'integer', 'min:0'], // left out or empty: a size that has a cost keeps it
             'variants.*.retailIQD' => ['required', 'integer', 'min:0'],
             'variants.*.wholesaleIQD' => ['nullable', 'integer', 'min:0'],
             'variants.*.minStock' => ['integer', 'min:0'],

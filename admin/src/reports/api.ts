@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BarChart3, CalendarDays, ClipboardList, Scale, Clock, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BadgeAlert, BarChart3, CalendarDays, ClipboardList, Scale, Clock, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
 import { api } from '@/services/api'
 
 /** One report, in the shape the server sends every report in — see backend/app/Services/ReportCenter.php. */
@@ -23,7 +23,7 @@ export type ReportId =
   | 'sales-by-day' | 'sales-by-product' | 'sales-by-brand' | 'sales-by-category' | 'sales-by-seller'
   | 'profit-loss' | 'expenses' | 'delegate-commission' | 'delegate-sales' | 'debt-aging'
   | 'debt-movements' | 'supplier-balances' | 'supplier-movements'
-  | 'stock-valuation' | 'slow-movers' | 'purchases' | 'shifts'
+  | 'missing-cost' | 'stock-valuation' | 'slow-movers' | 'purchases' | 'shifts'
 
 export type Preset = 'today' | 'yesterday' | '7' | '30' | '90' | 'month' | 'last_month' | 'year' | 'custom'
 
@@ -46,6 +46,7 @@ export const REPORTS: ReportDef[] = [
   { id: 'sales-by-seller', group: 'sales', icon: UserRound, perm: 'reports.view', preset: '30' },
   { id: 'delegate-sales', group: 'delegate', icon: MapPinned, perm: 'delegates.manage', preset: '7' },
   { id: 'profit-loss', group: 'money', icon: Landmark, perm: 'reports.financial', preset: 'month' },
+  { id: 'missing-cost', group: 'money', icon: BadgeAlert, perm: 'prices.edit', preset: 'today', asOf: true },
   { id: 'expenses', group: 'money', icon: Wallet, perm: 'expenses.view', preset: 'month' },
   { id: 'delegate-commission', group: 'delegate', icon: HandCoins, perm: 'delegates.manage', preset: 'month' },
   { id: 'debt-aging', group: 'debts', icon: Hourglass, perm: 'customers.view', preset: 'today', asOf: true },
@@ -63,6 +64,9 @@ export const GROUPS = ['sales', 'money', 'debts', 'stock', 'staff', 'delegate'] 
 export const DELEGATE_REPORTS = REPORTS.filter((r) => r.group === 'delegate')
 
 export const runReport = (type: ReportId, from: number, to: number) => api<ReportTable>('GET', `/reports/table/${type}?from=${from}&to=${to}`)
+/** Reports → Sales saved without cost: write a size's real cost into the bills that were saved with 0. */
+export const fixMissingCost = (variantId: string, costIQD: number) =>
+  api<{ lines: number; units: number; variantUpdated: boolean }>('POST', `/reports/missing-cost/${variantId}`, { costIQD })
 export const setCommission = async (delegateId: string, pct: number) => { await api('PUT', `/delegates/${delegateId}/commission`, { pct }) }
 
 /** A preset's first and last millisecond, in this computer's (the shop's) time. */

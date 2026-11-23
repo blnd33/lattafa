@@ -296,6 +296,8 @@ class SyncService
             'roles' => Role::all()->map(fn (Role $r) => Present::role($r))->values()->all(),
             'users' => User::with('role')->get()->map(fn (User $u) => Present::user($u))->values()->all(),
             'products' => $products->map(fn (Product $p) => Present::product($p, $showCost))->values()->all(),
+            // false: every cost above is a hidden 0, not a real one — the till keeps the costs it already has
+            'costVisible' => $showCost,
             'customers' => Customer::where('updated_at', '>', $after)->get()->map(fn (Customer $c) => Present::customer($c))->values()->all(),
             'deleted' => ['products' => $tomb['product'] ?? [], 'users' => $tomb['user'] ?? [], 'roles' => $tomb['role'] ?? []],
             // the whole catalogue's size: a device whose copy holds anything else fetches it all again

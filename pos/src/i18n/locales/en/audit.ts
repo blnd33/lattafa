@@ -47,6 +47,7 @@ export const audit: Record<string, string> = {
   'act.delegate.closing_approve': 'Daily closing approved',
   'act.delegate.closing_reject': 'Daily closing rejected',
   'act.delegate.commission': 'Commission changed',
+  'act.sales.cost_fixed': 'Cost of past sales fixed',
   'act.purchase.order': 'Purchase order made',
   'act.purchase.order_update': 'Purchase order changed',
   'act.purchase.receive': 'Delivery received',

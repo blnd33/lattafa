@@ -120,6 +120,40 @@ class ReportsTest extends ApiTestCase
         $this->assertSame([], $this->report('purchases')['rows']);
     }
 
+    public function test_sales_saved_without_cost_are_listed_and_fixed(): void
+    {
+        $this->shop();
+        $kh = $this->variantOf('Khamrah');
+        $real = $kh->cost_iqd;
+        $kh->update(['cost_iqd' => 0]); // wiped: the next sales are saved at cost 0
+        $this->cashierWithShift();
+        $sale = $this->checkout($kh, 2, [['method' => 'cash_iqd', 'tendered' => 2 * $kh->retail_iqd]])->assertCreated()->json('sale');
+        $this->checkout($kh, 1, [['method' => 'cash_iqd', 'tendered' => $kh->retail_iqd]])->assertCreated();
+        $this->asOwner();
+
+        $r = $this->report('missing-cost');
+        $row = $this->row($r, 'sku', $kh->sku);
+        $this->assertSame([$kh->id, 2, 3, 3 * $kh->retail_iqd, 0, 0], [$row['id'], $row['bills'], $row['units'], $row['revenue'], $row['unitCost'], $row['fix']]);
+        $this->assertCount(1, $r['rows']);
+        $profitBefore = $this->report('sales-by-product')['totals']['profit'];
+
+        $this->api('POST', "reports/missing-cost/{$kh->id}", ['costIQD' => 0])->assertStatus(422);
+        $res = $this->api('POST', "reports/missing-cost/{$kh->id}", ['costIQD' => $real])->assertOk()->json();
+        $this->assertSame(['lines' => 2, 'units' => 3, 'variantUpdated' => true], $res);
+        $this->assertSame($real, $kh->fresh()->cost_iqd); // the next sale is right too
+        $this->assertSame([], $this->report('missing-cost')['rows']);
+        $this->assertSame($profitBefore - 3 * $real, $this->report('sales-by-product')['totals']['profit']);
+        $this->assertSame(2 * $kh->retail_iqd, DB::table('sales')->where('id', $sale['id'])->value('total_iqd')); // the bill itself is untouched
+        $this->assertTrue(AuditLog::where('action', 'sales.cost_fixed')->where('entity_id', $kh->id)->exists());
+
+        // only someone who may change prices can do this
+        $role = $this->api('POST', 'roles', ['name' => 'Viewer', 'description' => '', 'permissions' => ['reports.view', 'reports.financial'], 'apps' => ['admin']])->assertCreated()->json('role.id');
+        $viewer = $this->makeUser('Lana', 'lana', 'cashier', '4242', ['roleId' => $role]);
+        $this->asUser($viewer, '4242');
+        $this->api('GET', 'reports/table/missing-cost')->assertStatus(403);
+        $this->api('POST', "reports/missing-cost/{$kh->id}", ['costIQD' => 5])->assertStatus(403);
+    }
+
     public function test_people_see_only_the_reports_and_columns_they_may(): void
     {
         $this->day();

@@ -19,6 +19,8 @@ export interface PullPayload {
   roles: Role[]
   users: ServerUser[]
   products: ServerProduct[]
+  /** false: the person who pulled can't see cost prices, and every cost in `products` is a hidden 0, not a real one */
+  costVisible?: boolean
   customers: Customer[]
   deleted: { products: string[]; users: string[]; roles: string[] }
   /** How many products and sizes the shop has in all, so a device can tell its copy has fallen out of step. */

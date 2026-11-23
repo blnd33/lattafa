@@ -38,6 +38,14 @@ class ReportController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** Reports → Sales saved without cost: write a size's cost into the bills that were saved with 0. */
+    public function fixMissingCost(Request $r, string $variantId): JsonResponse
+    {
+        $d = $r->validate(['costIQD' => ['required', 'integer', 'min:1']]);
+
+        return response()->json($this->center->fixMissingCost($r->user(), $variantId, (int) $d['costIQD']));
+    }
+
     /** The admin panel's first screen: `?period=today|week|month`. */
     public function dashboard(Request $r): JsonResponse
     {
