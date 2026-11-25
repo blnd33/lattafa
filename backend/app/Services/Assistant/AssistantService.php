@@ -58,10 +58,15 @@ TXT;
 
     public function __construct(private AssistantTools $tools) {}
 
-    /** Is a key configured on the server? */
+    /**
+     * Is a real key configured on the server? A placeholder left in .env (`sk-ant-...`) counts as none, so the admin
+     * panel keeps to its free questions instead of offering a typing box that can only fail.
+     */
     public static function configured(): bool
     {
-        return (string) config('services.anthropic.key') !== '';
+        $key = trim((string) config('services.anthropic.key'));
+
+        return strlen($key) >= 40 && ! str_contains($key, '...') && ! str_contains($key, '…');
     }
 
     public static function model(): string

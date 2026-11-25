@@ -21,7 +21,7 @@ class AssistantTest extends ApiTestCase
     /** @param array<int, array<string, mixed>> $replies the fake Claude's answers, in order (Messages API JSON) */
     private function claude(array $replies, int $status = 200): void
     {
-        config(['services.anthropic.key' => 'sk-ant-test', 'services.anthropic.model' => 'claude-opus-5-5']);
+        config(['services.anthropic.key' => 'sk-ant-api03-test-key-'.str_repeat('x', 40), 'services.anthropic.model' => 'claude-opus-5-5']);
         $fake = new class($replies, $status, $this->sent) implements ClientInterface
         {
             public function __construct(private array $replies, private int $status, private array &$sent) {}
@@ -135,6 +135,8 @@ class AssistantTest extends ApiTestCase
         $this->asAdminPanel();
         $this->api('GET', 'assistant/status')->assertOk()->assertJsonPath('configured', true)->assertJsonPath('model', 'claude-opus-5-5');
         config(['services.anthropic.key' => '']);
+        $this->api('GET', 'assistant/status')->assertOk()->assertJsonPath('configured', false);
+        config(['services.anthropic.key' => 'sk-ant-...']);                                   // the placeholder from the guide
         $this->api('GET', 'assistant/status')->assertOk()->assertJsonPath('configured', false);
         $this->api('POST', 'assistant/chat', ['messages' => [['role' => 'user', 'content' => 'hi']]])->assertStatus(503)->assertJsonPath('error.code', 'assistant_not_configured');
     }

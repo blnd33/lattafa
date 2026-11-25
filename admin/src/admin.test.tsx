@@ -111,6 +111,7 @@ function dashboard(period: Dashboard['period']): Dashboard {
 
 let calls: { method: string; path: string; body: unknown; headers: Record<string, string> }[] = []
 let reviewed = false
+let assistantKey = false
 const flagged = {
   id: '5a1e0000-0000-4000-8000-000000000001', number: 'ST2-000077', shiftId: null, userId: owner.id, userName: 'Sara', customerId: null, customerName: '', channel: 'store', status: 'completed',
   items: [], subtotalIQD: 60000, itemDiscountIQD: 0, orderDiscountIQD: 0, orderDiscount: null, giftWrapIQD: 0, taxIQD: 0, roundingIQD: 0, pointsRedeemedIQD: 0, totalIQD: 60000,
@@ -127,6 +128,7 @@ beforeEach(async () => {
   window.location.hash = ''
   calls = []
   reviewed = false
+  assistantKey = false
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     const path = url.replace('/api/v1', '')
     const body = init.body ? JSON.parse(String(init.body)) : undefined
@@ -150,7 +152,14 @@ beforeEach(async () => {
     if (path === '/sync/push') return json(200, { results: [] })
     if (path === '/sales/review') return json(200, { sales: reviewed ? [] : [flagged] })
     if (path === `/sales/${flagged.id}/reviewed`) { reviewed = true; return json(200, { sale: { ...flagged, needsReview: false, reviewedAt: now, reviewedBy: owner.id, reviewNote: body.note } }) }
-    if (path === '/assistant/status') return json(200, { configured: true, model: 'claude-opus-5-5' })
+    if (path === '/assistant/status') return json(200, { configured: assistantKey, model: assistantKey ? 'claude-opus-5-5' : null })
+    if (path.startsWith('/reports/table/sales-by-product?')) {
+      return json(200, {
+        type: 'sales-by-product', from: 0, to: now, financial: true, totals: null, summary: [],
+        columns: [{ key: 'product', label: 'rc.product', type: 'name' }, { key: 'size', label: 'rc.size', type: 'text' }, { key: 'units', label: 'rc.units', type: 'int' }, { key: 'revenue', label: 'rc.revenue', type: 'iqd' }],
+        rows: [{ product: { en: 'Asad', ar: 'أسد', ku: 'ئەسەد' }, size: '100 ml', units: 17, revenue: 714000 }, { product: { en: 'Khamrah', ar: 'خمرة', ku: 'خەمرە' }, size: '100 ml', units: 42, revenue: 2520000 }],
+      })
+    }
     if (path === '/assistant/chat') {
       const lines = [
         { type: 'tool', name: 'run_report' },
@@ -303,7 +312,7 @@ describe('Admin panel', () => {
     expect(await screen.findByRole('dialog', { name: 'Add expense' }, wait)).toBeInTheDocument()
   }, 30_000)
 
-  it('the assistant answers a suggested question from the figures, in a table', async () => {
+  it('the assistant answers its built-in questions from the figures, free and without a key', async () => {
     render(<AdminApp />)
     await user.type(await screen.findByLabelText('Username', {}, wait), 'owner')
     await user.type(screen.getByLabelText('Password'), 'right password')
@@ -311,17 +320,40 @@ describe('Admin panel', () => {
     await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Rand/ }, wait)
 
     await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Assistant' }))
-    expect(await screen.findByText('What would you like to know?', {}, wait)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'What are my 10 best-selling perfumes this month?' }))
+    expect(await screen.findByText('Choose the period, then tap a question.', {}, wait)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Ask about sales, profit, stock, debts…')).toBeNull()        // no typing without a key
+    expect(screen.getByText(/Typing your own questions needs a Claude API key/)).toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: '30 days' }))
+    await user.click(screen.getByRole('button', { name: 'Best-selling perfumes' }))
+    expect(await screen.findByText('Best-selling perfumes · 30 days', {}, wait)).toBeInTheDocument()
+    const rows = await screen.findAllByRole('row', {}, wait)
+    expect(rows[1]).toHaveTextContent('Khamrah')                                              // most bottles first
+    expect(rows[1]).toHaveTextContent('2,520,000')
+    expect(rows[2]).toHaveTextContent('Asad')
+    const report = calls.find((c) => c.path.startsWith('/reports/table/sales-by-product?'))!
+    const [from, to] = [...report.path.matchAll(/=(\d+)/g)].map((m) => Number(m[1]))
+    expect(Math.round((to - from) / 86_400_000)).toBe(30)
+    expect(calls.some((c) => c.path === '/assistant/chat')).toBe(false)                       // nothing went to the AI
+  }, 30_000)
+
+  it('with a Claude key, typed questions are answered too, with the conversation so far', async () => {
+    assistantKey = true
+    render(<AdminApp />)
+    await user.type(await screen.findByLabelText('Username', {}, wait), 'owner')
+    await user.type(screen.getByLabelText('Password'), 'right password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Rand/ }, wait)
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Assistant' }))
+
+    await user.type(await screen.findByLabelText('Ask about sales, profit, stock, debts…', {}, wait), 'What is my best seller this month?')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
     expect(await screen.findByRole('cell', { name: 'Khamrah' }, wait)).toBeInTheDocument()
-    expect(screen.getByRole('cell', { name: '42' })).toBeInTheDocument()
     expect(screen.getByText('Khamrah', { selector: 'strong' })).toBeInTheDocument()
     const sent = calls.find((c) => c.path === '/assistant/chat')!
-    expect(sent.body).toEqual({ messages: [{ role: 'user', content: 'What are my 10 best-selling perfumes this month?' }] })
+    expect(sent.body).toEqual({ messages: [{ role: 'user', content: 'What is my best seller this month?' }] })
     expect(sent.headers.Authorization).toBe('Bearer tok-u-owner')
 
-    // a follow-up carries the conversation, so "and last month?" makes sense
     await user.type(screen.getByLabelText('Ask about sales, profit, stock, debts…'), 'And last month?')
     await user.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(calls.filter((c) => c.path === '/assistant/chat')).toHaveLength(2), wait)

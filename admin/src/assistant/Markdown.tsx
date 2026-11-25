@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 /**
  * The little Markdown the assistant writes — paragraphs, headings, bullet and numbered lists, tables, **bold**,
  * *italic* and `code` — turned into elements directly (never into HTML), so nothing in an answer can run as code.
- * `dir="auto"` lets each block follow its own language: an English table inside an Arabic answer still reads right.
+ * `dir="auto"` lets each block follow its own language, and each table cell is isolated (`<bdi>`), so "100 ml" stays
+ * "100 ml" inside an Arabic or Kurdish table instead of turning into "ml 100".
  */
 export function Markdown({ text }: { text: string }) {
   return <div className="space-y-2.5 text-[15px] leading-relaxed">{blocks(text)}</div>
@@ -35,10 +36,11 @@ function blocks(text: string): ReactNode[] {
       i += 2
       while (i < lines.length && isTableRow(lines[i])) rows.push(cells(lines[i++]))
       out.push(
-        <div key={i} dir="auto" className="-mx-1 overflow-x-auto px-1">
+        // the cells are isolated, so dir="auto" would see no text: Arabic or Kurdish in the table makes it right-to-left
+        <div key={i} dir={/[\u0600-\u06FF]/.test([...head, ...rows.flat()].join(' ')) ? 'rtl' : 'ltr'} className="-mx-1 overflow-x-auto px-1">
           <table className="w-full min-w-max border-collapse text-sm">
-            <thead><tr>{head.map((c, j) => <th key={j} className="border-b border-line px-2 py-1.5 text-start font-semibold">{inline(c)}</th>)}</tr></thead>
-            <tbody>{rows.map((r, k) => <tr key={k} className="border-b border-line/60 last:border-0">{r.map((c, j) => <td key={j} className="px-2 py-1.5 align-top">{inline(c)}</td>)}</tr>)}</tbody>
+            <thead><tr>{head.map((c, j) => <th key={j} className="border-b border-line px-2 py-1.5 text-start font-semibold"><bdi>{inline(c)}</bdi></th>)}</tr></thead>
+            <tbody>{rows.map((r, k) => <tr key={k} className="border-b border-line/60 last:border-0">{r.map((c, j) => <td key={j} className="px-2 py-1.5 align-top"><bdi>{inline(c)}</bdi></td>)}</tr>)}</tbody>
           </table>
         </div>,
       )

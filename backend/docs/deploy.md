@@ -254,12 +254,19 @@ Tills and phones pick up the new version by themselves the next time they open t
 
 ## The assistant (Admin panel → Assistant)
 
-The assistant answers questions about the shop's figures with Claude, Anthropic's AI. It only **reads**: it calls the
-same reports and dashboards as the admin panel, as the person asking, so nobody sees more through it than on their own
-screens. It works only in the admin panel (tills and delegate phones are refused) and only for people whose role has
-**Use the assistant** (the Super Admin always has it; give it to other roles in Users → Roles).
+The assistant answers questions about the shop's figures. It works only in the admin panel (tills and delegate phones
+are refused) and only for people whose role has **Ask the assistant** (the Super Admin always has it; give it to other
+roles in Users → Roles). It only **reads**, through the same reports and dashboards as the admin panel, as the person
+asking, so nobody sees more through it than on their own screens.
 
-**Switch it on** — create an API key at https://platform.claude.com (Settings → API keys; the account needs credit),
+**Built-in questions — free, nothing to set up.** Pick a period (today, 7, 30 or 90 days) and tap a question: sales
+compared with before, best sellers, sales by brand, who sold the most, profit after expenses, what is not selling, what
+is running low, who owes the shop, what the shop owes suppliers, expenses, delegates, wholesale orders waiting, stock
+value, sizes sold without a cost price. The answers are built in the browser from the shop's own figures; no AI and no
+outside service is involved.
+
+**Typed questions (optional, paid) — Claude.** To also let people ask in their own words, the server needs a Claude
+API key. Create one at https://platform.claude.com (Settings → API keys; the account needs credit),
 then on the server:
 
 ```bash
@@ -269,7 +276,8 @@ php artisan optimize
 ```
 
 Optional lines in `.env`: `ASSISTANT_MODEL` (default `claude-opus-5-5`) and `ASSISTANT_EFFORT` (`low`, `medium` — the
-default — or `high`: more thorough, slower, costs more). Leave `ANTHROPIC_API_KEY` empty to switch the assistant off.
+default — or `high`: more thorough, slower, costs more). Leave `ANTHROPIC_API_KEY` empty (or remove the line) and only
+the free built-in questions are offered.
 
 **What it sends to Anthropic:** the question, the conversation so far, and the figures it looks up to answer (which can
 include customer names and phone numbers). **What it costs:** each question is billed by Anthropic to the account that
