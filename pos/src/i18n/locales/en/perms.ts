@@ -15,6 +15,7 @@ export const perms: Dict = {
   'permgroup.users': 'Users & roles',
   'permgroup.system': 'System',
   'permgroup.delegate': 'Delegates (field sales)',
+  'permgroup.assistant': 'Assistant',
   'permgroup.catalogue': 'Wholesale catalogue',
 
   'perm.pos.sell': 'Sell at the till',
@@ -75,6 +76,7 @@ export const perms: Dict = {
   'perm.delegate.request_stock': 'Ask the shop for more van stock',
   'perm.delegate.close': 'Send the daily closing',
   'perm.delegates.manage': 'Manage delegates: load vans, handle stock requests, approve closings',
+  'perm.assistant.use': "Ask the assistant about the shop's figures (admin panel)",
   'perm.catalogue.view': 'See the wholesale catalogue screens',
   'perm.catalogue.products': 'Photos, descriptions and collections of the perfumes in the catalogue',
   'perm.catalogue.countries': 'Add countries and the language each one opens in',

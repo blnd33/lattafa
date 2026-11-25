@@ -165,6 +165,10 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     // reports
     Route::get('dashboard', [ReportController::class, 'dashboard']);
     Route::get('debts', [ReportController::class, 'debts']);
+
+    // the admin panel's assistant (Claude) — read-only, admin panel only
+    Route::get('assistant/status', [\App\Http\Controllers\Api\V1\AssistantController::class, 'status']);
+    Route::post('assistant/chat', [\App\Http\Controllers\Api\V1\AssistantController::class, 'chat'])->middleware('throttle:30,1');
     Route::get('reports/sales', [ReportController::class, 'sales']);
     Route::get('reports/stock-valuation', [ReportController::class, 'stockValuation']);
     Route::get('reports/debtors', [ReportController::class, 'debtors']);

@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+
+    // Admin panel → Assistant (Claude). Without a key the assistant says it is not set up; nothing else depends on it.
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY', ''),
+        'model' => env('ASSISTANT_MODEL', 'claude-opus-5-5'),
+        'effort' => env('ASSISTANT_EFFORT', 'medium'),       // low | medium | high — more effort: slower, more thorough, costs more
+        'base_url' => env('ANTHROPIC_BASE_URL'),              // leave unset: the Claude API
+    ],
+
 ];

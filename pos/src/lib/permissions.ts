@@ -27,6 +27,8 @@ export const PERMISSION_GROUPS: PermGroup[] = [
   { key: 'users', perms: ['users.view', 'users.create', 'users.edit', 'users.delete', 'users.reset_credentials', 'roles.manage'] },
   { key: 'system', perms: ['settings.view', 'settings.edit', 'devices.manage', 'audit.view', 'backup.manage'] },
   { key: 'delegate', perms: ['delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close', 'delegates.manage'] },
+  // the admin panel's assistant (Claude): asks about the shop's figures, read-only
+  { key: 'assistant', perms: ['assistant.use'] },
   // the wholesale catalogue (/catalogue/) — its management screens live in the admin panel
   { key: 'catalogue', perms: ['catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules', 'catalogue.orders', 'catalogue.payments', 'catalogue.appearance'] },
 ]

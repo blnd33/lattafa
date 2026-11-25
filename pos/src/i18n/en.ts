@@ -14,6 +14,7 @@ import { reports } from './locales/en/reports'
 import { menu } from './locales/en/menu'
 import { audit } from './locales/en/audit'
 import { debts } from './locales/en/debts'
+import { assistant } from './locales/en/assistant'
 import { wholesale } from './locales/en/wholesale'
 
-export const en: Record<string, string> = { ...common, ...errors, ...perms, ...auth, ...sell, ...shift, ...admin, ...admin2, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit, ...debts, ...wholesale }
+export const en: Record<string, string> = { ...common, ...errors, ...perms, ...auth, ...sell, ...shift, ...admin, ...admin2, ...delegate, ...sheet, ...panel, ...buy, ...reports, ...menu, ...audit, ...debts, ...wholesale, ...assistant }

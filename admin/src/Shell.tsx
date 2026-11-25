@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, BookOpen, HandCoins, Boxes, ClipboardList, FileSpreadsheet, Globe, History, Inbox, MonitorSmartphone, KeyRound, Languages, LayoutDashboard, LogOut, Menu as MenuIcon, Package, Receipt, Settings,
-  ShieldAlert, ShieldCheck, Sun, Truck, Users, Wallet, X, type LucideIcon,
+  ShieldAlert, ShieldCheck, Sparkles, Sun, Truck, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react'
 import { Logo } from '@/components/ui/Brand'
 import { Avatar, Badge } from '@/components/ui/Controls'
@@ -35,6 +35,7 @@ export const REPORT_PERMS = [...new Set(REPORTS.map((r) => r.perm))]
 /** The screens (most are the POS's own, run against the server), grouped as in the sidebar. */
 export const ADMIN_NAV: AdminNavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'ap.nav_dashboard', perms: ['reports.view'], section: 'overview' },
+  { to: '/assistant', icon: Sparkles, label: 'ap.nav_assistant', perms: ['assistant.use'], section: 'overview' },
   { to: '/sales', icon: Receipt, label: 'nav.sales', perms: ['sales.view_own', 'sales.view_all'], section: 'overview' },
   { to: '/review', icon: ShieldAlert, label: 'ap.nav_review', perms: ['sales.view_all'], section: 'overview' },
   { to: '/reports', icon: BarChart3, label: 'nav.reports', perms: REPORT_PERMS, section: 'overview' },

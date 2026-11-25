@@ -29,6 +29,7 @@ final class Permissions
         'users' => ['users.view', 'users.create', 'users.edit', 'users.delete', 'users.reset_credentials', 'roles.manage'],
         'system' => ['settings.view', 'settings.edit', 'devices.manage', 'audit.view', 'backup.manage'],
         'delegate' => ['delegate.sell', 'delegate.visit', 'delegate.request_stock', 'delegate.close', 'delegates.manage'],
+        'assistant' => ['assistant.use'],
         'catalogue' => ['catalogue.view', 'catalogue.products', 'catalogue.countries', 'catalogue.translations', 'catalogue.customers', 'catalogue.codes', 'catalogue.prices', 'catalogue.rules', 'catalogue.orders', 'catalogue.payments', 'catalogue.appearance'],
     ];
 

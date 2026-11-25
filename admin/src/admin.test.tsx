@@ -150,6 +150,14 @@ beforeEach(async () => {
     if (path === '/sync/push') return json(200, { results: [] })
     if (path === '/sales/review') return json(200, { sales: reviewed ? [] : [flagged] })
     if (path === `/sales/${flagged.id}/reviewed`) { reviewed = true; return json(200, { sale: { ...flagged, needsReview: false, reviewedAt: now, reviewedBy: owner.id, reviewNote: body.note } }) }
+    if (path === '/assistant/status') return json(200, { configured: true, model: 'claude-opus-5-5' })
+    if (path === '/assistant/chat') {
+      const lines = [
+        { type: 'tool', name: 'run_report' },
+        { type: 'answer', text: 'Your best seller this month is **Khamrah**.\n\n| Perfume | Bottles |\n|---|---|\n| Khamrah | 42 |\n| Asad | 17 |' },
+      ]
+      return new Response(lines.map((l) => JSON.stringify(l)).join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } })
+    }
     const m = /^\/dashboard\?period=(\w+)$/.exec(path)
     if (m) return json(200, dashboard(m[1] as Dashboard['period']))
     if (path.startsWith('/expenses?')) {
@@ -293,6 +301,31 @@ describe('Admin panel', () => {
     await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Dashboard' }))
     await user.click(await screen.findByRole('link', { name: 'Add expense' }, wait))
     expect(await screen.findByRole('dialog', { name: 'Add expense' }, wait)).toBeInTheDocument()
+  }, 30_000)
+
+  it('the assistant answers a suggested question from the figures, in a table', async () => {
+    render(<AdminApp />)
+    await user.type(await screen.findByLabelText('Username', {}, wait), 'owner')
+    await user.type(screen.getByLabelText('Password'), 'right password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Rand/ }, wait)
+
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Assistant' }))
+    expect(await screen.findByText('What would you like to know?', {}, wait)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'What are my 10 best-selling perfumes this month?' }))
+
+    expect(await screen.findByRole('cell', { name: 'Khamrah' }, wait)).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '42' })).toBeInTheDocument()
+    expect(screen.getByText('Khamrah', { selector: 'strong' })).toBeInTheDocument()
+    const sent = calls.find((c) => c.path === '/assistant/chat')!
+    expect(sent.body).toEqual({ messages: [{ role: 'user', content: 'What are my 10 best-selling perfumes this month?' }] })
+    expect(sent.headers.Authorization).toBe('Bearer tok-u-owner')
+
+    // a follow-up carries the conversation, so "and last month?" makes sense
+    await user.type(screen.getByLabelText('Ask about sales, profit, stock, debts…'), 'And last month?')
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    await waitFor(() => expect(calls.filter((c) => c.path === '/assistant/chat')).toHaveLength(2), wait)
+    expect((calls.filter((c) => c.path === '/assistant/chat')[1].body as { messages: unknown[] }).messages).toHaveLength(3)
   }, 30_000)
 
   it('an account made only to watch lands on the activity log and reaches nothing else', async () => {

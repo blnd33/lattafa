@@ -252,6 +252,31 @@ php artisan up
 
 Tills and phones pick up the new version by themselves the next time they open the app.
 
+## The assistant (Admin panel → Assistant)
+
+The assistant answers questions about the shop's figures with Claude, Anthropic's AI. It only **reads**: it calls the
+same reports and dashboards as the admin panel, as the person asking, so nobody sees more through it than on their own
+screens. It works only in the admin panel (tills and delegate phones are refused) and only for people whose role has
+**Use the assistant** (the Super Admin always has it; give it to other roles in Users → Roles).
+
+**Switch it on** — create an API key at https://platform.claude.com (Settings → API keys; the account needs credit),
+then on the server:
+
+```bash
+cd /var/www/lattafa/backend
+nano .env        # add the line:  ANTHROPIC_API_KEY=sk-ant-...
+php artisan optimize
+```
+
+Optional lines in `.env`: `ASSISTANT_MODEL` (default `claude-opus-5-5`) and `ASSISTANT_EFFORT` (`low`, `medium` — the
+default — or `high`: more thorough, slower, costs more). Leave `ANTHROPIC_API_KEY` empty to switch the assistant off.
+
+**What it sends to Anthropic:** the question, the conversation so far, and the figures it looks up to answer (which can
+include customer names and phone numbers). **What it costs:** each question is billed by Anthropic to the account that
+owns the key — usually a few cents; watch it in the Claude Console under Usage, and set a monthly limit there.
+
+If answers stop with "could not reach Claude", the server needs outgoing HTTPS to `api.anthropic.com`.
+
 ## Keeping an eye on it
 
 * `https://<your-domain>/up` answers when the system is running: add it to a free uptime monitor (e.g. UptimeRobot)

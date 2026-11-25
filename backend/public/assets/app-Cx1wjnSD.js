@@ -1,0 +1,1 @@
+var e=typeof location<`u`&&/^\/admin(\/|$)/.test(location.pathname)?`admin`:`pos`,t=e===`admin`?`lattafa-admin`:`lattafa-pos`,n=e===`admin`?`lattafa-admin-session`:`lattafa-session`;export{t as n,n as r,e as t};

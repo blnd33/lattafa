@@ -45,6 +45,7 @@ const PurchasingPage = lazyPage(() => import('./purchasing/PurchasingPage'), 'Pu
 const ExpensesPage = lazyPage(() => import('./expenses/ExpensesPage'), 'ExpensesPage')
 const MenuPage = lazyPage(() => import('./menu/MenuPage'), 'MenuPage')
 const DebtsPage = lazyPage(() => import('./debts/DebtsPage'), 'DebtsPage')
+const AssistantPage = lazyPage(() => import('./assistant/AssistantPage'), 'AssistantPage')
 const CatalogueSection = lazyPage(() => import('./catalogue/CatalogueSection'), 'CatalogueSection')
 
 const SERVER_KEY = ['admin-server']
@@ -156,6 +157,7 @@ function Gate() {
           <Route path="/inventory" element={can(['inventory.view'])(<InventoryPage />)} />
           <Route path="/purchasing/*" element={<PurchasingPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
+          <Route path="/assistant" element={can(['assistant.use'])(<AssistantPage />)} />
           <Route path="/debts" element={can(['customers.view', 'purchasing.view'])(<DebtsPage />)} />
           <Route path="/customers" element={can(['customers.view'])(<CustomersPage />)} />
           <Route path="/delegates" element={can(['delegates.manage'])(<DelegatesSection />)} />
