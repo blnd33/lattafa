@@ -136,6 +136,7 @@ final class Present
                 'variantId' => $i->variant_id, 'productId' => $i->product_id, 'name' => $i->name, 'brand' => $i->brand, 'label' => $i->label, 'sku' => $i->sku,
                 'barcode' => $i->barcode, 'qty' => $i->qty, 'unitPriceIQD' => $i->unit_price_iqd, 'unitCostIQD' => $showCost ? $i->unit_cost_iqd : 0,
                 'discountPct' => $i->discount_pct, 'discountIQD' => $i->discount_iqd, 'lineTotalIQD' => $i->line_total_iqd, 'returnedQty' => $i->returned_qty,
+                'gift' => (bool) $i->is_gift,
             ])->values()->all(),
             'subtotalIQD' => $s->subtotal_iqd, 'itemDiscountIQD' => $s->item_discount_iqd, 'orderDiscountIQD' => $s->order_discount_iqd, 'orderDiscount' => $s->order_discount,
             'giftWrapIQD' => $s->gift_wrap_iqd, 'taxIQD' => $s->tax_iqd, 'roundingIQD' => $s->rounding_iqd, 'pointsRedeemedIQD' => $s->points_redeemed_iqd, 'totalIQD' => $s->total_iqd,

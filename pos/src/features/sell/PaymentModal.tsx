@@ -98,7 +98,7 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
   /** Finishes the bill with these payments. Shared by the quick "yes" and the full keypad. */
   const submit = async (payments: CheckoutPayment[], redeemPoints: number) => {
     if (!actor) return
-    // Over-limit discounts need a supervisor's PIN (asked once, remembered for this bill)
+    // Over-limit discounts and gifts need a manager's PIN (asked once, remembered for this bill)
     let approvedBy = cart.approvedBy
     const over = priced.effectiveDiscountPct > actor.limits.maxDiscountPct + 1e-9 && !hasPerm(actor.permissions, 'sales.discount.above_limit')
     if (over && !approvedBy) {
@@ -106,11 +106,17 @@ export function PaymentModal({ open, onClose, pricing, onDone }: { open: boolean
       if (!approvedBy) return
       cart.setApprovedBy(approvedBy)
     }
+    const gifts = cart.lines.some((l) => (l.giftQty ?? 0) > 0) && !hasPerm(actor.permissions, 'sales.gift')
+    if (gifts && !approvedBy) {
+      approvedBy = await ask('sales.gift', t('sell.gift_needs_approval'))
+      if (!approvedBy) return
+      cart.setApprovedBy(approvedBy)
+    }
     const sale = await run({
-      lines: cart.lines.map((l) => ({ variantId: l.variantId, qty: l.qty, discountPct: l.discountPct })),
+      lines: cart.lines.map((l) => ({ variantId: l.variantId, qty: l.qty, discountPct: l.discountPct, giftQty: Math.min(l.giftQty ?? 0, l.qty) })),
       customerId: cart.customerId,
       orderDiscount: cart.orderDiscount,
-      giftWrap: cart.giftWrap,
+      giftWrap: false,
       redeemPoints,
       payments,
       note: cart.note,

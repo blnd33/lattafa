@@ -12,6 +12,7 @@ interface CartState {
   lines: CartSnapshotLine[]
   customerId: string | null
   orderDiscount: OrderDiscount | null
+  /** gift wrapping is no longer offered; kept false so old held bills still load */
   giftWrap: boolean
   note: string
   redeemPoints: number
@@ -20,10 +21,11 @@ interface CartState {
   add: (variantId: string, qty?: number) => void
   setQty: (variantId: string, qty: number) => void
   setLineDiscount: (variantId: string, pct: number) => void
+  /** how many bottles of this line are a gift (clamped to 0..qty) */
+  setLineGift: (variantId: string, giftQty: number) => void
   remove: (variantId: string) => void
   setCustomer: (id: string | null) => void
   setOrderDiscount: (d: OrderDiscount | null) => void
-  setGiftWrap: (v: boolean) => void
   setNote: (n: string) => void
   setRedeem: (p: number) => void
   setReturnCredit: (c: ReturnCredit | null) => void
@@ -46,17 +48,17 @@ export const useCart = create<CartState>()(
           const ex = s.lines.find((l) => l.variantId === variantId)
           return { lines: ex ? s.lines.map((l) => (l.variantId === variantId ? { ...l, qty: l.qty + qty } : l)) : [...s.lines, { variantId, qty, discountPct: 0 }] }
         }),
-      setQty: (variantId, qty) => set((s) => ({ lines: qty <= 0 ? s.lines.filter((l) => l.variantId !== variantId) : s.lines.map((l) => (l.variantId === variantId ? { ...l, qty } : l)) })),
+      setQty: (variantId, qty) => set((s) => ({ lines: qty <= 0 ? s.lines.filter((l) => l.variantId !== variantId) : s.lines.map((l) => (l.variantId === variantId ? { ...l, qty, giftQty: Math.min(l.giftQty ?? 0, qty) } : l)) })),
       setLineDiscount: (variantId, pct) => set((s) => ({ lines: s.lines.map((l) => (l.variantId === variantId ? { ...l, discountPct: pct } : l)) })),
+      setLineGift: (variantId, giftQty) => set((s) => ({ lines: s.lines.map((l) => (l.variantId === variantId ? { ...l, giftQty: Math.max(0, Math.min(l.qty, Math.floor(giftQty))) } : l)) })),
       remove: (variantId) => set((s) => ({ lines: s.lines.filter((l) => l.variantId !== variantId) })),
       setCustomer: (customerId) => set({ customerId, redeemPoints: 0 }),
       setOrderDiscount: (orderDiscount) => set({ orderDiscount }),
-      setGiftWrap: (giftWrap) => set({ giftWrap }),
       setNote: (note) => set({ note }),
       setRedeem: (redeemPoints) => set({ redeemPoints }),
       setReturnCredit: (returnCredit) => set({ returnCredit }),
       setApprovedBy: (approvedBy) => set({ approvedBy }),
-      load: (snap) => set({ ...empty, ...snap }),
+      load: (snap) => set({ ...empty, ...snap, giftWrap: false }),
       clear: () => set({ ...empty }),
       prune: (forSale) => {
         const keep = get().lines.filter((l) => forSale.has(l.variantId))

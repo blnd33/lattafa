@@ -42,6 +42,7 @@ class ReportCenter
         'supplier-balances' => 'purchasing.view',
         'supplier-movements' => 'purchasing.view',
         'missing-cost' => 'prices.edit',
+        'gifts' => 'reports.view',
         'stock-valuation' => 'reports.financial',
         'slow-movers' => 'inventory.view',
         'purchases' => 'purchasing.view',
@@ -76,6 +77,7 @@ class ReportCenter
             'debt-movements' => $this->debtMovements('customer', $from, $to),
             'supplier-balances' => $this->supplierBalances(),
             'supplier-movements' => $this->debtMovements('supplier', $from, $to),
+            'gifts' => $this->giftList($from, $to),
             'missing-cost' => $this->missingCost(),
             'stock-valuation' => $this->stockValuation(),
             'slow-movers' => $this->slowMovers($from, $to),
@@ -182,12 +184,15 @@ class ReportCenter
         return $this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
             ->leftJoin('products', 'products.id', '=', 'sale_items.product_id')
             ->select('sale_items.variant_id', 'sale_items.product_id', 'sale_items.name', 'sale_items.brand', 'sale_items.label', 'sale_items.sku',
-                'sale_items.qty', 'sale_items.returned_qty', 'sale_items.line_total_iqd', 'sale_items.unit_cost_iqd',
+                'sale_items.qty', 'sale_items.returned_qty', 'sale_items.line_total_iqd', 'sale_items.unit_cost_iqd', 'sale_items.is_gift',
                 'sales.sold_at', 'sales.user_id', 'products.category', 'products.name as product_name')
             ->get()->map(function ($i) {
                 $qty = (int) $i->qty;
                 $net = max(0, $qty - (int) $i->returned_qty);
                 $i->net_qty = $net;
+                // a gift went out but was not sold: it counts in the cost, never in the bottles sold
+                $i->is_gift = (bool) $i->is_gift;
+                $i->sold_qty = $i->is_gift ? 0 : $net;
                 $i->net_revenue = $qty ? (int) round($i->line_total_iqd * $net / $qty) : 0;
                 $i->net_cost = (int) $i->unit_cost_iqd * $net;
 
@@ -207,7 +212,7 @@ class ReportCenter
         return DB::table('return_items')->join('returns', 'returns.id', '=', 'return_items.return_id')
             ->join('sale_items', fn ($j) => $j->on('sale_items.sale_id', '=', 'returns.sale_id')->on('sale_items.position', '=', 'return_items.sale_item_index'))
             ->whereBetween('returns.occurred_at', [$from, $to])
-            ->get(['returns.occurred_at', DB::raw('sale_items.unit_cost_iqd * return_items.qty as cost')]);
+            ->get(['returns.occurred_at', 'sale_items.is_gift', DB::raw('sale_items.unit_cost_iqd * return_items.qty as cost')]);
     }
 
     /* ───────── sales ───────── */
@@ -231,7 +236,7 @@ class ReportCenter
         }
         foreach ($this->items($from, $to) as $i) {
             $d = self::day((int) $i->sold_at);
-            $days[$d]['units'] += (int) $i->qty;
+            $days[$d]['units'] += $i->is_gift ? 0 : (int) $i->qty;
             $days[$d]['cost'] += (int) $i->unit_cost_iqd * (int) $i->qty;
         }
         foreach ($this->refunds($from, $to) as $r) {
@@ -270,24 +275,26 @@ class ReportCenter
         foreach ($this->items($from, $to) as $i) {
             $r = &$rows[$i->variant_id];
             $r ??= ['id' => $i->variant_id, 'product' => $i->product_name ? json_decode($i->product_name, true) : json_decode($i->name, true), 'size' => $i->label, 'sku' => $i->sku,
-                'brand' => $i->brand, 'units' => 0, 'returned' => 0, 'revenue' => 0, 'cost' => 0];
-            $r['units'] += $i->net_qty;
+                'brand' => $i->brand, 'units' => 0, 'gifted' => 0, 'returned' => 0, 'revenue' => 0, 'cost' => 0];
+            $r['units'] += $i->sold_qty;
+            $r['gifted'] += $i->is_gift ? $i->net_qty : 0;
             $r['returned'] += (int) $i->returned_qty;
             $r['revenue'] += $i->net_revenue;
             $r['cost'] += $i->net_cost;
             unset($r);
         }
-        $tot = ['units' => 0, 'returned' => 0, 'revenue' => 0, 'cost' => 0, 'profit' => 0];
+        $tot = ['units' => 0, 'gifted' => 0, 'returned' => 0, 'revenue' => 0, 'cost' => 0, 'profit' => 0];
         foreach ($rows as &$r) {
             $r['profit'] = $r['revenue'] - $r['cost'];
             $r['margin'] = self::pct($r['profit'], $r['revenue']);
-            foreach (['units', 'returned', 'revenue', 'cost', 'profit'] as $k) {
+            foreach (['units', 'gifted', 'returned', 'revenue', 'cost', 'profit'] as $k) {
                 $tot[$k] += $r[$k];
             }
         }
         unset($r);
         $tot['margin'] = self::pct($tot['profit'], $tot['revenue']);
-        $columns = $this->cols([['product', 'name'], ['size', 'text'], ['sku', 'text'], ['brand', 'text'], ['units', 'int'], ['returned', 'int'], ['revenue', 'iqd'],
+        // cost includes the bottles given as gifts, so a perfume handed out is visible in its own profit
+        $columns = $this->cols([['product', 'name'], ['size', 'text'], ['sku', 'text'], ['brand', 'text'], ['units', 'int'], ['gifted', 'int'], ['returned', 'int'], ['revenue', 'iqd'],
             ['cost', 'iqd', true], ['profit', 'iqd', true], ['margin', 'pct', true]]);
 
         return $this->table($columns, collect($rows)->sortByDesc('revenue'), $tot);
@@ -302,7 +309,7 @@ class ReportCenter
             $r = &$rows[$k];
             $r ??= [$by => $k, 'products' => [], 'units' => 0, 'revenue' => 0, 'cost' => 0];
             $r['products'][$i->product_id] = true;
-            $r['units'] += $i->net_qty;
+            $r['units'] += $i->sold_qty;
             $r['revenue'] += $i->net_revenue;
             $r['cost'] += $i->net_cost;
             unset($r);
@@ -348,10 +355,10 @@ class ReportCenter
                 $rows[$k]['refunds'] += (int) $ret->refund_iqd;
             }
         }
-        foreach ($this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')->get(['sales.user_id', 'sales.channel', 'sale_items.qty', 'sale_items.returned_qty', 'sale_items.unit_cost_iqd']) as $i) {
+        foreach ($this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')->get(['sales.user_id', 'sales.channel', 'sale_items.qty', 'sale_items.returned_qty', 'sale_items.unit_cost_iqd', 'sale_items.is_gift']) as $i) {
             $k = $i->user_id.'|'.$i->channel;
             $net = max(0, (int) $i->qty - (int) $i->returned_qty);
-            $rows[$k]['units'] += $net;
+            $rows[$k]['units'] += $i->is_gift ? 0 : $net;
             $rows[$k]['cost'] += $net * (int) $i->unit_cost_iqd;
         }
         $tot = ['bills' => 0, 'units' => 0, 'revenue' => 0, 'discounts' => 0, 'refunds' => 0, 'net' => 0, 'cost' => 0, 'profit' => 0];
@@ -378,17 +385,24 @@ class ReportCenter
     {
         $revenue = (int) $this->sales($from, $to)->sum('total_iqd');
         $refunds = (int) $this->refunds($from, $to)->sum('refund_iqd');
-        $cogs = (int) $this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')->sum(DB::raw('sale_items.unit_cost_iqd * sale_items.qty'))
-            - (int) $this->returnedCost($from, $to)->sum('cost');
+        // what went out at cost: the bottles sold, and apart from them the ones given as gifts (less what came back of each)
+        $out = $this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
+            ->selectRaw('coalesce(sum(case when sale_items.is_gift then 0 else sale_items.unit_cost_iqd * sale_items.qty end), 0) as sold,
+                coalesce(sum(case when sale_items.is_gift then sale_items.unit_cost_iqd * sale_items.qty else 0 end), 0) as gifts')->first();
+        $back = $this->returnedCost($from, $to);
+        $cogs = (int) $out->sold - (int) $back->where('is_gift', false)->sum('cost');
+        $gifts = (int) $out->gifts - (int) $back->filter(fn ($r) => (bool) $r->is_gift)->sum('cost');
         $net = $revenue - $refunds;
-        $gross = $net - $cogs;
+        $gross = $net - $cogs - $gifts;
         $byCat = Expense::whereBetween('spent_at', [$from, $to])->selectRaw('category, coalesce(sum(amount_iqd), 0) as t')->groupBy('category')->pluck('t', 'category')->map(fn ($v) => (int) $v)->sortDesc();
         $delegates = $this->expenses->delegateExpenses($from, $to);
         $spent = $byCat->sum() + $delegates;
         $line = fn (string $item, int $amount, string $kind = 'line') => ['item' => $item, 'amount' => $amount, 'share' => self::pct($amount, $net), 'kind' => $kind];
         $rows = [
             $line('pl.sales', $revenue), $line('pl.refunds', -$refunds), $line('pl.net_sales', $net, 'subtotal'),
-            $line('pl.cogs', -$cogs), $line('pl.gross_profit', $gross, 'subtotal'),
+            $line('pl.cogs', -$cogs),
+            ...($gifts ? [$line('pl.gifts', -$gifts)] : []),
+            $line('pl.gross_profit', $gross, 'subtotal'),
         ];
         foreach ($byCat as $cat => $amount) {
             $rows[] = $line('exp.cat_'.$cat, -$amount, 'expense');
@@ -403,6 +417,34 @@ class ReportCenter
             ['label' => 'pl.net_sales', 'type' => 'iqd', 'value' => $net], ['label' => 'pl.gross_profit', 'type' => 'iqd', 'value' => $gross],
             ['label' => 'pl.expenses', 'type' => 'iqd', 'value' => $spent], ['label' => 'pl.net_profit', 'type' => 'iqd', 'value' => $gross - $spent],
         ]);
+    }
+
+    /**
+     * Every perfume given as a gift in the window: when, on which bill, by whom and to whom, what it would have sold for,
+     * and — for those who may see costs — what it cost the shop (the amount the profit went down by). Bottles given back
+     * are left out.
+     */
+    private function giftList(int $from, int $to): array
+    {
+        $rows = $this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')->where('sale_items.is_gift', true)
+            ->orderBy('sales.sold_at')
+            ->get(['sale_items.id', 'sales.sold_at', 'sales.number', 'sales.user_name', 'sales.customer_name', 'sale_items.name', 'sale_items.label',
+                'sale_items.qty', 'sale_items.returned_qty', 'sale_items.unit_price_iqd', 'sale_items.unit_cost_iqd'])
+            ->map(function ($i) {
+                $qty = max(0, (int) $i->qty - (int) $i->returned_qty);
+
+                return ['id' => (string) $i->id, 'date' => (int) $i->sold_at, 'number' => $i->number, 'product' => json_decode($i->name, true) ?: ['en' => (string) $i->name],
+                    'size' => $i->label, 'qty' => $qty, 'value' => $qty * (int) $i->unit_price_iqd, 'cost' => $qty * (int) $i->unit_cost_iqd,
+                    'by' => $i->user_name, 'customer' => $i->customer_name ?: null];
+            })->filter(fn ($r) => $r['qty'] > 0)->values();
+        $columns = $this->cols([['date', 'datetime'], ['number', 'text'], ['product', 'name'], ['size', 'text'], ['qty', 'int'], ['value', 'iqd'], ['cost', 'iqd', true],
+            ['by', 'text'], ['customer', 'text']]);
+
+        return $this->table($columns, $rows, ['qty' => $rows->sum('qty'), 'value' => $rows->sum('value'), 'cost' => $rows->sum('cost')], array_values(array_filter([
+            ['label' => 'rc.gift_bottles', 'type' => 'int', 'value' => (int) $rows->sum('qty')],
+            ['label' => 'rc.gift_value', 'type' => 'iqd', 'value' => (int) $rows->sum('value')],
+            $this->fin ? ['label' => 'rc.gift_cost', 'type' => 'iqd', 'value' => (int) $rows->sum('cost')] : null,
+        ])));
     }
 
     private function expenseList(int $from, int $to): array
@@ -594,7 +636,7 @@ class ReportCenter
         $vans = DB::table('stock')->where('location_id', 'like', 'van:%')->selectRaw('variant_id, coalesce(sum(qty), 0) as q')->groupBy('variant_id')->pluck('q', 'variant_id');
         $sold = [];
         foreach ($this->items($from, $to) as $i) {
-            $sold[$i->variant_id] = ($sold[$i->variant_id] ?? 0) + $i->net_qty;
+            $sold[$i->variant_id] = ($sold[$i->variant_id] ?? 0) + $i->sold_qty;
         }
         $last = DB::table('sale_items')->join('sales', 'sales.id', '=', 'sale_items.sale_id')->where('sales.status', '!=', 'voided')
             ->selectRaw('sale_items.variant_id, max(sales.sold_at) as at')->groupBy('sale_items.variant_id')->pluck('at', 'variant_id');

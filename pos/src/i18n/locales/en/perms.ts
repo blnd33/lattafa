@@ -24,6 +24,7 @@ export const perms: Dict = {
   'perm.sales.discount.item': 'Give a discount on a line',
   'perm.sales.discount.order': 'Give a discount on the whole bill',
   'perm.sales.discount.above_limit': 'Discount above own limit (approves others too)',
+  'perm.sales.gift': 'Give perfumes as gifts (free, at cost to the shop)',
   'perm.sales.price_override': 'Change a selling price',
   'perm.sales.view_own': 'See own sales',
   'perm.sales.view_all': 'See everyone’s sales',

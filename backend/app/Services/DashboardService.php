@@ -86,7 +86,10 @@ class DashboardService
         // money handed back (store credit stays in the shop, as in the sales report)
         $refunds = (int) DB::table('returns')->whereBetween('occurred_at', [$from, $to])->where('refund_method', '!=', 'store_credit')->sum('refund_iqd');
         $items = $this->sales($from, $to)->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
-            ->selectRaw('coalesce(sum(sale_items.qty), 0) as units, coalesce(sum(sale_items.unit_cost_iqd * sale_items.qty), 0) as cost')->first();
+            // bottles sold leave out gifts; the cost counts every bottle that went out, gifts included
+            ->selectRaw('coalesce(sum(case when sale_items.is_gift then 0 else sale_items.qty end), 0) as units, coalesce(sum(sale_items.unit_cost_iqd * sale_items.qty), 0) as cost,
+                coalesce(sum(case when sale_items.is_gift then sale_items.qty else 0 end), 0) as gift_units,
+                coalesce(sum(case when sale_items.is_gift then sale_items.unit_cost_iqd * sale_items.qty else 0 end), 0) as gift_cost')->first();
         $net = $revenue - $refunds;
         $profit = null;
         if ($financial) {
@@ -107,6 +110,8 @@ class DashboardService
             'collectedIQD' => (int) DB::table('collections')->whereBetween('occurred_at', [$from, $to])->sum('amount_iqd'),
             'unitsSold' => (int) $items->units, 'avgBasketIQD' => $count ? (int) round($revenue / $count) : 0,
             'profitIQD' => $profit, 'channels' => $channels,
+            // perfumes given as gifts: how many, and what they cost the shop (already taken off the profit)
+            'giftUnits' => (int) $items->gift_units, 'giftsCostIQD' => $financial ? (int) $items->gift_cost : null,
         ];
     }
 

@@ -186,12 +186,35 @@ describe('selling', () => {
     await openShift({ openingIQD: 100000, openingUSD: 0 })
     const v = await pick('Khamrah')
     const before = (await stockMap())[v.id]
+    // gift wrapping is gone: the old flag is ignored
     const sale = await completeSale({ lines: [{ variantId: v.id, qty: 2, discountPct: 0 }], customerId: null, orderDiscount: null, giftWrap: true, redeemPoints: 0, payments: [{ method: 'cash_iqd', tendered: 100000 }], note: '' })
-    expect(sale.totalIQD).toBe(45000 * 2 + 2000)
-    expect(sale.changeIQD).toBe(100000 - 92000)
+    expect(sale.totalIQD).toBe(45000 * 2)
+    expect(sale.giftWrapIQD).toBe(0)
+    expect(sale.changeIQD).toBe(100000 - 90000)
     expect(sale.number).toMatch(/^ST1-\d{6}$/)
     expect((await stockMap())[v.id]).toBe(before - 2)
-    expect(sale.payments[0].amountIQD).toBe(92000)
+    expect(sale.payments[0].amountIQD).toBe(90000)
+  })
+
+  it('gives bottles as gifts: free on the bill, out of stock, and only with a manager', async () => {
+    await cashierSession()
+    await openShift({ openingIQD: 0, openingUSD: 0 })
+    const v = await pick('Khamrah') // 45,000
+    const before = (await stockMap())[v.id]
+    const base = { lines: [{ variantId: v.id, qty: 3, discountPct: 10, giftQty: 1 }], customerId: null, orderDiscount: null, redeemPoints: 0, payments: [{ method: 'cash_iqd' as const, tendered: 81000 }], note: '' }
+    // a cashier may not give gifts on their own
+    await expectCode(completeSale(base), 'approval_required')
+    await expectCode(completeSale({ ...base, lines: [{ ...base.lines[0], giftQty: 4 }] }), 'invalid_quantity')
+    const approver = await verifyApproval('1111', 'sales.gift')
+    expect(await verifyApproval('2468', 'sales.gift')).toBeNull()
+    const sale = await completeSale({ ...base, approvedBy: approver })
+    // two paid with 10% off, one free on its own row; the discount never touches the gift
+    expect(sale.totalIQD).toBe(81000)
+    expect(sale.itemDiscountIQD).toBe(9000)
+    expect(sale.items.map((i) => [i.qty, !!i.gift, i.lineTotalIQD, i.discountIQD])).toEqual([[2, false, 81000, 9000], [1, true, 0, 0]])
+    expect(sale.items[1].unitPriceIQD).toBe(45000)
+    expect(sale.approvedBy).toBe(approver!.id)
+    expect((await stockMap())[v.id]).toBe(before - 3)
   })
 
   it('USD cash converts at the shop rate and gives IQD change', async () => {

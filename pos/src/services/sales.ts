@@ -27,6 +27,8 @@ export interface CheckoutLine {
   variantId: string
   qty: number
   discountPct: number
+  /** how many of `qty` are given away free (0..qty); a gift needs `sales.gift` or a manager's approval */
+  giftQty?: number
 }
 
 export interface CheckoutPayment {
@@ -40,11 +42,12 @@ export interface CheckoutInput {
   lines: CheckoutLine[]
   customerId: string | null
   orderDiscount: OrderDiscount | null
-  giftWrap: boolean
+  /** gift wrapping is no longer sold; ignored */
+  giftWrap?: boolean
   redeemPoints: number
   payments: CheckoutPayment[]
   note: string
-  /** supervisor who OK'd an over-limit discount (PIN approval) */
+  /** manager who OK'd an over-limit discount or a gift (PIN approval) */
   approvedBy?: { id: string; name: string } | null
   /** value of a return being exchanged (paid with method 'return_credit') */
   returnCreditIQD?: number
@@ -66,18 +69,21 @@ export async function completeSale(input: CheckoutInput): Promise<Sale> {
     [db.sales, db.variants, db.products, db.stock, db.stockMovements, db.customers, db.counters, db.outbox, db.audit, db.users, db.roles],
     async () => {
       /* ---- 1. resolve lines ---- */
-      const items: SaleItem[] = []
+      const lineItems: SaleItem[] = []
       const pricingLines = []
       const wantsLineDiscount = input.lines.some((l) => l.discountPct > 0)
+      const wantsGift = input.lines.some((l) => (l.giftQty ?? 0) > 0)
       for (let i = 0; i < input.lines.length; i++) {
         const l = input.lines[i]
         if (!Number.isInteger(l.qty) || l.qty <= 0) throw new AppError('invalid_quantity')
         if (l.discountPct < 0 || l.discountPct > 100) throw new AppError('invalid_discount')
+        const giftQty = l.giftQty ?? 0
+        if (!Number.isInteger(giftQty) || giftQty < 0 || giftQty > l.qty) throw new AppError('invalid_quantity')
         const v = await db.variants.get(l.variantId)
         const p = v ? await db.products.get(v.productId) : undefined
         if (!v || !p || !v.active || !p.active) throw new AppError('product_unavailable')
-        pricingLines.push({ key: String(i), unitPriceIQD: v.retailIQD, qty: l.qty, discountPct: l.discountPct })
-        items.push({
+        pricingLines.push({ key: String(i), unitPriceIQD: v.retailIQD, qty: l.qty, discountPct: l.discountPct, giftQty })
+        lineItems.push({
           variantId: v.id, productId: p.id, name: p.name, brand: p.brand, label: v.label, sku: v.sku, barcode: v.barcode,
           qty: l.qty, unitPriceIQD: v.retailIQD, unitCostIQD: v.costIQD, discountPct: l.discountPct, discountIQD: 0, lineTotalIQD: 0, returnedQty: 0,
         })
@@ -102,18 +108,27 @@ export async function completeSale(input: CheckoutInput): Promise<Sale> {
         lines: pricingLines,
         orderDiscount: input.orderDiscount,
         pointsRedeemedIQD: pointsIQD,
-        giftWrapIQD: input.giftWrap ? settings.sales.giftWrapFeeIQD : 0,
         taxPct: settings.tax.pct,
         rounding: settings.currency.rounding,
       })
       if (priced.pointsRedeemed < pointsIQD) redeemPoints = Math.ceil(priced.pointsRedeemed / settings.loyalty.pointValueIQD)
-      priced.lines.forEach((pl, i) => { items[i].discountIQD = pl.discount; items[i].lineTotalIQD = pl.net })
+      // a line with gifts becomes two rows: the bottles paid for, then the gifts at 0 (their price kept to show their worth)
+      const items: SaleItem[] = []
+      priced.lines.forEach((pl, i) => {
+        const base = lineItems[i]
+        if (pl.giftQty < base.qty) items.push({ ...base, qty: base.qty - pl.giftQty, discountIQD: pl.discount, lineTotalIQD: pl.net })
+        if (pl.giftQty > 0) items.push({ ...base, qty: pl.giftQty, discountPct: 0, discountIQD: 0, lineTotalIQD: 0, gift: true })
+      })
 
-      /* ---- 5. over-limit discount needs a supervisor ---- */
+      /* ---- 5. an over-limit discount or a gift needs a manager ---- */
       let approvedBy: string | null = null
-      if (priced.effectiveDiscountPct > actor.limits.maxDiscountPct + 1e-9 && !hasPerm(actor.permissions, 'sales.discount.above_limit')) {
-        if (!input.approvedBy) throw new AppError('approval_required', { permission: 'sales.discount.above_limit' })
-        approvedBy = (await verifyApprovedBy(input.approvedBy.id, 'sales.discount.above_limit')).id
+      const needs = [
+        priced.effectiveDiscountPct > actor.limits.maxDiscountPct + 1e-9 && !hasPerm(actor.permissions, 'sales.discount.above_limit') ? 'sales.discount.above_limit' : null,
+        wantsGift && !hasPerm(actor.permissions, 'sales.gift') ? 'sales.gift' : null,
+      ].filter((p): p is string => !!p)
+      for (const permission of needs) {
+        if (!input.approvedBy) throw new AppError('approval_required', { permission })
+        approvedBy = (await verifyApprovedBy(input.approvedBy.id, permission)).id
       }
 
       /* ---- 6. payments ---- */

@@ -79,4 +79,14 @@ class PricingTest extends TestCase
             }
         }
     }
+
+    public function test_gift_bottles_are_free_never_discounted_and_not_a_discount(): void
+    {
+        $r = Pricing::priceCart(['rounding' => 0, 'lines' => [['key' => 'a', 'unitPriceIQD' => 60000, 'qty' => 3, 'discountPct' => 10, 'giftQty' => 1]]]);
+        $this->assertSame([120000, 12000, 108000, 60000], [$r['subtotal'], $r['itemDiscount'], $r['total'], $r['giftValue']]);
+        $this->assertSame([1, 60000, 108000], [$r['lines'][0]['giftQty'], $r['lines'][0]['giftValue'], $r['lines'][0]['net']]);
+        $this->assertEqualsWithDelta(10, $r['effectiveDiscountPct'], 1e-9);
+        $all = Pricing::priceCart(['rounding' => 250, 'lines' => [['key' => 'b', 'unitPriceIQD' => 45000, 'qty' => 2, 'discountPct' => 0, 'giftQty' => 5]]]);
+        $this->assertSame([0, 90000], [$all['total'], $all['giftValue']]);
+    }
 }

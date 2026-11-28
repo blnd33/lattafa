@@ -14,7 +14,7 @@ export interface PermGroup {
 
 export const PERMISSION_GROUPS: PermGroup[] = [
   { key: 'pos', perms: ['pos.sell', 'pos.hold', 'pos.tester'] },
-  { key: 'discounts', perms: ['sales.discount.item', 'sales.discount.order', 'sales.discount.above_limit', 'sales.price_override'] },
+  { key: 'discounts', perms: ['sales.discount.item', 'sales.discount.order', 'sales.discount.above_limit', 'sales.price_override', 'sales.gift'] },
   { key: 'sales', perms: ['sales.view_own', 'sales.view_all', 'sales.reprint', 'sales.void'] },
   { key: 'returns', perms: ['returns.create', 'returns.above_limit'] },
   { key: 'shifts', perms: ['shifts.open', 'shifts.close', 'shifts.view_all', 'shifts.cash_movement'] },
@@ -41,6 +41,7 @@ export const APPROVABLE = new Set([
   'returns.above_limit',
   'sales.void',
   'sales.price_override',
+  'sales.gift',
 ])
 
 /** Things that can only ever be done by the Super Admin, whatever the role says. */

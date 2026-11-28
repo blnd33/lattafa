@@ -96,7 +96,7 @@ export function ReturnModal({ sale, onClose, onDone }: { sale: Sale | null; onCl
                 <li key={i} className={cn('flex flex-wrap items-center gap-3 p-3', max === 0 && 'opacity-50')}>
                   <Checkbox checked={q > 0} disabled={max === 0} label={pick(it.name, lang)} onChange={(v) => setQty({ ...qty, [i]: v ? max : 0 })} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{pick(it.name, lang)} <span className="num text-sm font-normal text-fg-2">{it.label}</span></div>
+                    <div className="truncate font-semibold">{pick(it.name, lang)} <span className="num text-sm font-normal text-fg-2">{it.label}</span>{it.gift && <span className="ms-1.5 text-xs font-semibold text-gold-text">· {t('sell.gift')}</span>}</div>
                     <div className="text-xs text-fg-2"><Amt n={unitRefund(sale, i)} /> × <span className="num">{it.qty}</span>{it.returnedQty > 0 && <span className="text-warn-fg"> · {t('ret.already', { n: it.returnedQty })}</span>}</div>
                   </div>
                   {max > 0 && (

@@ -20,6 +20,9 @@ export interface Dashboard {
     creditIQD: number; paidIQD: number
     /** old debts paid back in the window — money in, but not a sale */
     collectedIQD: number
+    /** bottles given away free, and what they cost the shop (null without reports.financial) */
+    giftUnits?: number
+    giftsCostIQD?: number | null
   }
   /** the same stretch of time just before, up to the same moment */
   previous: { count: number; revenueIQD: number; netIQD: number; profitIQD: number | null; creditIQD: number; paidIQD: number; collectedIQD: number }

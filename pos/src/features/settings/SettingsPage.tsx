@@ -33,10 +33,11 @@ function sampleSale(s: AppSettings): Sale {
     items: [
       { variantId: 'a', productId: 'a', name: { en: 'Khamrah', ar: 'خمرة', ku: 'خەمرە' }, brand: 'Lattafa', label: '100 ml', sku: 'X', barcode: '0', qty: 1, unitPriceIQD: 45000, unitCostIQD: 0, discountPct: 0, discountIQD: 0, lineTotalIQD: 45000, returnedQty: 0 },
       { variantId: 'b', productId: 'b', name: { en: 'Yara', ar: 'يارا', ku: 'یارا' }, brand: 'Lattafa', label: '100 ml', sku: 'Y', barcode: '0', qty: 2, unitPriceIQD: 38000, unitCostIQD: 0, discountPct: 10, discountIQD: 7600, lineTotalIQD: 68400, returnedQty: 0 },
+      { variantId: 'b', productId: 'b', name: { en: 'Yara', ar: 'يارا', ku: 'یارا' }, brand: 'Lattafa', label: '100 ml', sku: 'Y', barcode: '0', qty: 1, unitPriceIQD: 38000, unitCostIQD: 0, discountPct: 0, discountIQD: 0, lineTotalIQD: 0, returnedQty: 0, gift: true },
     ],
-    subtotalIQD: 121000, itemDiscountIQD: 7600, orderDiscountIQD: 0, orderDiscount: null, giftWrapIQD: 2000, taxIQD: 0, roundingIQD: 100, pointsRedeemedIQD: 0, totalIQD: 115500,
-    payments: [{ method: 'cash_iqd', amountIQD: 115500, tendered: 120000, currency: 'IQD', rate: s.currency.rate, reference: '' }],
-    paidIQD: 115500, changeIQD: 4500, dueIQD: 0, pointsEarned: 115, pointsRedeemed: 0, exchangeRate: s.currency.rate, note: '', approvedBy: null, deviceId: s.device.id, createdAt: Date.now(), voidedAt: null, voidReason: '',
+    subtotalIQD: 121000, itemDiscountIQD: 7600, orderDiscountIQD: 0, orderDiscount: null, giftWrapIQD: 0, taxIQD: 0, roundingIQD: 100, pointsRedeemedIQD: 0, totalIQD: 113500,
+    payments: [{ method: 'cash_iqd', amountIQD: 113500, tendered: 120000, currency: 'IQD', rate: s.currency.rate, reference: '' }],
+    paidIQD: 113500, changeIQD: 6500, dueIQD: 0, pointsEarned: 113, pointsRedeemed: 0, exchangeRate: s.currency.rate, note: '', approvedBy: null, deviceId: s.device.id, createdAt: Date.now(), voidedAt: null, voidReason: '',
   }
 }
 
@@ -148,7 +149,6 @@ export function SettingsPage() {
             <h2 className="font-semibold sm:col-span-2">{t('settings.sales_rules')}</h2>
             <label className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-3.5 text-sm font-medium">{t('settings.require_shift')}<Switch disabled={ro} checked={draft.sales.requireShift} onChange={(v) => up((d) => { d.sales.requireShift = v })} label={t('settings.require_shift')} /></label>
             <label className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-3.5 text-sm font-medium">{t('settings.negative_stock')}<Switch disabled={ro} checked={draft.sales.allowNegativeStock} onChange={(v) => up((d) => { d.sales.allowNegativeStock = v })} label={t('settings.negative_stock')} /></label>
-            <Field label={t('settings.gift_fee')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.sales.giftWrapFeeIQD} onChange={(e) => up((d) => { d.sales.giftWrapFeeIQD = Math.round(parseAmount(e.target.value)) })} />}</Field>
             <Field label={t('settings.return_days')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.sales.returnWindowDays} onChange={(e) => up((d) => { d.sales.returnWindowDays = Math.round(parseAmount(e.target.value)) })} />}</Field>
             <Field label={t('settings.default_credit')} hint={t('settings.default_credit_hint')}>{(i) => <Input id={i} disabled={ro} inputMode="numeric" className="num" value={draft.sales.defaultCustomerCreditIQD} onChange={(e) => up((d) => { d.sales.defaultCustomerCreditIQD = Math.round(parseAmount(e.target.value)) })} />}</Field>
           </Card>

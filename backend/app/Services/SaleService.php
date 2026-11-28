@@ -71,12 +71,16 @@ class SaleService
             $items = [];
             $pricingLines = [];
             $wantsLineDiscount = false;
+            $wantsGift = false;
             foreach (array_values($in['lines']) as $i => $l) {
                 $qty = (int) ($l['qty'] ?? 0);
                 $pct = (int) ($l['discountPct'] ?? 0);
-                if ($qty <= 0) {
+                // how many of these bottles are a gift: free to the customer, at cost to the shop
+                $gift = (int) ($l['giftQty'] ?? 0);
+                if ($qty <= 0 || $gift < 0 || $gift > $qty) {
                     throw new AppException('invalid_quantity');
                 }
+                $wantsGift = $wantsGift || $gift > 0;
                 if ($pct < 0 || $pct > 100) {
                     throw new AppException('invalid_discount');
                 }
@@ -85,8 +89,8 @@ class SaleService
                 if (! $v || ! $v->active || ! $v->product->active) {
                     throw new AppException('product_unavailable');
                 }
-                $pricingLines[] = ['key' => (string) $i, 'unitPriceIQD' => $v->retail_iqd, 'qty' => $qty, 'discountPct' => $pct];
-                $items[] = ['variant' => $v, 'qty' => $qty, 'pct' => $pct];
+                $pricingLines[] = ['key' => (string) $i, 'unitPriceIQD' => $v->retail_iqd, 'qty' => $qty, 'discountPct' => $pct, 'giftQty' => $gift];
+                $items[] = ['variant' => $v, 'qty' => $qty, 'pct' => $pct, 'gift' => $gift];
             }
 
             /* 2. discount permissions */
@@ -124,13 +128,17 @@ class SaleService
                 $redeem = (int) ceil($priced['pointsRedeemed'] / $pointValue);
             }
 
-            /* 5. over-limit discount needs a supervisor */
+            /* 5. an over-limit discount, or a gift, from someone not allowed it needs a supervisor (the one PIN covers both) */
             $approver = null;
-            if ($priced['effectiveDiscountPct'] > $actor->max_discount_pct + 1e-9 && ! $actor->can('sales.discount.above_limit')) {
+            $needs = array_keys(array_filter([
+                'sales.discount.above_limit' => $priced['effectiveDiscountPct'] > $actor->max_discount_pct + 1e-9 && ! $actor->can('sales.discount.above_limit'),
+                'sales.gift' => $wantsGift && ! $actor->can('sales.gift'),
+            ]));
+            foreach ($needs as $permission) {
                 if (empty($in['approvedBy']['id'])) {
-                    throw new AppException('approval_required', ['permission' => 'sales.discount.above_limit'], 403);
+                    throw new AppException('approval_required', ['permission' => $permission], 403);
                 }
-                $approver = $this->verifyApprover($in['approvedBy']['id'], 'sales.discount.above_limit');
+                $approver = $this->verifyApprover($in['approvedBy']['id'], $permission);
             }
 
             /* 6. payments */
@@ -150,15 +158,22 @@ class SaleService
             }
 
             /* 7. persist (stock → customer → sale) */
+            // a line with gifts becomes two: the bottles paid for, and the gift bottles on their own at 0 (so a return of
+            // a gift refunds nothing, and the reports can tell the two apart)
             $saleItems = [];
             foreach ($items as $i => $it) {
                 $pl = $priced['lines'][$i];
                 $v = $it['variant'];
-                $saleItems[] = [
+                $row = [
                     'variant_id' => $v->id, 'product_id' => $v->product_id, 'name' => $v->product->name, 'brand' => $v->product->brand, 'label' => $v->label,
-                    'sku' => $v->sku, 'barcode' => $v->barcode, 'qty' => $it['qty'], 'unit_price_iqd' => $v->retail_iqd, 'unit_cost_iqd' => $v->cost_iqd,
-                    'discount_pct' => $it['pct'], 'discount_iqd' => $pl['discount'], 'line_total_iqd' => $pl['net'],
+                    'sku' => $v->sku, 'barcode' => $v->barcode, 'unit_price_iqd' => $v->retail_iqd, 'unit_cost_iqd' => $v->cost_iqd,
                 ];
+                if ($it['qty'] > $it['gift']) {
+                    $saleItems[] = $row + ['qty' => $it['qty'] - $it['gift'], 'discount_pct' => $it['pct'], 'discount_iqd' => $pl['discount'], 'line_total_iqd' => $pl['net'], 'is_gift' => false];
+                }
+                if ($it['gift'] > 0) {
+                    $saleItems[] = $row + ['qty' => $it['gift'], 'discount_pct' => 0, 'discount_iqd' => 0, 'line_total_iqd' => 0, 'is_gift' => true];
+                }
             }
             $earned = $customer && $cfg['loyalty']['enabled'] ? Pricing::pointsEarned($total, $cfg['loyalty']['pointsPer1000IQD']) : 0;
 
@@ -341,6 +356,7 @@ class SaleService
 
             $items = [];
             $lines = [];
+            $hasGift = false;
             foreach (array_values($s['items']) as $i => $it) {
                 $v = Variant::with('product')->find($it['variantId'] ?? '');
                 if (! $v) {
@@ -360,14 +376,21 @@ class SaleService
                 if (! in_array((int) $it['unitPriceIQD'], $listPrices, true) && ! in_array('price_mismatch', $flags, true)) {
                     $flags[] = 'price_mismatch';
                 }
-                $lines[] = ['key' => (string) $i, 'unitPriceIQD' => (int) $it['unitPriceIQD'], 'qty' => (int) $it['qty'], 'discountPct' => (int) ($it['discountPct'] ?? 0)];
+                $gift = ! empty($it['gift']);
+                $hasGift = $hasGift || $gift;
+                $lines[] = ['key' => (string) $i, 'unitPriceIQD' => (int) $it['unitPriceIQD'], 'qty' => (int) $it['qty'], 'discountPct' => $gift ? 0 : (int) ($it['discountPct'] ?? 0), 'giftQty' => $gift ? (int) $it['qty'] : 0];
                 $items[] = [
                     'variant_id' => $v->id, 'product_id' => $v->product_id, 'name' => $it['name'] ?? $v->product->name, 'brand' => $it['brand'] ?? $v->product->brand,
                     'label' => $it['label'] ?? $v->label, 'sku' => $it['sku'] ?? $v->sku, 'barcode' => $it['barcode'] ?? $v->barcode, 'qty' => (int) $it['qty'],
                     // cost is server-owned: a till without cost access never sends it
                     'unit_price_iqd' => (int) $it['unitPriceIQD'], 'unit_cost_iqd' => $v->cost_iqd, 'discount_pct' => (int) ($it['discountPct'] ?? 0),
-                    'discount_iqd' => (int) ($it['discountIQD'] ?? 0), 'line_total_iqd' => (int) ($it['lineTotalIQD'] ?? 0),
+                    'discount_iqd' => $gift ? 0 : (int) ($it['discountIQD'] ?? 0), 'line_total_iqd' => $gift ? 0 : (int) ($it['lineTotalIQD'] ?? 0),
+                    'is_gift' => $gift,
                 ];
+            }
+            // a gift from someone not allowed to give one, with no supervisor's PIN behind it, is kept and shown to a manager
+            if ($hasGift && ! $actor->can('sales.gift') && empty($s['approvedBy'])) {
+                $flags[] = 'gift_not_allowed';
             }
             // Arithmetic check: does the till's total follow from its own line prices and discounts?
             $priced = Pricing::priceCart(['lines' => $lines, 'orderDiscount' => $s['orderDiscount'] ?? null, 'pointsRedeemedIQD' => (int) ($s['pointsRedeemedIQD'] ?? 0)]);
@@ -531,14 +554,15 @@ class SaleService
                     continue; // the line comes off the bill
                 }
                 $unit = isset($l['unitPriceIQD']) ? max(0, (int) $l['unitPriceIQD']) : $it->unit_price_iqd;
-                $items[] = ['item' => $it, 'qty' => $qty, 'unit' => $unit, 'pct' => $it->discount_pct];
+                $items[] = ['item' => $it, 'qty' => $qty, 'unit' => $unit, 'pct' => $it->discount_pct, 'gift' => (bool) $it->is_gift];
             }
             if (! $items) {
                 throw new AppException('cart_empty');
             }
 
             $priced = Pricing::priceCart([
-                'lines' => array_map(fn ($x, $i) => ['key' => (string) $i, 'unitPriceIQD' => $x['unit'], 'qty' => $x['qty'], 'discountPct' => $x['pct']], $items, array_keys($items)),
+                // a gift stays a gift when the bill is corrected
+                'lines' => array_map(fn ($x, $i) => ['key' => (string) $i, 'unitPriceIQD' => $x['unit'], 'qty' => $x['qty'], 'discountPct' => $x['gift'] ? 0 : $x['pct'], 'giftQty' => $x['gift'] ? $x['qty'] : 0], $items, array_keys($items)),
                 'orderDiscount' => $old->order_discount,
                 'giftWrapIQD' => $old->gift_wrap_iqd,
                 'rounding' => $cfg['currency']['rounding'],
@@ -553,7 +577,7 @@ class SaleService
                 $saleItems[] = [
                     'variant_id' => $it->variant_id, 'product_id' => $it->product_id, 'name' => $it->name, 'brand' => $it->brand, 'label' => $it->label,
                     'sku' => $it->sku, 'barcode' => $it->barcode, 'qty' => $x['qty'], 'unit_price_iqd' => $x['unit'], 'unit_cost_iqd' => $it->unit_cost_iqd,
-                    'discount_pct' => $x['pct'], 'discount_iqd' => $pl['discount'], 'line_total_iqd' => $pl['net'],
+                    'discount_pct' => $x['gift'] ? 0 : $x['pct'], 'discount_iqd' => $pl['discount'], 'line_total_iqd' => $pl['net'], 'is_gift' => $x['gift'],
                 ];
             }
 

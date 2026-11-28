@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BadgeAlert, BarChart3, CalendarDays, ClipboardList, Scale, Clock, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, BadgeAlert, BarChart3, CalendarDays, ClipboardList, Scale, Clock, Gift, HandCoins, Hourglass, Landmark, Layers, MapPinned, Package, PackageOpen, Receipt, Tags, UserRound, Wallet, type LucideIcon } from 'lucide-react'
 import { api } from '@/services/api'
 
 /** One report, in the shape the server sends every report in — see backend/app/Services/ReportCenter.php. */
@@ -23,7 +23,7 @@ export type ReportId =
   | 'sales-by-day' | 'sales-by-product' | 'sales-by-brand' | 'sales-by-category' | 'sales-by-seller'
   | 'profit-loss' | 'expenses' | 'delegate-commission' | 'delegate-sales' | 'debt-aging'
   | 'debt-movements' | 'supplier-balances' | 'supplier-movements'
-  | 'missing-cost' | 'stock-valuation' | 'slow-movers' | 'purchases' | 'shifts'
+  | 'missing-cost' | 'stock-valuation' | 'slow-movers' | 'purchases' | 'shifts' | 'gifts'
 
 export type Preset = 'today' | 'yesterday' | '7' | '30' | '90' | 'month' | 'last_month' | 'year' | 'custom'
 
@@ -44,6 +44,7 @@ export const REPORTS: ReportDef[] = [
   { id: 'sales-by-brand', group: 'sales', icon: Tags, perm: 'reports.view', preset: '30' },
   { id: 'sales-by-category', group: 'sales', icon: Layers, perm: 'reports.view', preset: '30' },
   { id: 'sales-by-seller', group: 'sales', icon: UserRound, perm: 'reports.view', preset: '30' },
+  { id: 'gifts', group: 'sales', icon: Gift, perm: 'reports.view', preset: 'month' },
   { id: 'delegate-sales', group: 'delegate', icon: MapPinned, perm: 'delegates.manage', preset: '7' },
   { id: 'profit-loss', group: 'money', icon: Landmark, perm: 'reports.financial', preset: 'month' },
   { id: 'missing-cost', group: 'money', icon: BadgeAlert, perm: 'prices.edit', preset: 'today', asOf: true },

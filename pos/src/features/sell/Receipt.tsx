@@ -49,7 +49,7 @@ export function ReceiptView({ sale, settings, lang, className }: { sale: Sale; s
       <ul className="space-y-1.5">
         {sale.items.map((it, i) => (
           <li key={i}>
-            <div className="flex justify-between gap-2 font-semibold"><span className="min-w-0">{pick(it.name, lang)} <span className="num">{it.label}</span></span><span className="num shrink-0">{fmt(it.lineTotalIQD)}</span></div>
+            <div className="flex justify-between gap-2 font-semibold"><span className="min-w-0">{pick(it.name, lang)} <span className="num">{it.label}</span></span><span className="num shrink-0">{it.gift ? tr('sell.gift') : fmt(it.lineTotalIQD)}</span></div>
             <div className="num flex justify-between text-[0.92em]"><span>{it.qty} × {fmt(it.unitPriceIQD)}</span>{it.discountIQD > 0 && <span>−{it.discountPct}% (−{fmt(it.discountIQD)})</span>}</div>
           </li>
         ))}

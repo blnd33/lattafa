@@ -73,7 +73,8 @@ function Body({ d }: { d: Dashboard }) {
           sub={t('ap.debt_collected', { amount: fmt(d.totals.collectedIQD) })} to={d.debts ? '/debts' : undefined} />
         {d.financial && d.totals.profitIQD !== null && (
           <Kpi label={t('ap.kpi_profit')} value={<Amt n={d.totals.profitIQD} />} delta={change(d.totals.profitIQD, d.previous.profitIQD ?? 0)} vs={vs}
-            sub={[margin !== null ? t('ap.margin', { pct: margin }) : null, d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null].filter(Boolean).join(' · ') || undefined} />
+            sub={[margin !== null ? t('ap.margin', { pct: margin }) : null, d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null,
+              d.totals.giftUnits ? t('ap.gifts_cost', { n: d.totals.giftUnits, amount: fmt(d.totals.giftsCostIQD ?? 0) }) : null].filter(Boolean).join(' · ') || undefined} />
         )}
         {d.expenses && (
           <Kpi label={t('ap.kpi_expenses')} value={<Amt n={d.expenses.totalIQD + d.expenses.delegateIQD} />} to="/expenses"
@@ -81,7 +82,7 @@ function Body({ d }: { d: Dashboard }) {
         )}
         <Kpi label={t('ap.kpi_bills')} value={<span className="num">{fmt(d.totals.count)}</span>} delta={change(d.totals.count, d.previous.count)} vs={vs}
           sub={t('ap.avg_bill', { amount: fmt(d.totals.avgBasketIQD) })} />
-        <Kpi label={t('ap.kpi_units')} value={<span className="num">{fmt(d.totals.unitsSold)}</span>} />
+        <Kpi label={t('ap.kpi_units')} value={<span className="num">{fmt(d.totals.unitsSold)}</span>} sub={d.totals.giftUnits ? t('ap.gifts_given', { n: d.totals.giftUnits }) : undefined} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">

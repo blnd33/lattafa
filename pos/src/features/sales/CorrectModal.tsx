@@ -34,7 +34,7 @@ export function CorrectModal({ sale, onClose, onDone }: { sale: Sale; onClose: (
 
   // the same sum the server will do, so the figure shown is the figure recorded
   const total = useMemo(() => priceCart({
-    lines: lines.map((l, i) => ({ key: String(i), unitPriceIQD: priceOf(l), qty: l.qty, discountPct: sale.items[i].discountPct })).filter((l) => l.qty > 0),
+    lines: lines.map((l, i) => ({ key: String(i), unitPriceIQD: priceOf(l), qty: l.qty, discountPct: sale.items[i].discountPct, giftQty: sale.items[i].gift ? l.qty : 0 })).filter((l) => l.qty > 0),
     orderDiscount: sale.orderDiscount,
     giftWrapIQD: sale.giftWrapIQD,
     rounding: settings?.currency.rounding ?? 0,
@@ -70,7 +70,7 @@ export function CorrectModal({ sale, onClose, onDone }: { sale: Sale; onClose: (
             return (
               <li key={i} className={cn('flex flex-wrap items-center gap-3 p-3', off && 'opacity-50')}>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{pick(it.name, lang)}</p>
+                  <p className="truncate font-medium">{pick(it.name, lang)}{it.gift && <span className="ms-1.5 text-xs font-semibold text-gold-text">· {t('sell.gift')}</span>}</p>
                   <p className="num text-xs text-fg-2">{it.label} · {t('sales.correct_was', { n: it.qty })} <Amt n={it.unitPriceIQD} /></p>
                 </div>
                 <div className="flex items-center gap-1">

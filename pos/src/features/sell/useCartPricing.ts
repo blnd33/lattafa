@@ -10,6 +10,8 @@ export interface CartLineView {
   ref: VariantRef
   qty: number
   discountPct: number
+  /** bottles of this line given away free */
+  giftQty: number
   unit: number
   gross: number
   discount: number
@@ -34,27 +36,27 @@ export function useCartPricing() {
     for (const l of cart.lines) {
       const ref = index.get(l.variantId)
       if (!ref) { missing.push(l.variantId); continue }
-      lines.push({ variantId: l.variantId, ref, qty: l.qty, discountPct: l.discountPct, unit: ref.variant.retailIQD, gross: 0, discount: 0, net: 0 })
+      lines.push({ variantId: l.variantId, ref, qty: l.qty, discountPct: l.discountPct, giftQty: Math.min(l.giftQty ?? 0, l.qty), unit: ref.variant.retailIQD, gross: 0, discount: 0, net: 0 })
     }
     const customer: Customer | null = customers?.find((c) => c.id === cart.customerId) ?? null
     const pointValue = settings?.loyalty.pointValueIQD ?? 0
     const redeem = customer && settings?.loyalty.enabled ? Math.min(cart.redeemPoints, customer.points) : 0
 
     const priced: PricingResult = priceCart({
-      lines: lines.map((l) => ({ key: l.variantId, unitPriceIQD: l.unit, qty: l.qty, discountPct: l.discountPct })),
+      lines: lines.map((l) => ({ key: l.variantId, unitPriceIQD: l.unit, qty: l.qty, discountPct: l.discountPct, giftQty: l.giftQty })),
       orderDiscount: cart.orderDiscount,
       pointsRedeemedIQD: redeem * pointValue,
-      giftWrapIQD: cart.giftWrap ? settings?.sales.giftWrapFeeIQD ?? 0 : 0,
       taxPct: settings?.tax.pct ?? 0,
       rounding: settings?.currency.rounding ?? 0,
     })
     priced.lines.forEach((pl, i) => { lines[i].gross = pl.gross; lines[i].discount = pl.discount; lines[i].net = pl.net })
 
     const units = lines.reduce((a, l) => a + l.qty, 0)
+    const giftUnits = lines.reduce((a, l) => a + l.giftQty, 0)
     // How many points can usefully be redeemed on this bill
-    const maxRedeem = customer && settings ? Math.min(customer.points, Math.floor((priced.total + priced.pointsRedeemed - priced.giftWrap - priced.tax) / Math.max(1, pointValue))) : 0
-    return { lines, missing, priced, customer, settings, units, redeem, maxRedeem: Math.max(0, maxRedeem), pointValue, index }
-  }, [cart.lines, cart.customerId, cart.orderDiscount, cart.giftWrap, cart.redeemPoints, index, customers, settings])
+    const maxRedeem = customer && settings ? Math.min(customer.points, Math.floor((priced.total + priced.pointsRedeemed - priced.tax) / Math.max(1, pointValue))) : 0
+    return { lines, missing, priced, customer, settings, units, giftUnits, redeem, maxRedeem: Math.max(0, maxRedeem), pointValue, index }
+  }, [cart.lines, cart.customerId, cart.orderDiscount, cart.redeemPoints, index, customers, settings])
 }
 
 export type CartPricing = ReturnType<typeof useCartPricing>

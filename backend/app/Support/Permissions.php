@@ -16,7 +16,7 @@ final class Permissions
     /** @var array<string, string[]> */
     public const GROUPS = [
         'pos' => ['pos.sell', 'pos.hold', 'pos.tester'],
-        'discounts' => ['sales.discount.item', 'sales.discount.order', 'sales.discount.above_limit', 'sales.price_override'],
+        'discounts' => ['sales.discount.item', 'sales.discount.order', 'sales.discount.above_limit', 'sales.price_override', 'sales.gift'],
         'sales' => ['sales.view_own', 'sales.view_all', 'sales.reprint', 'sales.void'],
         'returns' => ['returns.create', 'returns.above_limit'],
         'shifts' => ['shifts.open', 'shifts.close', 'shifts.view_all', 'shifts.cash_movement'],
@@ -37,7 +37,7 @@ final class Permissions
     public const SUPER_ADMIN_ONLY = ['roles.manage', 'users.delete', 'devices.manage', 'backup.manage', 'settings.edit'];
 
     /** Permissions a supervisor can grant on the spot by typing their PIN. */
-    public const APPROVABLE = ['sales.discount.above_limit', 'returns.above_limit', 'sales.void', 'sales.price_override'];
+    public const APPROVABLE = ['sales.discount.above_limit', 'returns.above_limit', 'sales.void', 'sales.price_override', 'sales.gift'];
 
     public const CASHIER = [
         'pos.sell', 'pos.hold', 'sales.discount.item', 'sales.discount.order', 'sales.view_own', 'sales.reprint',

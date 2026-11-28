@@ -6,7 +6,9 @@ namespace App\Support;
  * PricingService — the ONE place bill maths lives (brief §10). A 1:1 port of `pos/src/lib/pricing.ts`.
  *
  * Order of operations:
- *   1. line gross      = unit price × qty
+ *   0. gift bottles     = the first `giftQty` of a line are given free: priced at 0, never discounted
+ *                        (their cost still counts — a gift costs the shop what the bottle cost it)
+ *   1. line gross      = unit price × paid qty
  *   2. line discount   = gross × line % (whole dinar)
  *   3. order discount  = % or fixed amount off the sum of net lines
  *   4. loyalty points  = redeemed value off what is left
@@ -36,7 +38,7 @@ final class Pricing
 
     /**
      * @param array{
-     *   lines: array<int, array{key: string, unitPriceIQD: int, qty: int, discountPct: int|float}>,
+     *   lines: array<int, array{key: string, unitPriceIQD: int, qty: int, discountPct: int|float, giftQty?: int}>,
      *   orderDiscount?: array{type: string, value: int|float}|null,
      *   pointsRedeemedIQD?: int, giftWrapIQD?: int, taxPct?: int|float, rounding?: int
      * } $in
@@ -47,10 +49,12 @@ final class Pricing
         $lines = [];
         foreach ($in['lines'] as $l) {
             $qty = max(0, (int) floor($l['qty']));
-            $gross = max(0, self::round($l['unitPriceIQD'])) * $qty;
+            $giftQty = (int) self::clamp((int) floor($l['giftQty'] ?? 0), 0, $qty);
+            $unit = max(0, self::round($l['unitPriceIQD']));
+            $gross = $unit * ($qty - $giftQty);
             $pct = self::clamp($l['discountPct'] ?? 0, 0, 100);
             $discount = (int) self::clamp(self::round($gross * $pct / 100), 0, $gross);
-            $lines[] = ['key' => $l['key'], 'gross' => $gross, 'discount' => $discount, 'net' => $gross - $discount];
+            $lines[] = ['key' => $l['key'], 'gross' => $gross, 'discount' => $discount, 'net' => $gross - $discount, 'giftQty' => $giftQty, 'giftValue' => $unit * $giftQty];
         }
 
         $subtotal = array_sum(array_column($lines, 'gross'));
@@ -83,6 +87,7 @@ final class Pricing
             'pointsRedeemed' => $pointsRedeemed,
             'tax' => $tax,
             'giftWrap' => $giftWrap,
+            'giftValue' => array_sum(array_column($lines, 'giftValue')),
             'rounding' => $total - $exact,
             'total' => $total,
             'effectiveDiscountPct' => $subtotal > 0 ? (($itemDiscount + $orderDiscount) / $subtotal) * 100 : 0.0,

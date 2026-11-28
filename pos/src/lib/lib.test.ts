@@ -43,6 +43,15 @@ describe('priceCart', () => {
     expect(r.total).toBe(113500) // 113,400 rounded to the 250 step
     expect(r.rounding).toBe(100)
   })
+  it('gift bottles are free, never discounted, and not counted as a discount', () => {
+    // buy two Khamrah, the third is a gift; the bill has a 10% line discount on the paid ones
+    const r = priceCart({ rounding: 0, lines: [{ key: 'a', unitPriceIQD: 60000, qty: 3, discountPct: 10, giftQty: 1 }] })
+    expect([r.subtotal, r.itemDiscount, r.total, r.giftValue]).toEqual([120000, 12000, 108000, 60000])
+    expect(r.lines[0]).toMatchObject({ giftQty: 1, giftValue: 60000, net: 108000 })
+    expect(r.effectiveDiscountPct).toBeCloseTo(10, 5)
+    // a bill that is all gift costs nothing; more gifts than bottles is held to the bottles
+    expect(priceCart({ rounding: 250, lines: [{ key: 'b', unitPriceIQD: 45000, qty: 2, discountPct: 0, giftQty: 5 }] })).toMatchObject({ total: 0, giftValue: 90000 })
+  })
   it('applies order discount after line discounts', () => {
     const r = priceCart({ rounding: 0, lines: [{ key: 'a', unitPriceIQD: 100000, qty: 1, discountPct: 10 }], orderDiscount: { type: 'pct', value: 10 } })
     expect(r.total).toBe(81000)

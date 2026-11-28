@@ -26,7 +26,7 @@ import { fmtTime } from '@/lib/date'
 import { bidiSize } from '@/lib/size'
 import { CartPanel } from './CartPanel'
 import { CameraScanner, cameraScanSupported } from './CameraScanner'
-import { CustomerPicker, DiscountModal, HoldsModal, NoteModal } from './Dialogs'
+import { CustomerPicker, DiscountModal, GiftModal, HoldsModal, NoteModal } from './Dialogs'
 import { PaymentModal } from './PaymentModal'
 import { ProductGrid } from './ProductGrid'
 import { ReceiptModal } from './Receipt'
@@ -68,6 +68,7 @@ export function SellPage() {
   const [noteOpen, setNoteOpen] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [discount, setDiscount] = useState<{ kind: 'line'; variantId: string } | { kind: 'order' } | null>(null)
+  const [giftFor, setGiftFor] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<Sale | null>(null)
 
   const allowNeg = settings?.sales.allowNegativeStock ?? false
@@ -118,7 +119,7 @@ export function SellPage() {
   const canExceed = !!actor && hasPerm(actor.permissions, 'sales.discount.above_limit')
   const effective = (line?: { variantId: string; pct: number }, order?: OrderDiscount | null) =>
     priceCart({
-      lines: pricing.lines.map((l) => ({ key: l.variantId, unitPriceIQD: l.unit, qty: l.qty, discountPct: line?.variantId === l.variantId ? line.pct : l.discountPct })),
+      lines: pricing.lines.map((l) => ({ key: l.variantId, unitPriceIQD: l.unit, qty: l.qty, discountPct: line?.variantId === l.variantId ? line.pct : l.discountPct, giftQty: l.giftQty })),
       orderDiscount: order === undefined ? cart.orderDiscount : order,
       rounding: 0,
     }).effectiveDiscountPct
@@ -143,12 +144,24 @@ export function SellPage() {
     }
   }
 
+  /* ───── gifts: free bottles; managers may, anyone else needs a manager's PIN ───── */
+  const canGift = !!actor && hasPerm(actor.permissions, 'sales.gift')
+  const giftLine = giftFor ? pricing.lines.find((l) => l.variantId === giftFor) : undefined
+  const applyGift = async (variantId: string, n: number) => {
+    if (n > 0 && !canGift) {
+      const who = await ask('sales.gift', t('sell.gift_needs_approval'))
+      if (!who) return
+      cart.setApprovedBy(who)
+    }
+    cart.setLineGift(variantId, n)
+  }
+
   /* ───── hold / resume / clear ───── */
   const doHold = useAction(holdCart, { success: 'sell.held_ok' })
   const doDeleteHold = useAction(deleteHold)
   const doTester = useAction(markTester, { success: 'sell.tester_ok' })
 
-  const snapshot = () => ({ lines: cart.lines, customerId: cart.customerId, orderDiscount: cart.orderDiscount, giftWrap: cart.giftWrap, note: cart.note })
+  const snapshot = () => ({ lines: cart.lines, customerId: cart.customerId, orderDiscount: cart.orderDiscount, giftWrap: false, note: cart.note })
   const hold = async () => {
     const label = pricing.customer?.name || `${t('sell.held_bill')} ${fmtTime(Date.now())}`
     if (await doHold({ ...snapshot(), label })) { cart.clear(); setCartOpen(false) }
@@ -164,8 +177,8 @@ export function SellPage() {
   }
   const holdTotal = (h: Hold) =>
     priceCart({
-      lines: h.lines.flatMap((l) => { const r = pricing.index.get(l.variantId); return r ? [{ key: l.variantId, unitPriceIQD: r.variant.retailIQD, qty: l.qty, discountPct: l.discountPct }] : [] }),
-      orderDiscount: h.orderDiscount, giftWrapIQD: h.giftWrap ? settings?.sales.giftWrapFeeIQD : 0, taxPct: settings?.tax.pct, rounding: settings?.currency.rounding,
+      lines: h.lines.flatMap((l) => { const r = pricing.index.get(l.variantId); return r ? [{ key: l.variantId, unitPriceIQD: r.variant.retailIQD, qty: l.qty, discountPct: l.discountPct, giftQty: l.giftQty }] : [] }),
+      orderDiscount: h.orderDiscount, taxPct: settings?.tax.pct, rounding: settings?.currency.rounding,
     }).total
   const nameOf = (id: string) => { const r = pricing.index.get(id); return r ? pick(r.product.name, lang) : '?' }
 
@@ -196,6 +209,7 @@ export function SellPage() {
       pricing={pricing} holdCount={holds.length} className="h-full"
       onPay={() => setPayOpen(true)} onHold={hold} onHolds={() => setHoldsOpen(true)} onClear={clear}
       onCustomer={() => setCustOpen(true)} onLineDiscount={(variantId) => setDiscount({ kind: 'line', variantId })}
+      onLineGift={setGiftFor}
       onOrderDiscount={() => setDiscount({ kind: 'order' })} onNote={() => setNoteOpen(true)} onClose={onClose}
     />
   )
@@ -249,6 +263,16 @@ export function SellPage() {
       <CustomerPicker open={custOpen} onClose={() => setCustOpen(false)} selectedId={cart.customerId} onPick={(id) => cart.setCustomer(id)} />
       <HoldsModal open={holdsOpen} onClose={() => setHoldsOpen(false)} holds={holds} nameOf={nameOf} totalOf={holdTotal} onResume={resume} onDelete={(h) => void doDeleteHold(h.id)} />
       <NoteModal open={noteOpen} onClose={() => setNoteOpen(false)} />
+      <GiftModal
+        open={!!giftLine}
+        onClose={() => setGiftFor(null)}
+        name={giftLine ? `${pick(giftLine.ref.product.name, lang)} ${bidiSize(giftLine.ref.variant.label)}` : ''}
+        qty={giftLine?.qty ?? 0}
+        unitIQD={giftLine?.unit ?? 0}
+        initial={giftLine?.giftQty ?? 0}
+        needsApproval={!canGift}
+        onApply={(n) => { if (giftFor) void applyGift(giftFor, n) }}
+      />
       <CameraScanner open={scanOpen} onClose={() => setScanOpen(false)} onScan={async (code) => { if (await handleCode(code)) setScanOpen(false) }} />
       <DiscountModal
         open={!!discount}

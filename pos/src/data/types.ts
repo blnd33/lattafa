@@ -246,6 +246,8 @@ export interface SaleItem {
   discountIQD: number
   lineTotalIQD: number
   returnedQty: number
+  /** a bottle given away: the customer paid nothing for it, it left stock, and it costs the shop its cost price */
+  gift?: boolean
 }
 
 export type SaleStatus = 'completed' | 'voided' | 'partially_returned' | 'returned'
@@ -371,6 +373,8 @@ export interface CartSnapshotLine {
   variantId: ID
   qty: number
   discountPct: number
+  /** how many of `qty` are given away free (0..qty) */
+  giftQty?: number
 }
 export interface Hold {
   id: ID

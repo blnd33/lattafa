@@ -22,6 +22,7 @@ interface Props {
   onClear: () => void
   onCustomer: () => void
   onLineDiscount: (variantId: string) => void
+  onLineGift: (variantId: string) => void
   onOrderDiscount: () => void
   onNote: () => void
   onClose?: () => void
@@ -29,11 +30,11 @@ interface Props {
 }
 
 /** The open bill: customer, lines, totals and the big Pay button. Used inline on desktop and inside a sheet on phones/tablets. */
-export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear, onCustomer, onLineDiscount, onOrderDiscount, onNote, onClose, className }: Props) {
+export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear, onCustomer, onLineDiscount, onLineGift, onOrderDiscount, onNote, onClose, className }: Props) {
   const t = useT()
   const lang = useUI((s) => s.lang)
   const cart = useCart()
-  const { lines, priced, customer, settings, units, redeem, maxRedeem, pointValue } = pricing
+  const { lines, priced, customer, settings, units, giftUnits, redeem, maxRedeem, pointValue } = pricing
   const canDiscount = useCan('sales.discount.item')
   const canOrderDiscount = useCan('sales.discount.order')
   const canHold = useCan('pos.hold')
@@ -120,6 +121,9 @@ export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear,
                         <Percent className="size-3.5" /><span className="num">{l.discountPct}</span>
                       </button>
                     )}
+                    <button type="button" onClick={() => onLineGift(l.variantId)} aria-label={t('sell.gift')} title={t('sell.gift')} className={cn('flex h-11 items-center gap-1 rounded-xl px-3 text-xs font-semibold transition', l.giftQty ? 'bg-gold text-ink' : 'bg-surface-2 text-fg-2 hover:text-fg')}>
+                      <Gift className="size-3.5" />{l.giftQty > 0 && <span className="num">{l.giftQty}</span>}
+                    </button>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5 text-end">
@@ -127,6 +131,7 @@ export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear,
                     {l.discount > 0 && <s className="block text-xs font-normal text-fg-2"><Amt n={l.gross} unit={false} /></s>}
                     <Amt n={l.net} unit={false} />
                   </div>
+                  {l.giftQty > 0 && <Badge tone="gold"><Gift className="size-3" /> <span className="num">{l.giftQty}</span> {t('sell.free')}</Badge>}
                   <button type="button" aria-label={t('common.remove')} onClick={() => cart.remove(l.variantId)} className="grid size-11 place-items-center rounded-xl text-danger transition hover:bg-danger-bg"><Trash2 className="size-[18px]" /></button>
                 </div>
               </li>
@@ -141,7 +146,7 @@ export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear,
         {priced.orderDiscount > 0 && <Row label={`${t('sell.order_discount')}${cart.orderDiscount?.type === 'pct' ? ` (${cart.orderDiscount.value}%)` : ''}`} value={<span className="text-success">− <Amt n={priced.orderDiscount} /></span>} />}
         {priced.pointsRedeemed > 0 && <Row label={`${t('sell.points_used')} (${redeem} ${t('sell.pts')})`} value={<span className="text-success">− <Amt n={priced.pointsRedeemed} /></span>} />}
         {priced.tax > 0 && <Row label={`${t('sell.tax')} (${settings?.tax.pct}%)`} value={<Amt n={priced.tax} />} />}
-        {cart.giftWrap && settings && <Row label={t('sell.gift_wrap')} value={<Amt n={settings.sales.giftWrapFeeIQD} />} />}
+        {giftUnits > 0 && <Row label={`${t('sell.gifts')} (${giftUnits})`} value={<span className="flex items-center gap-1.5"><s className="text-xs text-fg-2"><Amt n={priced.giftValue} /></s><span className="text-gold-text">{t('sell.free')}</span></span>} />}
         {customer && settings?.loyalty.enabled && customer.points > 0 && (
           <div className="flex min-h-11 items-center justify-between text-sm">
             <span className="flex items-center gap-2"><Gem className="size-[18px] text-gold-text" />{t('sell.redeem')} <span className="num text-xs text-fg-2">{maxRedeem} {t('sell.pts')} = {fmt(maxRedeem * pointValue)}</span></span>
@@ -156,9 +161,8 @@ export function CartPanel({ pricing, holdCount, onPay, onHold, onHolds, onClear,
           </div>
         </div>
         {customer && (customer.points >= 0) && settings?.loyalty.enabled && priced.total > 0 && <p className="text-end text-xs text-fg-2">{t('sell.earns', { n: Math.floor((priced.total / 1000) * settings.loyalty.pointsPer1000IQD) })}</p>}
-        <div className="grid grid-cols-5 gap-2 pt-1.5">
+        <div className="grid grid-cols-4 gap-2 pt-1.5">
           <IconButton label={t('sell.order_discount')} className={cn('w-full', !canOrderDiscount && 'invisible', cart.orderDiscount && 'ring-2 ring-gold')} onClick={onOrderDiscount} disabled={!lines.length || !canOrderDiscount}><Percent className="size-5" /></IconButton>
-          <IconButton label={`${t('sell.gift_wrap')} (+${fmt(settings?.sales.giftWrapFeeIQD ?? 0)})`} aria-pressed={cart.giftWrap} className={cn('w-full', cart.giftWrap && 'bg-gold text-ink ring-2 ring-gold')} onClick={() => cart.setGiftWrap(!cart.giftWrap)} disabled={!lines.length}><Gift className="size-5" /></IconButton>
           <IconButton label={t('sell.note')} className={cn('w-full', cart.note && 'ring-2 ring-gold')} onClick={onNote} disabled={!lines.length}><StickyNote className="size-5" /></IconButton>
           <IconButton label={t('sell.hold')} className={cn('w-full', !canHold && 'invisible')} onClick={onHold} disabled={!lines.length || !canHold}><Pause className="size-5" /></IconButton>
           <IconButton label={t('sell.clear')} variant="secondary" className="w-full text-danger" onClick={onClear} disabled={!lines.length && !cart.customerId}><Trash2 className="size-5" /></IconButton>

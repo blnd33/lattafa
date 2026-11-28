@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Clock, Play, Plus, Trash2, UserX } from 'lucide-react'
+import { Check, Clock, Gift, Minus, Play, Plus, Trash2, UserX } from 'lucide-react'
 import { Amt } from '@/components/ui/Amt'
 import { Avatar, Badge, EmptyState, Segmented } from '@/components/ui/Controls'
 import { Button, IconButton } from '@/components/ui/Button'
@@ -71,6 +71,64 @@ export function DiscountModal({
         <p className={cn('rounded-xl px-3 py-2 text-xs', overLimit ? 'bg-warn-bg text-warn-fg' : 'bg-surface-2 text-fg-2')}>
           {overLimit ? t('sell.needs_approval', { n: limitPct }) : t('sell.your_limit', { n: canExceed ? '∞' : limitPct })}
         </p>
+      </div>
+    </Modal>
+  )
+}
+
+/* ───────── gift (bottles of one line given away free) ───────── */
+
+export function GiftModal({
+  open, onClose, name, qty, unitIQD, initial, needsApproval, onApply,
+}: {
+  open: boolean
+  onClose: () => void
+  /** the perfume and size, e.g. "Khamrah 100 ml" */
+  name: string
+  qty: number
+  unitIQD: number
+  initial: number
+  /** the person selling may not give gifts: a manager's PIN is asked on Apply */
+  needsApproval: boolean
+  onApply: (giftQty: number) => void
+}) {
+  const t = useT()
+  const [n, setN] = useState(0)
+  useEffect(() => { if (open) setN(Math.min(initial, qty)) }, [open, initial, qty])
+  const set = (v: number) => setN(Math.max(0, Math.min(qty, v)))
+  const apply = (v: number) => { onApply(v); onClose() }
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('sell.gift_title')}
+      size="sm"
+      footer={
+        <div className="flex gap-2">
+          <Button size="lg" variant="secondary" className="flex-1" onClick={() => apply(0)} disabled={!initial}>{t('sell.gift_none')}</Button>
+          <Button size="lg" variant="primary" className="flex-1" icon={<Check className="size-5" />} onClick={() => apply(n)}>{t('common.apply')}</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <p className="flex items-center gap-2 font-semibold"><Gift className="size-5 shrink-0 text-gold-text" /><span className="min-w-0 truncate">{name}</span></p>
+        <div className="flex items-center justify-center gap-3">
+          <IconButton label="−" size="lg" onClick={() => set(n - 1)} disabled={n <= 0}><Minus className="size-5" /></IconButton>
+          <div className="min-w-24 text-center">
+            <div className="num font-serif text-4xl font-semibold leading-none">{n}</div>
+            <div className="mt-1 text-xs text-fg-2">{t('sell.gift_of', { n: qty })}</div>
+          </div>
+          <IconButton label="+" size="lg" onClick={() => set(n + 1)} disabled={n >= qty}><Plus className="size-5" /></IconButton>
+        </div>
+        {qty > 1 && (
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => set(1)} className={cn('h-11 rounded-xl text-sm font-semibold transition', n === 1 ? 'bg-gold text-ink' : 'bg-surface-2 hover:bg-gold-soft dark:hover:bg-charcoal')}>{t('sell.gift_one')}</button>
+            <button type="button" onClick={() => set(qty)} className={cn('h-11 rounded-xl text-sm font-semibold transition', n === qty ? 'bg-gold text-ink' : 'bg-surface-2 hover:bg-gold-soft dark:hover:bg-charcoal')}>{t('sell.gift_all')}</button>
+          </div>
+        )}
+        {n > 0 && <p className="text-center text-sm">{t('sell.gift_value')} <s className="text-fg-2"><Amt n={n * unitIQD} /></s> → <span className="font-semibold text-gold-text">{t('sell.free')}</span></p>}
+        <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-fg-2">{t('sell.gift_hint')}</p>
+        {needsApproval && n > 0 && <p className="rounded-xl bg-warn-bg px-3 py-2 text-xs text-warn-fg">{t('sell.gift_needs_approval')}</p>}
       </div>
     </Modal>
   )

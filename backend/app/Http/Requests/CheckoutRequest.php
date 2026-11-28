@@ -13,6 +13,7 @@ class CheckoutRequest extends ApiRequest
             'lines.*.variantId' => ['required', 'uuid'],
             'lines.*.qty' => ['required', 'integer', 'min:1'],
             'lines.*.discountPct' => ['nullable', 'integer', 'between:0,100'],
+            'lines.*.giftQty' => ['nullable', 'integer', 'min:0'],
             'customerId' => ['nullable', 'uuid'],
             'orderDiscount' => ['nullable', 'array'],
             'orderDiscount.type' => ['required_with:orderDiscount', 'in:pct,fixed'],
