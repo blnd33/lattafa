@@ -90,12 +90,12 @@ class DelegateService
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function vanStock(User $actor, string $delegateId): array
+    public function vanStock(User $actor, string $delegateId, bool $all = false): array
     {
         $this->canSee($actor, $delegateId);
         $this->delegateOrFail($delegateId);
 
-        return $this->vanRows($delegateId);
+        return $this->vanRows($delegateId, $all);
     }
 
     /**
@@ -106,10 +106,11 @@ class DelegateService
      *
      * @return array<int, array<string, mixed>>
      */
-    private function vanRows(string $delegateId): array
+    /** @param bool $all every perfume on sale, the ones he does not carry at 0 — or only what he carries */
+    private function vanRows(string $delegateId, bool $all = false): array
     {
         $qty = $this->stock->map(self::van($delegateId));
-        if (! $qty) {
+        if (! $qty && ! $all) {
             return [];
         }
 
@@ -126,7 +127,11 @@ class DelegateService
 
         $names = User::whereIn('id', $last->pluck('user_id')->filter()->unique())->pluck('name', 'id')->all();
 
-        return Variant::with('product')->whereIn('id', array_keys($qty))->get()
+        $variants = $all
+            ? Variant::with('product')->where('active', true)->where('is_tester', false)->whereHas('product', fn ($q) => $q->where('active', true))->get()
+            : Variant::with('product')->whereIn('id', array_keys($qty))->get();
+
+        return $variants
             ->map(fn (Variant $v) => [
                 'variantId' => $v->id, 'productId' => $v->product_id, 'name' => $v->product->name, 'brand' => $v->product->brand,
                 'label' => $v->label, 'sku' => $v->sku, 'qty' => $qty[$v->id] ?? 0, 'wholesaleIQD' => $v->wholesale_iqd, 'retailIQD' => $v->retail_iqd,
@@ -136,8 +141,9 @@ class DelegateService
                 'lastAddedBy' => isset($last[$v->id]) ? ($names[$last[$v->id]->user_id] ?? null) : null,
                 'lastAddedByThem' => isset($last[$v->id]) && $last[$v->id]->user_id === $delegateId,
             ])
-            ->filter(fn ($r) => $r['qty'] !== 0)
-            ->sortBy(fn ($r) => Str::lower($r['name']['en'] ?? ''))->values()->all();
+            ->filter(fn ($r) => $all || $r['qty'] !== 0)
+            // what he carries first, then A–Z
+            ->sortBy([fn ($a, $b) => ($b['qty'] !== 0) <=> ($a['qty'] !== 0), fn ($a, $b) => Str::lower($a['name']['en'] ?? '') <=> Str::lower($b['name']['en'] ?? '')])->values()->all();
     }
 
     /**
@@ -284,25 +290,63 @@ class DelegateService
      *
      * @param array<int, array{variantId: string, qty: int}> $items
      */
+    /**
+     * Adds bottles to a delegate's own stock. The delegate's stock is separate from the shop's: adding here never
+     * takes anything off the shop's shelf (the owner decided this on 28 November — the delegate stocks up on his own
+     * account). Each line is one `purchase` movement into his van, so the van's history still explains every bottle.
+     */
     public function load(User $actor, string $delegateId, array $items, string $note = '', ?string $requestId = null): array
     {
         $this->need($actor, 'delegates.manage');
         $d = $this->delegateOrFail($delegateId);
 
-        return $this->transfer($actor, $items, StockService::LOCATION, self::van($d->id), 'van_load', $note, function () use ($requestId, $actor, $d) {
+        return $this->adjustVan($actor, $d, $items, +1, 'van_load', $note, function () use ($requestId, $actor, $d) {
             if ($requestId && ($r = StockRequest::where('user_id', $d->id)->find($requestId)) && $r->status === 'open') {
                 $r->update(['status' => 'fulfilled', 'handled_by' => $actor->id, 'handled_at' => Time::nowMs()]);
             }
         });
     }
 
-    /** Van → shop (unsold stock brought back). @param array<int, array{variantId: string, qty: int}> $items */
-    public function unload(User $actor, string $delegateId, array $items, string $note = ''): array
+    /**
+     * Takes bottles off a delegate's stock: by default only off his stock (damaged, sold elsewhere, a miscount), or —
+     * with `$toShop` — back onto the shop's shelf when he hands them in. Never more than he holds.
+     */
+    public function unload(User $actor, string $delegateId, array $items, string $note = '', bool $toShop = false): array
     {
         $this->need($actor, 'delegates.manage');
         $d = $this->delegateOrFail($delegateId);
 
-        return $this->transfer($actor, $items, self::van($d->id), StockService::LOCATION, 'van_unload', $note);
+        return $toShop
+            ? $this->transfer($actor, $items, self::van($d->id), StockService::LOCATION, 'van_unload', $note)
+            : $this->adjustVan($actor, $d, $items, -1, 'van_remove', $note);
+    }
+
+    /** One movement per line into (+1) or out of (−1) a van; the shop's shelf is not touched. */
+    private function adjustVan(User $actor, User $delegate, array $items, int $sign, string $kind, string $note, ?callable $after = null): array
+    {
+        $items = array_values(array_filter($items, fn ($i) => (int) ($i['qty'] ?? 0) > 0));
+        if (! $items) {
+            throw new AppException('invalid_quantity');
+        }
+
+        return DB::transaction(function () use ($actor, $delegate, $items, $sign, $kind, $note, $after) {
+            $ref = (string) Str::uuid7();
+            foreach ($items as $it) {
+                if (! Variant::whereKey($it['variantId'])->exists()) {
+                    throw new AppException('product_unavailable');
+                }
+                $this->stock->applyMovement($it['variantId'], $sign * (int) $it['qty'], $sign > 0 ? 'purchase' : 'adjustment', $actor,
+                    ['refType' => $kind, 'refId' => $ref, 'note' => $note, 'locationId' => self::van($delegate->id)]);
+            }
+            if ($after) {
+                $after();
+            }
+            $units = (int) array_sum(array_column($items, 'qty'));
+            $this->audit->log($actor, 'delegate.'.($sign > 0 ? 'van_load' : 'van_unload'), 'location', self::van($delegate->id),
+                ['lines' => count($items), 'units' => $units, 'shelf' => false]);
+
+            return ['ref' => $ref, 'lines' => count($items), 'units' => $units];
+        });
     }
 
     private function transfer(User $actor, array $items, string $from, string $to, string $kind, string $note, ?callable $after = null): array
@@ -325,7 +369,7 @@ class DelegateService
             if ($after) {
                 $after();
             }
-            $this->audit->log($actor, 'delegate.'.$kind, 'location', $kind === 'van_load' ? $to : $from, ['lines' => count($items), 'units' => array_sum(array_column($items, 'qty'))]);
+            $this->audit->log($actor, 'delegate.'.$kind, 'location', $kind === 'van_load' ? $to : $from, ['lines' => count($items), 'units' => array_sum(array_column($items, 'qty')), 'shelf' => true]);
 
             return ['ref' => $ref, 'lines' => count($items), 'units' => (int) array_sum(array_column($items, 'qty'))];
         });

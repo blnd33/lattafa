@@ -219,12 +219,16 @@ tests/                       Feature (HTTP) + Unit (pricing, permissions)
   bill, then **"Where did you sell?"** — pick the shop (nearest first when the phone has GPS) or add a new one on the
   spot, or "not a shop" with a note of the place — choose cash / debt / partly paid, and finish. The phone's position is
   saved with the sale.
-* Delegates sell **out of their own van**: a manager loads it from the shop (Admin panel → Delegates → **Van**),
-  which moves the bottles off the shop's shelf and into `van:<delegate>`, and every sale takes them off that van and
-  never off the shop. Unloading brings them back. Each line is a pair of stock movements, so both balances explain
-  themselves in the stock history. The phone carries its own van — it asks for it with `GET /sync/pull?stock=van`,
-  and the server works out whose van from who is asking, so a phone can never read or sell another's. A sale made
-  with an emptier van than the phone last saw is still recorded (it happened out there) and flagged for a manager.
+* Delegates sell **out of their own stock** (their "van", `van:<delegate>`), which is **separate from the shop's
+  shelf**: Admin panel → Delegates → **Van → Add stock** puts bottles in a delegate's stock and never takes them off
+  the shop, and a delegate can add stock from the phone too. Every sale takes bottles off that delegate's stock and
+  never off the shop. **Remove stock** takes bottles off a delegate's stock (damaged, a miscount, sold elsewhere); only
+  when "put them back on the shop's shelf" is ticked do they go onto the shelf. Every perfume in Products is in each
+  delegate's stock list (at 0 until they have some), and each delegate can have **their own dollar price** per size
+  (Delegates → Prices, or from the phone), falling back to the shop's dollar list. The phone carries its own stock —
+  it asks for it with `GET /sync/pull?stock=van`, and the server works out whose from who is asking, so a phone can
+  never read or sell another's. A sale made with less stock than the phone last saw is still recorded (it happened out
+  there) and flagged for a manager.
 * **Dollars or dinars:** each bill is shown and paid in USD (the default) or IQD at the shop's rate (Settings → currency).
   On a dollar bill each bottle is its price converted and rounded to 50 cents (36,000 IQD at 1,460 = $24.50), and the
   bill to 50 cents after a discount. Debts always stay in IQD. Debt payments can be taken in dollars too; the dollar

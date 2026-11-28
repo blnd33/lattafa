@@ -12,14 +12,12 @@ import { useMeta, useShop } from '../hooks'
 import { Money, TopBar } from '../ui'
 import { AddStockSheet, MyPriceSheet } from './MyStock'
 
-type Filter = 'all' | 'low' | 'men' | 'women' | 'oud'
+type Filter = 'all' | 'mine' | 'low' | 'men' | 'women' | 'oud'
 const LOW = 2
 
 /**
- * The delegate's own van: what they are carrying, what they charge for it, and the way to add more.
- *
- * It starts empty. A size appears once they have stocked it or priced it, so this is their list, not the shop's
- * — the shop's catalogue is only reached through the search when they stock up.
+ * The delegate's own stock: every perfume the shop sells, what he has of each (his own first), what he charges for
+ * it, and the way to add more. A perfume added in Products shows up here at 0 by itself.
  */
 export function StockScreen() {
   const t = useT()
@@ -35,7 +33,8 @@ export function StockScreen() {
   const [pricing, setPricing] = useState<ShopItem | null>(null)
 
   const rows = useMemo(() => items.filter(({ product: p, variant: v, qty }) => {
-    if (f === 'low' && qty > LOW) return false
+    if (f === 'mine' && qty === 0) return false
+    if (f === 'low' && (qty === 0 || qty > LOW)) return false
     if ((f === 'men' || f === 'women') && p.gender !== f) return false
     if (f === 'oud' && p.category !== 'oud' && !p.scentFamilies.includes('oud')) return false
     const s = q.trim().toLowerCase()
@@ -43,12 +42,13 @@ export function StockScreen() {
   }), [items, q, f])
   const units = items.reduce((a, r) => a + Math.max(0, r.qty), 0)
   const inStock = items.filter((r) => r.qty > 0).length
+  const carried = items.some((r) => r.qty !== 0)
 
   return (
     <div>
       <TopBar title={t('dl.my_van')} subtitle={t('dl.my_van_hint')}>
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('dl.search')} />
-        <Chips className="mt-2" value={f} onChange={setF} options={(['all', 'low', 'men', 'women', 'oud'] as Filter[]).map((x) => ({ value: x, label: t(`dl.f_${x}`) }))} />
+        <Chips className="mt-2" value={f} onChange={setF} options={(['all', 'mine', 'low', 'men', 'women', 'oud'] as Filter[]).map((x) => ({ value: x, label: t(`dl.f_${x}`) }))} />
       </TopBar>
 
       <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
@@ -56,6 +56,7 @@ export function StockScreen() {
         <div className="rounded-2xl border border-line bg-surface p-3"><p className="text-xs text-fg-2">{t('dl.sizes_carried')}</p><p className="num text-2xl font-semibold">{inStock}</p></div>
       </div>
 
+      {!carried && f === 'all' && !q && <p className="mx-4 mt-3 rounded-2xl border border-dashed border-gold/50 bg-gold-soft/40 p-4 text-center text-sm dark:bg-gold/10">{t('dl.van_empty_phone')}</p>}
       <ul className="mx-4 mt-3 space-y-2">
         {rows.map(({ product: p, variant: v, qty, ownCents }) => (
           <li key={v.id}>
@@ -70,13 +71,14 @@ export function StockScreen() {
                 </p>
               </div>
               <div className="text-end">
-                <p className={qty <= 0 ? 'num text-xl font-bold text-danger' : qty <= LOW ? 'num text-xl font-bold text-warn-fg' : 'num text-xl font-bold'}>{Math.max(0, qty)}</p>
-                <p className="flex items-center gap-1 text-[11px] text-fg-2"><Tag className="size-3" />{qty <= 0 ? t('dl.sold_out') : t('dl.in_van_short')}</p>
+                {/* 0 of a perfume he never had is "none", not "sold out"; below 0 he sold more than he recorded */}
+                <p className={qty < 0 ? 'num text-xl font-bold text-danger' : qty === 0 ? 'num text-xl text-fg-2' : qty <= LOW ? 'num text-xl font-bold text-warn-fg' : 'num text-xl font-bold'}>{qty}</p>
+                <p className="flex items-center gap-1 text-[11px] text-fg-2"><Tag className="size-3" />{qty === 0 ? t('dl.none_in_stock') : qty < 0 ? t('dl.sold_out') : t('dl.in_van_short')}</p>
               </div>
             </button>
           </li>
         ))}
-        {rows.length === 0 && <li className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-fg-2">{items.length ? t('dl.no_match') : t('dl.van_empty_phone')}</li>}
+        {rows.length === 0 && <li className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-fg-2">{t('dl.no_match')}</li>}
       </ul>
 
       <div className="mx-4 my-4 space-y-2">

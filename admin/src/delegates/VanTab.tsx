@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PackageMinus, PackagePlus, Trash2, Truck } from 'lucide-react'
 import { Button, IconButton } from '@/components/ui/Button'
-import { Card, EmptyState, Spinner } from '@/components/ui/Controls'
+import { Card, EmptyState, Spinner, Switch } from '@/components/ui/Controls'
 import { Input } from '@/components/ui/Field'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/components/ui/cn'
@@ -14,30 +14,30 @@ import { useUI } from '@/store/ui'
 import { VariantPicker, type Picked } from '../purchasing/VariantPicker'
 
 /**
- * What one delegate is carrying, and the two ways it changes.
+ * One delegate's own stock, and the two ways it changes.
  *
- * A delegate sells out of their van, so nothing reaches a shop on the road that a manager did not put in the van
- * first. Loading moves bottles from the shop's shelf into the van and unloading brings them back — each line is a
- * pair of stock movements, so both balances explain themselves afterwards in the stock history.
- *
- * The shop cannot load what it does not have: the server refuses with `insufficient_stock`, and so does unloading
- * more than the van holds. Neither is checked here beyond showing the figures, because the van can change while
- * this screen is open.
+ * A delegate's stock is separate from the shop's (the owner's decision, 28 November): **Add stock** puts bottles in
+ * his stock and never touches the shop's shelf; **Remove stock** takes them off his stock, and only puts them back on
+ * the shelf when ticked (he handed them in). Every line is a stock movement, so his history explains every bottle.
+ * The server refuses to take off more than he holds (`insufficient_stock`).
  */
 export function VanTab({ delegateId }: { delegateId: string }) {
   const t = useT()
   const lang = useUI((s) => s.lang)
   const qc = useQueryClient()
   const [moving, setMoving] = useState<'load' | 'unload' | null>(null)
+  // every perfume on sale, the ones he does not carry at 0 — or only what he carries
+  const [showAll, setShowAll] = useState(false)
 
   const van = useQuery({
-    queryKey: ['van', delegateId],
-    queryFn: () => api<{ items: VanRow[] }>('GET', `/delegates/${delegateId}/van`).then((r) => r.items),
+    queryKey: ['van', delegateId, showAll],
+    queryFn: () => api<{ items: VanRow[] }>('GET', `/delegates/${delegateId}/van${showAll ? '?all=1' : ''}`).then((r) => r.items),
   })
 
   if (van.isLoading) return <div className="grid h-40 place-items-center"><Spinner className="size-8" /></div>
 
   const rows = van.data ?? []
+  const carried = rows.filter((r) => r.qty !== 0)
   const units = rows.reduce((n, r) => n + r.qty, 0)
   const worth = rows.reduce((n, r) => n + r.qty * r.wholesaleIQD, 0)
 
@@ -53,9 +53,13 @@ export function VanTab({ delegateId }: { delegateId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button icon={<PackagePlus className="size-5" />} onClick={() => setMoving('load')}>{t('dlg.load')}</Button>
-          <Button variant="secondary" icon={<PackageMinus className="size-5" />} disabled={!rows.length} onClick={() => setMoving('unload')}>{t('dlg.unload')}</Button>
+          <Button variant="secondary" icon={<PackageMinus className="size-5" />} disabled={!carried.length} onClick={() => setMoving('unload')}>{t('dlg.unload')}</Button>
         </div>
       </Card>
+
+      <label className="flex w-fit items-center gap-2.5 text-sm font-medium">
+        <Switch checked={showAll} onChange={setShowAll} label={t('dlg.show_all')} />{t('dlg.show_all')}
+      </label>
 
       {!rows.length ? <Card><EmptyState title={t('dlg.van_empty')} hint={t('dlg.van_empty_hint')} /></Card> : (
         <Card pad={false}>
@@ -72,13 +76,13 @@ export function VanTab({ delegateId }: { delegateId: string }) {
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.map((r) => (
-                  <tr key={r.variantId}>
+                  <tr key={r.variantId} className={cn(r.qty === 0 && 'text-fg-2')}>
                     <td className="px-3 py-2.5">
                       <p className="font-medium">{pick(r.name, lang)}</p>
                       <p className="text-xs text-fg-2">{r.brand}</p>
                     </td>
                     <td className="num px-3 py-2.5 text-fg-2">{r.label}</td>
-                    <td className={cn('num px-3 py-2.5 text-end font-semibold', r.qty < 0 && 'text-danger-fg')}>{r.qty}</td>
+                    <td className={cn('num px-3 py-2.5 text-end', r.qty !== 0 && 'font-semibold', r.qty < 0 && 'text-danger-fg')}>{r.qty}</td>
                     <td className="num px-3 py-2.5 text-end">
                       {r.ownCents != null
                         ? <span className="font-semibold text-gold-text">${(r.ownCents / 100).toFixed(2)}</span>
@@ -101,7 +105,7 @@ export function VanTab({ delegateId }: { delegateId: string }) {
         <MoveStock
           delegateId={delegateId}
           kind={moving}
-          inVan={rows}
+          inVan={carried}
           onClose={() => setMoving(null)}
           onDone={() => { setMoving(null); void qc.invalidateQueries({ queryKey: ['van', delegateId] }) }}
         />
@@ -128,7 +132,7 @@ export interface VanRow {
   lastAddedByThem: boolean
 }
 
-/** Shop → van, or van → shop. The same sheet both ways; only the direction and what it offers differ. */
+/** Into his stock, or out of it. The same sheet both ways; only the direction and what it offers differ. */
 function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
   delegateId: string
   kind: 'load' | 'unload'
@@ -140,6 +144,8 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
   const lang = useUI((s) => s.lang)
   const [lines, setLines] = useState<{ variantId: string; name: string; label: string; qty: number; max: number | null }[]>([])
   const [note, setNote] = useState('')
+  // removing: whether the bottles go back on the shop's shelf (he handed them in) or only come off his stock
+  const [toShop, setToShop] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const add = (variantId: string, name: string, label: string, max: number | null) => {
@@ -151,8 +157,8 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
     if (!items.length) return
     setBusy(true)
     try {
-      const out = await api<{ units: number }>('POST', `/delegates/${delegateId}/${kind}`, { items, note })
-      toast.success(t(kind === 'load' ? 'dlg.loaded' : 'dlg.unloaded', { n: out.units }))
+      const out = await api<{ units: number }>('POST', `/delegates/${delegateId}/${kind}`, kind === 'unload' ? { items, note, toShop } : { items, note })
+      toast.success(t(kind === 'load' ? 'dlg.loaded' : toShop ? 'dlg.unloaded_to_shop' : 'dlg.unloaded', { n: out.units }))
       onDone()
     } catch (e) { toast.error(errorMessage(e, t)) } finally { setBusy(false) }
   }
@@ -162,14 +168,15 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
   return (
     <Modal open onClose={onClose} size="lg" title={t(kind === 'load' ? 'dlg.load_title' : 'dlg.unload_title')} footer={<>
       <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-      <Button loading={busy} disabled={!units} onClick={() => void send()}>{t('dlg.move_n', { n: units })}</Button>
+      <Button loading={busy} disabled={!units} onClick={() => void send()}>{t(kind === 'load' ? 'dlg.load_n' : 'dlg.unload_n', { n: units })}</Button>
     </>}>
       <div className="space-y-3">
         <p className="text-sm text-fg-2">{t(kind === 'load' ? 'dlg.load_hint' : 'dlg.unload_hint')}</p>
 
         {kind === 'load'
-          // loading can reach for anything the shop stocks, so it uses the same finder as a purchase order
-          ? <VariantPicker onPick={(p: Picked) => add(p.variant.id, pick(p.product.name, lang), p.variant.label, p.variant.stock)} />
+          // adding can reach for any perfume the shop sells, so it uses the same finder as a purchase order; the shop's
+          // own count is not a limit, because his stock is his own
+          ? <VariantPicker onPick={(p: Picked) => add(p.variant.id, pick(p.product.name, lang), p.variant.label, null)} />
           : (
             <ul className="max-h-48 divide-y divide-line overflow-y-auto rounded-xl border border-line">
               {inVan.map((r) => (
@@ -192,7 +199,7 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{l.name}</span>
                   <span className="num block text-xs text-fg-2">
-                    {l.label}{l.max !== null && ` · ${t(kind === 'load' ? 'dlg.in_shop' : 'dlg.in_van', { n: l.max })}`}
+                    {l.label}{l.max !== null && ` · ${t('dlg.in_van', { n: l.max })}`}
                   </span>
                 </span>
                 <Input type="number" inputMode="numeric" min={1} value={String(l.qty)} aria-label={t('dlg.van_qty')} className="!w-24"
@@ -206,6 +213,12 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
         )}
 
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('dlg.move_note')} aria-label={t('dlg.move_note')} />
+        {kind === 'unload' && (
+          <label className="flex items-start gap-3 rounded-xl bg-surface-2 p-3 text-sm">
+            <Switch checked={toShop} onChange={setToShop} label={t('dlg.to_shop')} />
+            <span>{t('dlg.to_shop')}</span>
+          </label>
+        )}
       </div>
     </Modal>
   )

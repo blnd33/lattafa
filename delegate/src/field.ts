@@ -49,11 +49,11 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
 export interface ShopItem { variant: Variant; product: Product; qty: number; ownCents: number | null }
 
 /**
- * What this delegate carries — their van, not the shop's shelf.
+ * Every perfume the shop sells, with how many this delegate has of each in his own stock and his own price.
  *
- * A size is theirs once it is in their van or they have priced it, so the app starts empty and fills as they
- * stock up. A size they have taken down to nothing stays listed, because selling out of something is worth
- * seeing; a size they never carried is not there at all.
+ * All of them are listed — a perfume added in Products appears on every delegate's phone at the next sync, at 0 until
+ * he has some (the owner's decision, 28 November). What he carries comes first; the sell screen shows only what he
+ * can actually sell.
  */
 export async function shopItems(): Promise<ShopItem[]> {
   const [products, variants, stock, prices] = await Promise.all([
@@ -63,9 +63,10 @@ export async function shopItems(): Promise<ShopItem[]> {
   const qty = new Map(stock.map((r) => [r.variantId, r.qty]))
   const own = new Map(prices.map((r) => [r.variantId, r.cents]))
   const nameOf = (p: Product) => p.name.en || p.name.ar || p.name.ku
-  return variants.filter((v) => v.active && !v.isTester && pm.has(v.productId) && (qty.has(v.id) || own.has(v.id)))
+  const carries = (r: ShopItem) => (r.qty !== 0 ? 1 : 0)
+  return variants.filter((v) => v.active && !v.isTester && pm.has(v.productId))
     .map((v) => ({ variant: v, product: pm.get(v.productId)!, qty: qty.get(v.id) ?? 0, ownCents: own.get(v.id) ?? null }))
-    .sort((a, b) => nameOf(a.product).localeCompare(nameOf(b.product)) || b.variant.ml - a.variant.ml)
+    .sort((a, b) => carries(b) - carries(a) || nameOf(a.product).localeCompare(nameOf(b.product)) || b.variant.ml - a.variant.ml)
 }
 
 /* ───────── selling ───────── */

@@ -77,26 +77,51 @@ class DelegateTest extends ApiTestCase
         $this->assertSame('DL1', $r->json('device.code'));
     }
 
-    public function test_loading_and_unloading_a_van_moves_stock_between_shop_and_van(): void
+    public function test_a_delegates_stock_is_his_own_and_never_touches_the_shop_shelf(): void
     {
         $this->shop();
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah'); // 14 in the shop
-        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 5]], 'note' => 'morning load'])->assertOk()->assertJsonPath('units', 5);
-        $this->assertSame(9, $this->stockOf($v));
-        $this->assertSame(5, $this->van($id, $v));
-        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 50]]])->assertStatus(422)->assertJsonPath('error.code', 'insufficient_stock');
+
+        // adding to his stock leaves the shop's shelf exactly as it was — even more than the shop holds
+        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 5]], 'note' => 'morning'])->assertOk()->assertJsonPath('units', 5);
+        $this->assertSame([14, 5], [$this->stockOf($v), $this->van($id, $v)]);
+        $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 50]]])->assertOk();
+        $this->assertSame([14, 55], [$this->stockOf($v), $this->van($id, $v)]);
 
         $row = collect($this->api('GET', 'delegates')->assertOk()->json('delegates'))->firstWhere('id', $id);
-        $this->assertSame(5, $row['vanUnits']);
-        $this->assertSame(5 * $v->wholesale_iqd, $row['vanValueIQD']);
-        $this->assertSame(5, $this->api('GET', "delegates/$id/van")->json('items.0.qty'));
+        $this->assertSame([55, 55 * $v->wholesale_iqd], [$row['vanUnits'], $row['vanValueIQD']]);
+        $this->assertSame(55, $this->api('GET', "delegates/$id/van")->json('items.0.qty'));
 
-        $this->api('POST', "delegates/$id/unload", ['items' => [['variantId' => $v->id, 'qty' => 2]]])->assertOk();
-        $this->assertSame([11, 3], [$this->stockOf($v), $this->van($id, $v)]);
-        $this->api('POST', "delegates/$id/unload", ['items' => [['variantId' => $v->id, 'qty' => 9]]])->assertStatus(422);
-        $types = \App\Models\StockMovement::where('variant_id', $v->id)->pluck('type')->unique()->values()->all();
-        $this->assertEqualsCanonicalizing(['opening', 'transfer_out', 'transfer_in'], $types);
+        // taking stock off him: by default only off his stock; with toShop, back onto the shelf
+        $this->api('POST', "delegates/$id/unload", ['items' => [['variantId' => $v->id, 'qty' => 50]], 'note' => 'miscount'])->assertOk();
+        $this->assertSame([14, 5], [$this->stockOf($v), $this->van($id, $v)]);
+        $this->api('POST', "delegates/$id/unload", ['items' => [['variantId' => $v->id, 'qty' => 2]], 'toShop' => true])->assertOk();
+        $this->assertSame([16, 3], [$this->stockOf($v), $this->van($id, $v)]);
+        $this->api('POST', "delegates/$id/unload", ['items' => [['variantId' => $v->id, 'qty' => 9]]])->assertStatus(422)->assertJsonPath('error.code', 'insufficient_stock');
+
+        // his van's history explains every bottle: received, taken off, handed back
+        $inVan = \App\Models\StockMovement::where('location_id', 'van:'.$id)->orderBy('occurred_at')->get(['type', 'qty', 'ref_type']);
+        $this->assertSame([['purchase', 5, 'van_load'], ['purchase', 50, 'van_load'], ['adjustment', -50, 'van_remove'], ['transfer_out', -2, 'van_unload']],
+            $inVan->map(fn ($m) => [$m->type, (int) $m->qty, $m->ref_type])->all());
+    }
+
+    public function test_every_perfume_appears_in_a_delegates_stock_list(): void
+    {
+        $this->shop();
+        $id = $this->delegate();
+        $v = $this->variantOf('Khamrah');
+        $this->loadVan($id, $v, 4);
+
+        // only what he carries, by default
+        $this->assertSame([$v->id], array_column($this->api('GET', "delegates/$id/van")->json('items'), 'variantId'));
+
+        // every perfume on sale with ?all=1 — what he carries first, the rest at 0
+        $all = $this->api('GET', "delegates/$id/van?all=1")->assertOk()->json('items');
+        $onSale = \App\Models\Variant::where('active', true)->where('is_tester', false)->whereHas('product', fn ($q) => $q->where('active', true))->count();
+        $this->assertCount($onSale, $all);
+        $this->assertSame([$v->id, 4], [$all[0]['variantId'], $all[0]['qty']]);
+        $this->assertSame(0, $all[1]['qty']);
     }
 
     public function test_only_managers_load_vans_and_a_delegate_sees_only_their_own(): void
@@ -118,9 +143,9 @@ class DelegateTest extends ApiTestCase
         $id = $this->delegate();
         $v = $this->variantOf('Khamrah'); // 14 in the shop
 
-        // the van is loaded from the shop first: 14 on the shelf becomes 9 there and 5 in the van
+        // he is given 5 of his own: the shop keeps its 14
         $this->api('POST', "delegates/$id/load", ['items' => [['variantId' => $v->id, 'qty' => 5]]])->assertOk();
-        $this->assertSame([9, 5], [$this->stockOf($v), $this->vanOf($v, $id)]);
+        $this->assertSame([14, 5], [$this->stockOf($v), $this->vanOf($v, $id)]);
 
         $this->asDelegate($id);
         $sale = $this->delegateSale($id, $v, 3, $v->wholesale_iqd);
@@ -128,7 +153,7 @@ class DelegateTest extends ApiTestCase
         $this->assertSame(['ok', []], [$r[0]['status'], $r[0]['flags']]); // wholesale is a valid list price for a delegate
 
         // the van paid for it, and the shop's shelf never moved
-        $this->assertSame([9, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
+        $this->assertSame([14, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
         $stored = Sale::find($sale['id']);
         $this->assertSame(['delegate', 'van:'.$id, 'IQD'], [$stored->channel, $stored->location_id, $stored->currency]);
 
@@ -136,12 +161,12 @@ class DelegateTest extends ApiTestCase
         $over = $this->delegateSale($id, $v, 5, $v->wholesale_iqd);
         $r = $this->push([['entity' => 'sale', 'id' => $over['id'], 'data' => $over]]);
         $this->assertContains('negative_stock', $r[0]['flags']);
-        $this->assertSame([9, -3], [$this->stockOf($v), $this->vanOf($v, $id)], 'the van goes short, never the shop');
+        $this->assertSame([14, -3], [$this->stockOf($v), $this->vanOf($v, $id)], 'the van goes short, never the shop');
 
         // voiding it puts the bottles back in the van it left
         $this->asOwner();
         $this->api('POST', "sales/{$over['id']}/void", ['reason' => 'wrong customer'])->assertOk();
-        $this->assertSame([9, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
+        $this->assertSame([14, 2], [$this->stockOf($v), $this->vanOf($v, $id)]);
     }
 
     public function test_a_delegates_phone_carries_its_own_van_and_a_till_carries_the_shop(): void
@@ -158,12 +183,12 @@ class DelegateTest extends ApiTestCase
 
         // the same delegate at a till asks for the shop and gets it
         $sameUserAtTill = collect($this->api('GET', 'sync/pull')->assertOk()->json('products'))->firstWhere('id', $v->product_id);
-        $this->assertSame(9, collect($sameUserAtTill['variants'])->firstWhere('id', $v->id)['stock']);
+        $this->assertSame(14, collect($sameUserAtTill['variants'])->firstWhere('id', $v->id)['stock']); // his 5 never left the shelf
 
         // and at the till it is the shop's shelf
         $this->asOwner();
         $atTill = collect($this->api('GET', 'sync/pull')->assertOk()->json('products'))->firstWhere('id', $v->product_id);
-        $this->assertSame(9, collect($atTill['variants'])->firstWhere('id', $v->id)['stock'], 'the till sees the shop');
+        $this->assertSame(14, collect($atTill['variants'])->firstWhere('id', $v->id)['stock'], 'the till sees the shop');
     }
 
     public function test_a_dollar_bill_uses_dollar_prices_and_keeps_where_it_was_sold(): void

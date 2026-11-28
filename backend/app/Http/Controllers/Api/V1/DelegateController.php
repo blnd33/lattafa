@@ -24,7 +24,8 @@ class DelegateController extends Controller
 
     public function van(Request $r, string $id): JsonResponse
     {
-        return response()->json(['items' => $this->delegates->vanStock($r->user(), $id)]);
+        // ?all=1: every perfume on sale, the ones he does not carry at 0
+        return response()->json(['items' => $this->delegates->vanStock($r->user(), $id, $r->boolean('all'))]);
     }
 
     /** Everything one delegate did over a stretch of days — sales, collections, what is owed, shops, perfumes. */
@@ -63,9 +64,10 @@ class DelegateController extends Controller
 
     public function unload(Request $r, string $id): JsonResponse
     {
-        $d = $r->validate(self::ITEMS);
+        $d = $r->validate(self::ITEMS + ['toShop' => ['nullable', 'boolean']]);
 
-        return response()->json($this->delegates->unload($r->user(), $id, $d['items'], $d['note'] ?? ''));
+        // toShop: the bottles go back on the shop's shelf; without it they only come off his stock
+        return response()->json($this->delegates->unload($r->user(), $id, $d['items'], $d['note'] ?? '', (bool) ($d['toShop'] ?? false)));
     }
 
     public function requests(Request $r): JsonResponse

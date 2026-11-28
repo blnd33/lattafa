@@ -47,6 +47,16 @@ describe('selling from the shop’s stock', () => {
     expect((await shopItems()).map((r) => [r.variant.id, r.qty])).toEqual([['v-kh', 5]])
   })
 
+  it('every perfume in Products is in his list — what he carries first, the rest at 0', async () => {
+    // a new perfume added in Products, which he has none of, and a size of one he never carried
+    await ddb.products.put({ ...product, id: 'p-asad', name: { en: 'Asad', ar: 'أسد', ku: 'ئەسەد' } })
+    await ddb.variants.put({ ...variant, id: 'v-asad', productId: 'p-asad', sku: 'LTF-ASAD-100' })
+    await ddb.variants.put({ ...variant, id: 'v-kh-50', label: '50 ml', ml: 50, sku: 'LTF-KHAM-50' })
+    // a tester is never sold, so it is not listed
+    await ddb.variants.put({ ...variant, id: 'v-kh-t', sku: 'LTF-KHAM-T', isTester: true })
+    expect((await shopItems()).map((r) => [r.variant.id, r.qty])).toEqual([['v-kh', 5], ['v-asad', 0], ['v-kh-50', 0]])
+  })
+
   it('a cash sale at wholesale takes bottles out of the shop’s stock and queues the sale', async () => {
     const s = await completeSale(cart())
     expect(s).toMatchObject({ number: 'DL1-000001', channel: 'delegate', totalIQD: 72000, paidIQD: 72000, dueIQD: 0, customerId: 'c-noor' })

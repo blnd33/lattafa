@@ -68,7 +68,9 @@ export function SellScreen() {
     }
   }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const shown = items.filter(({ product: p, variant: v }) => {
+  const shown = items.filter(({ product: p, variant: v, qty }) => {
+    // only what he can sell: every perfume is in his list, but a bill is made from his own stock
+    if (qty <= 0 && !cart.lines.some((l) => l.variantId === v.id)) return false
     if ((f === 'men' || f === 'women' || f === 'unisex') && p.gender !== f) return false
     if (f === 'oud' && p.category !== 'oud' && !p.scentFamilies.includes('oud')) return false
     const s = q.trim().toLowerCase()
