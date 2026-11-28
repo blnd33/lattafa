@@ -170,7 +170,7 @@ export function CustomerDetail({ customer, onClose, onEdit }: { customer: Custom
   )
 }
 
-function CollectModal({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
+export function CollectModal({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const t = useT()
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<PaymentMethod>('cash_iqd')

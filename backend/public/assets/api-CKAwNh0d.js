@@ -1,0 +1,1 @@
+import{m as e}from"./Controls-SGEYCrwI.js";var t=[`today`,`week`,`month`,`quarter`],n=[`age0`,`age31`,`age61`,`age91`],r=t=>e(`GET`,`/debts?period=${t}`);export{t as n,r,n as t};

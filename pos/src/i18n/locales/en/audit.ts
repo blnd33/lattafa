@@ -45,6 +45,7 @@ export const audit: Record<string, string> = {
   'act.delegate.request_cancel': 'Stock request cancelled',
   'act.delegate.closing_submit': 'Daily closing sent',
   'act.delegate.closing_approve': 'Daily closing approved',
+  'act.delegate.cash_received': 'Cash received from a delegate',
   'act.delegate.closing_reject': 'Daily closing rejected',
   'act.delegate.commission': 'Commission changed',
   'act.sales.cost_fixed': 'Cost of past sales fixed',

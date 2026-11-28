@@ -1,22 +1,24 @@
 import { useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, PackageOpen, PackageX, Plus, RefreshCw, Truck, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, Check, CheckCircle2, ChevronRight, ClipboardCheck, HandCoins, PackageOpen, PackageX, Plus, RefreshCw, Truck, Wallet } from 'lucide-react'
 import { RequireAny } from '@/features/NoAccess'
 import { Amt, UsdAmt } from '@/components/ui/Amt'
 import { ProductImage } from '@/components/ui/Brand'
-import { IconButton } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
+import { Modal, useConfirm } from '@/components/ui/Modal'
+import { useAction } from '@/hooks/queries'
 import { Avatar, Badge, Card, EmptyState, Segmented, Spinner } from '@/components/ui/Controls'
 import { cn } from '@/components/ui/cn'
 import { errorMessage, pick, useT } from '@/i18n'
 import { fmtDate, fmtTime } from '@/lib/date'
-import { fmt } from '@/lib/money'
+import { fmt, fmtUSD } from '@/lib/money'
 import { useCan } from '@/hooks/useAuth'
 import { useSession } from '@/store/session'
 import { useUI } from '@/store/ui'
 import { ago, change, freshness, greeting, longDate, plural } from '../lib'
 import { Money } from '../money'
-import { getDashboard, type Dashboard, type Period } from './api'
+import { getDashboard, receiveCash, type Dashboard, type Period, type WithDelegates } from './api'
 import { DELEGATE_BG, SalesChart, SplitRing, STORE_BG } from './charts'
 
 const FALLBACK_ART = { c1: '#E9CD8A', c2: '#B8892F', shape: 'rect' } as const
@@ -63,17 +65,33 @@ function Body({ d }: { d: Dashboard }) {
   const t = useT()
   const vs = t(`ap.vs_${d.period}`)
   const margin = d.totals.profitIQD !== null && d.totals.netIQD > 0 ? Math.round((d.totals.profitIQD / d.totals.netIQD) * 100) : null
+  const [cashOpen, setCashOpen] = useState(false)
+  const wd = d.withDelegates
   return (
     <>
       {/* the tiles wrap to fit any screen: one per row on a phone, up to five side by side on a wide one */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-4">
-        <Kpi dark label={t('ap.kpi_sales')} value={<Amt n={d.totals.revenueIQD} />} delta={change(d.totals.revenueIQD, d.previous.revenueIQD)} vs={vs}
-          sub={[t('ap.paid_now', { amount: fmt(d.totals.paidIQD) }), d.totals.refundsIQD > 0 ? t('ap.refunded', { amount: fmt(d.totals.refundsIQD) }) : null].filter(Boolean).join(' · ')} />
-        <Kpi label={t('ap.kpi_debt')} value={<Amt n={d.totals.creditIQD} className={d.totals.creditIQD > 0 ? 'text-danger' : undefined} />} delta={change(d.totals.creditIQD, d.previous.creditIQD)} vs={vs} upIsBad
-          sub={t('ap.debt_collected', { amount: fmt(d.totals.collectedIQD) })} to={d.debts ? '/debts' : undefined} />
+        {/* the headline is money that came in; what was sold on debt counts only once it is collected */}
+        <Kpi dark label={t('ap.kpi_received')} value={<Amt n={d.totals.receivedIQD} />} delta={change(d.totals.receivedIQD, d.previous.receivedIQD ?? 0)} vs={vs}
+          sub={[t('ap.sold_not_paid', { sold: fmt(d.totals.revenueIQD), due: fmt(d.totals.creditIQD) }),
+            d.totals.collectedIQD > 0 ? t('ap.received_debts', { amount: fmt(d.totals.collectedIQD) }) : null,
+            d.totals.refundsIQD > 0 ? t('ap.refunded', { amount: fmt(d.totals.refundsIQD) }) : null].filter(Boolean).join(' · ')} />
+        {d.debts ? (
+          <Kpi label={t('ap.kpi_outstanding')} value={<Amt n={d.debts.totalIQD} className={d.debts.totalIQD > 0 ? 'text-danger' : undefined} />} to="/debts"
+            sub={[t('ap.outstanding_new', { amount: fmt(d.totals.creditIQD) }), t('ap.debt_collected', { amount: fmt(d.totals.collectedIQD) })].join(' · ')} />
+        ) : (
+          <Kpi label={t('ap.kpi_debt')} value={<Amt n={d.totals.creditIQD} className={d.totals.creditIQD > 0 ? 'text-danger' : undefined} />} delta={change(d.totals.creditIQD, d.previous.creditIQD)} vs={vs} upIsBad
+            sub={t('ap.debt_collected', { amount: fmt(d.totals.collectedIQD) })} />
+        )}
+        {wd && (
+          <Kpi label={t('ap.kpi_with_delegates')} value={<Amt n={wd.totalIQD} className={wd.totalIQD > 0 ? 'text-warn-fg' : undefined} />} onClick={() => setCashOpen(true)}
+            sub={wd.delegates.length ? [wd.cashUSD > 0 ? t('ap.wd_mix', { iqd: fmt(wd.cashIQD), usd: fmtUSD(wd.cashUSD) }) : null, t('ap.wd_sub')].filter(Boolean).join(' · ') : t('ap.wd_all_in')} />
+        )}
         {d.financial && d.totals.profitIQD !== null && (
           <Kpi label={t('ap.kpi_profit')} value={<Amt n={d.totals.profitIQD} />} delta={change(d.totals.profitIQD, d.previous.profitIQD ?? 0)} vs={vs}
-            sub={[margin !== null ? t('ap.margin', { pct: margin }) : null, d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null,
+            sub={[margin !== null ? t('ap.margin', { pct: margin }) : null,
+              d.totals.creditProfitIQD ? t('ap.profit_on_debt', { amount: fmt(d.totals.creditProfitIQD) }) : null,
+              d.expensesIQD !== null ? t('ap.after_expenses', { amount: fmt(d.totals.profitIQD - d.expensesIQD) }) : null,
               d.totals.giftUnits ? t('ap.gifts_cost', { n: d.totals.giftUnits, amount: fmt(d.totals.giftsCostIQD ?? 0) }) : null].filter(Boolean).join(' · ') || undefined} />
         )}
         {d.expenses && (
@@ -84,6 +102,7 @@ function Body({ d }: { d: Dashboard }) {
           sub={t('ap.avg_bill', { amount: fmt(d.totals.avgBasketIQD) })} />
         <Kpi label={t('ap.kpi_units')} value={<span className="num">{fmt(d.totals.unitsSold)}</span>} sub={d.totals.giftUnits ? t('ap.gifts_given', { n: d.totals.giftUnits }) : undefined} />
       </div>
+      {wd && <CashWithDelegates open={cashOpen} onClose={() => setCashOpen(false)} wd={wd} />}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -125,15 +144,15 @@ function CardHead({ title, icon, to, className }: { title: string; icon?: ReactN
   )
 }
 
-/** One headline figure. `upIsBad`: a rise is shown in red (more sold on debt is not good news). `to`: the tile opens that screen. */
-function Kpi({ label, value, delta, vs, sub, dark, upIsBad, to }: { label: string; value: ReactNode; delta?: number | null; vs?: string; sub?: string; dark?: boolean; upIsBad?: boolean; to?: string }) {
+/** One headline figure. `upIsBad`: a rise is shown in red (more sold on debt is not good news). `to`: the tile opens that screen; `onClick`: it opens a window. */
+function Kpi({ label, value, delta, vs, sub, dark, upIsBad, to, onClick }: { label: string; value: ReactNode; delta?: number | null; vs?: string; sub?: string; dark?: boolean; upIsBad?: boolean; to?: string; onClick?: () => void }) {
   const t = useT()
   const up = (delta ?? 0) >= 0
   const good = upIsBad ? !up || delta === 0 : up
-  const box = cn('block min-w-0 rounded-2xl border p-4 shadow-soft sm:p-5', dark ? 'border-ink bg-gradient-to-br from-charcoal to-ink text-[#f6f0e4]' : 'border-line bg-surface', to && 'transition hover:border-gold')
+  const box = cn('block min-w-0 rounded-2xl border p-4 text-start shadow-soft sm:p-5', dark ? 'border-ink bg-gradient-to-br from-charcoal to-ink text-[#f6f0e4]' : 'border-line bg-surface', (to || onClick) && 'transition hover:border-gold')
   const body = (
     <>
-      <div className={cn('flex items-center justify-between gap-2 text-sm', dark ? 'text-[#cfc5b4]' : 'text-fg-2')}>{label}{to && <ChevronRight className="size-4 shrink-0 opacity-60 rtl:rotate-180" />}</div>
+      <div className={cn('flex items-center justify-between gap-2 text-sm', dark ? 'text-[#cfc5b4]' : 'text-fg-2')}>{label}{(to || onClick) && <ChevronRight className="size-4 shrink-0 opacity-60 rtl:rotate-180" />}</div>
       <div className={cn('mt-1.5 break-words font-serif text-2xl font-semibold leading-tight sm:text-3xl', dark && 'text-gold')}>{value}</div>
       {vs !== undefined && (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -153,7 +172,55 @@ function Kpi({ label, value, delta, vs, sub, dark, upIsBad, to }: { label: strin
       {sub && <div className={cn('mt-1 text-xs', dark ? 'text-[#b9ae9c]' : 'text-fg-2')}>{sub}</div>}
     </>
   )
+  if (onClick) return <button type="button" onClick={onClick} className={cn(box, 'flex w-full flex-col justify-start')}>{body}</button>
   return to ? <Link to={to} className={box}>{body}</Link> : <div className={box}>{body}</div>
+}
+
+/**
+ * The cash each delegate took (cash sales, debts they collected) that the shop has not received yet. "Received"
+ * approves their open days, so it leaves this list.
+ */
+function CashWithDelegates({ open, onClose, wd }: { open: boolean; onClose: () => void; wd: WithDelegates }) {
+  const t = useT()
+  const confirm = useConfirm()
+  const run = useAction(receiveCash, { success: 'ap.wd_received_ok' })
+  const [busy, setBusy] = useState<string | null>(null)
+  const amountOf = (r: WithDelegates['delegates'][number]) => [r.cashIQD ? `${fmt(r.cashIQD)} IQD` : null, r.cashUSD ? `$${fmtUSD(r.cashUSD)}` : null].filter(Boolean).join(' + ') || '0 IQD'
+  const receive = async (r: WithDelegates['delegates'][number]) => {
+    if (!(await confirm({ title: t('ap.wd_confirm_title', { name: r.name }), message: t('ap.wd_confirm_msg', { name: r.name, amount: amountOf(r) }), confirmLabel: t('ap.wd_received') }))) return
+    setBusy(r.id)
+    await run(r.id)
+    setBusy(null)
+  }
+  return (
+    <Modal open={open} onClose={onClose} title={t('ap.wd_title')} size="lg"
+      footer={<div className="flex flex-wrap items-center justify-between gap-3"><span className="text-sm text-fg-2">{t('ap.wd_total')} <Amt n={wd.totalIQD} className="font-bold" /></span><Link to="/delegates" className="text-sm font-semibold text-gold-text underline">{t('ap.wd_open')}</Link></div>}>
+      <div className="space-y-4">
+        <p className="rounded-xl bg-surface-2 p-3 text-sm text-fg-2">{t('ap.wd_hint')}</p>
+        {!wd.delegates.length ? <EmptyState title={t('ap.wd_none')} className="py-8" /> : (
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
+            {wd.delegates.map((r) => {
+              const since = fmtDate(new Date(`${r.oldestDay}T12:00:00`).getTime())
+              return (
+                <li key={r.id} className="flex flex-wrap items-center gap-3 p-3 sm:p-4">
+                  <Avatar name={r.name} color={r.color ?? '#D4A548'} size={40} />
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className="truncate font-semibold">{r.name}</p>
+                    <p className="text-xs text-fg-2">{r.days === 1 ? t('ap.wd_day_1', { date: since }) : t('ap.wd_day_n', { n: r.days, date: since })}</p>
+                  </div>
+                  <div className="text-end">
+                    <Amt n={r.cashIQD} className="font-semibold" />
+                    {r.cashUSD > 0 && <div className="text-sm font-semibold"><UsdAmt n={r.cashUSD} /></div>}
+                  </div>
+                  <Button variant="primary" icon={<Check className="size-5" />} loading={busy === r.id} disabled={!!busy} onClick={() => void receive(r)}>{t('ap.wd_received')}</Button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </Modal>
+  )
 }
 
 function TopProducts({ d }: { d: Dashboard }) {

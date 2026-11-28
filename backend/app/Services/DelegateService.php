@@ -610,6 +610,111 @@ class DelegateService
         });
     }
 
+    /**
+     * Cash the delegates took (cash sales and cash debt collections, less cash refunds) that the shop has not yet
+     * accepted. A day is handed over when its closing is approved; anything a delegate took on that day after the
+     * approval is still with them. Dinars and dollars are kept apart, as in the closing.
+     *
+     * @param  string[]|null  $only  delegate ids (null: every active delegate)
+     * @return array<string, array{cashIQD: int, cashUSD: float, days: array<string, array{cashIQD: int, cashUSD: float}>}>
+     */
+    public function cashHeld(?array $only = null): array
+    {
+        $ids = $only ?? User::with('role')->where('active', true)->get()->filter(fn (User $u) => self::isDelegate($u))->pluck('id')->all();
+        if (! $ids) {
+            return [];
+        }
+        $closings = DelegateClosing::whereIn('user_id', $ids)->get(['user_id', 'day', 'status', 'expenses_iqd', 'reviewed_at'])->groupBy('user_id')
+            ->map(fn ($c) => $c->keyBy('day'));
+        $held = [];
+        $add = function (string $user, int $at, int $iqd, float $usd) use (&$held, $closings) {
+            $day = Time::at($at)->format('Y-m-d');
+            $c = $closings[$user][$day] ?? null;
+            if ($c && $c->status === 'approved' && $at <= (int) $c->reviewed_at) {
+                return; // handed over
+            }
+            $held[$user]['days'][$day]['cashIQD'] = ($held[$user]['days'][$day]['cashIQD'] ?? 0) + $iqd;
+            $held[$user]['days'][$day]['cashUSD'] = round(($held[$user]['days'][$day]['cashUSD'] ?? 0) + $usd, 2);
+        };
+
+        $payments = DB::table('sale_payments')->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.channel', 'delegate')->where('sales.status', '!=', 'voided')->whereIn('sales.user_id', $ids)
+            ->whereIn('sale_payments.method', ['cash_iqd', 'cash_usd'])
+            ->select('sales.user_id', 'sales.sold_at', 'sale_payments.method', 'sale_payments.amount_iqd', 'sale_payments.tendered');
+        foreach ($payments->cursor() as $p) {
+            $add($p->user_id, (int) $p->sold_at, $p->method === 'cash_iqd' ? (int) $p->amount_iqd : 0, $p->method === 'cash_usd' ? (float) $p->tendered : 0.0);
+        }
+        foreach (DB::table('collections')->whereIn('user_id', $ids)->whereIn('method', ['cash_iqd', 'cash_usd'])->select('user_id', 'occurred_at', 'method', 'amount_iqd', 'tendered')->cursor() as $c) {
+            $add($c->user_id, (int) $c->occurred_at, $c->method === 'cash_iqd' ? (int) $c->amount_iqd : 0, $c->method === 'cash_usd' ? (float) $c->tendered : 0.0);
+        }
+        foreach (DB::table('returns')->whereIn('user_id', $ids)->where('refund_method', 'cash_iqd')->select('user_id', 'occurred_at', 'refund_iqd')->cursor() as $r) {
+            $add($r->user_id, (int) $r->occurred_at, -(int) $r->refund_iqd, 0.0);
+        }
+        // a closing sent but not yet approved: the road expenses it lists were paid out of that cash
+        foreach ($closings as $user => $days) {
+            foreach ($days as $day => $c) {
+                if ($c->status === 'submitted' && (int) $c->expenses_iqd > 0 && isset($held[$user]['days'][$day])) {
+                    $held[$user]['days'][$day]['cashIQD'] -= (int) $c->expenses_iqd;
+                }
+            }
+        }
+
+        foreach ($held as $user => &$h) {
+            $h['days'] = array_filter($h['days'], fn ($d) => $d['cashIQD'] !== 0 || $d['cashUSD'] != 0);
+            ksort($h['days']);
+            $h['cashIQD'] = (int) array_sum(array_column($h['days'], 'cashIQD'));
+            $h['cashUSD'] = round(array_sum(array_column($h['days'], 'cashUSD')), 2);
+        }
+        unset($h);
+
+        return array_filter($held, fn ($h) => $h['days']);
+    }
+
+    /**
+     * The shop received a delegate's cash: every day still open is handed over. A closing the delegate sent is
+     * approved; a day they never closed gets a closing written from the figures (counted = expected); a day closed
+     * earlier that has taken more cash since is approved again as of now.
+     *
+     * @return array{days: string[], cashIQD: int, cashUSD: float}
+     */
+    public function receiveCash(User $actor, string $delegateId, string $note = ''): array
+    {
+        $this->need($actor, 'delegates.manage');
+        $delegate = $this->delegateOrFail($delegateId);
+        $held = $this->cashHeld([$delegate->id])[$delegate->id] ?? null;
+        if (! $held) {
+            throw new AppException('nothing_to_receive', [], 422);
+        }
+        $now = Time::nowMs();
+        DB::transaction(function () use ($actor, $delegate, $held, $now, $note) {
+            foreach (array_keys($held['days']) as $day) {
+                $day = (string) $day;
+                $c = DelegateClosing::where('user_id', $delegate->id)->where('day', $day)->lockForUpdate()->first();
+                $review = ['status' => 'approved', 'reviewed_by' => $actor->id, 'reviewed_at' => $now, 'review_note' => trim($note)];
+                if ($c) {
+                    $c->update($review);
+
+                    continue;
+                }
+                $f = $this->figures($delegate, $day);
+                $expected = $f['expectedCashBeforeExpensesIQD'];
+                DelegateClosing::create($review + [
+                    'id' => (string) Str::uuid7(), 'user_id' => $delegate->id, 'user_name' => $delegate->name, 'day' => $day,
+                    'sales_count' => $f['salesCount'], 'sales_iqd' => $f['salesIQD'], 'cash_sales_iqd' => $f['cashSalesIQD'],
+                    'credit_sales_iqd' => $f['creditSalesIQD'], 'collections_iqd' => $f['collectionsIQD'], 'expenses_iqd' => 0,
+                    'expected_cash_iqd' => $expected, 'counted_cash_iqd' => $expected, 'variance_iqd' => 0, 'van_units' => $f['vanUnits'],
+                    'cash_sales_usd' => $f['cashSalesUSD'], 'collections_usd' => $f['collectionsUSD'], 'expected_cash_usd' => $f['expectedCashUSD'],
+                    'counted_cash_usd' => $f['expectedCashUSD'], 'variance_usd' => 0, 'visits' => $f['visits'],
+                    'note' => 'Received by '.$actor->name, 'occurred_at' => $now,
+                ]);
+            }
+            $this->audit->log($actor, 'delegate.cash_received', 'user', $delegate->id,
+                ['delegate' => $delegate->name, 'days' => array_keys($held['days']), 'cashIQD' => $held['cashIQD'], 'cashUSD' => $held['cashUSD']]);
+        });
+
+        return ['days' => array_map('strval', array_keys($held['days'])), 'cashIQD' => $held['cashIQD'], 'cashUSD' => $held['cashUSD']];
+    }
+
     public function closings(User $actor, ?string $status = null, ?string $delegateId = null)
     {
         $all = $actor->can('delegates.manage');

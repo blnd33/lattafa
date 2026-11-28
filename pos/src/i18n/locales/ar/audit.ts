@@ -45,6 +45,7 @@ export const audit: Record<string, string> = {
   'act.delegate.request_cancel': 'إلغاء طلب مخزون',
   'act.delegate.closing_submit': 'إرسال الإغلاق اليومي',
   'act.delegate.closing_approve': 'اعتماد الإغلاق اليومي',
+  'act.delegate.cash_received': 'استلام النقد من مندوب',
   'act.delegate.closing_reject': 'رفض الإغلاق اليومي',
   'act.delegate.commission': 'تغيير العمولة',
   'act.sales.cost_fixed': 'تصحيح تكلفة مبيعات سابقة',

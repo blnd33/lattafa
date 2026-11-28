@@ -67,6 +67,7 @@ export const errors: Dict = {
   'err.invalid_day': 'That date is not valid.',
   'err.closing_already_approved': 'This day is already closed and approved.',
   'err.closing_not_pending': 'This closing is not waiting for approval.',
+  'err.nothing_to_receive': 'There is nothing to receive from this delegate.',
   'err.not_a_delegate': 'This account does not sell from a van.',
   'err.offline_first_login': 'No internet, and this person has not signed in on this device before. Sign in once while online.',
   'err.device_not_registered': 'This device could not be identified. Reload the page and try again.',

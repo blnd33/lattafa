@@ -45,6 +45,7 @@ export const audit: Record<string, string> = {
   'act.delegate.request_cancel': 'داواکاری کاڵا هەڵوەشایەوە',
   'act.delegate.closing_submit': 'داخستنی ڕۆژانە نێردرا',
   'act.delegate.closing_approve': 'داخستنی ڕۆژانە پەسەند کرا',
+  'act.delegate.cash_received': 'پارە لە نوێنەر وەرگیرا',
   'act.delegate.closing_reject': 'داخستنی ڕۆژانە ڕەتکرایەوە',
   'act.delegate.commission': 'کۆمیشن گۆڕدرا',
   'act.sales.cost_fixed': 'تێچووی فرۆشتنە کۆنەکان چاک کرا',

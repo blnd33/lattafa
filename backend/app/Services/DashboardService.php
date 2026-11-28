@@ -24,7 +24,7 @@ class DashboardService
 
     private const DAY_MS = 86_400_000;
 
-    public function __construct(private StockService $stock, private ExpenseService $expenses, private PurchasingService $purchasing, private SettingsService $settings) {}
+    public function __construct(private StockService $stock, private ExpenseService $expenses, private PurchasingService $purchasing, private SettingsService $settings, private DelegateService $delegateService) {}
 
     /** @return array<string, mixed> */
     public function get(User $actor, string $period): array
@@ -44,13 +44,15 @@ class DashboardService
         return [
             'period' => $period, 'from' => $from, 'to' => $now, 'financial' => $financial,
             'totals' => $totals,
-            'previous' => array_intersect_key($previous, array_flip(['count', 'revenueIQD', 'netIQD', 'profitIQD', 'creditIQD', 'paidIQD', 'collectedIQD'])),
+            'previous' => array_intersect_key($previous, array_flip(['count', 'revenueIQD', 'netIQD', 'profitIQD', 'creditIQD', 'paidIQD', 'collectedIQD', 'receivedIQD'])),
             'channels' => $totals['channels'],
             'series' => $this->series($from, $now, $period === 'today' ? 'hour' : 'day'),
             'topProducts' => $this->topProducts($from, $now),
             'lowStock' => $actor->can('inventory.view') ? $this->lowStock() : null,
             'delegates' => $actor->can('delegates.manage') ? $this->delegates($from, $now) : null,
             'debts' => $actor->can('customers.view') ? $this->debts() : null,
+            // cash the delegates took that the shop has not accepted yet
+            'withDelegates' => $actor->can('delegates.manage') ? $this->withDelegates() : null,
             // what running the shop cost in the window (shop expenses + delegates' approved road expenses)
             'expensesIQD' => $actor->can('expenses.view') ? $this->expenses->totalIQD($from, $now) + $this->expenses->delegateExpenses($from, $now) : null,
             'expenses' => $actor->can('expenses.view') ? $this->expenses->summary($from, $now) : null,
@@ -92,6 +94,7 @@ class DashboardService
                 coalesce(sum(case when sale_items.is_gift then sale_items.unit_cost_iqd * sale_items.qty else 0 end), 0) as gift_cost')->first();
         $net = $revenue - $refunds;
         $profit = null;
+        $creditProfit = null;
         if ($financial) {
             // what the returned bottles had cost comes back off the cost of goods
             $returnedCost = (int) DB::table('return_items')
@@ -100,16 +103,30 @@ class DashboardService
                 ->whereBetween('returns.occurred_at', [$from, $to])
                 ->selectRaw('coalesce(sum(sale_items.unit_cost_iqd * return_items.qty), 0) as c')->value('c');
             $profit = $net - ((int) $items->cost - $returnedCost);
+            // the part of that profit made on bills left on a customer's account: each bill's profit × its unpaid share
+            $creditProfit = 0;
+            $onDebt = $this->sales($from, $to)->where('sales.due_iqd', '>', 0)->where('sales.total_iqd', '>', 0)
+                ->join('sale_items', 'sale_items.sale_id', '=', 'sales.id')
+                ->groupBy('sales.id', 'sales.total_iqd', 'sales.due_iqd')
+                ->selectRaw('sales.total_iqd as total, sales.due_iqd as due, coalesce(sum(sale_items.unit_cost_iqd * sale_items.qty), 0) as cost')->get();
+            foreach ($onDebt as $b) {
+                $creditProfit += ((int) $b->total - (int) $b->cost) * min(1, (int) $b->due / (int) $b->total);
+            }
+            $creditProfit = (int) round($creditProfit);
         }
+
+        $collected = (int) DB::table('collections')->whereBetween('occurred_at', [$from, $to])->sum('amount_iqd');
 
         return [
             'count' => $count, 'revenueIQD' => $revenue, 'refundsIQD' => $refunds, 'netIQD' => $net,
+            // money that actually came in: what was paid on the bills, plus old debts paid back
+            'receivedIQD' => $revenue - $credit + $collected,
             // of the sales, what was left on the customer's account (debt) and what was paid at the counter
             'creditIQD' => $credit, 'paidIQD' => $revenue - $credit,
             // old debts customers paid back in the window: money in, but not a sale
-            'collectedIQD' => (int) DB::table('collections')->whereBetween('occurred_at', [$from, $to])->sum('amount_iqd'),
+            'collectedIQD' => $collected,
             'unitsSold' => (int) $items->units, 'avgBasketIQD' => $count ? (int) round($revenue / $count) : 0,
-            'profitIQD' => $profit, 'channels' => $channels,
+            'profitIQD' => $profit, 'creditProfitIQD' => $creditProfit, 'channels' => $channels,
             // perfumes given as gifts: how many, and what they cost the shop (already taken off the profit)
             'giftUnits' => (int) $items->gift_units, 'giftsCostIQD' => $financial ? (int) $items->gift_cost : null,
         ];
@@ -207,6 +224,21 @@ class DashboardService
             'totalIQD' => \App\Support\Money::iqd($byCurrency['USD'], 'USD', $rate) + intdiv($byCurrency['IQD'], 100), 'rate' => $rate,
             'suppliers' => count($owed), 'top' => $top,
         ];
+    }
+
+    /** @return array{totalIQD: int, cashIQD: int, cashUSD: float, rate: int, delegates: array<int, array<string, mixed>>} */
+    private function withDelegates(): array
+    {
+        $rate = (int) $this->settings->get()['currency']['rate'];
+        $held = $this->delegateService->cashHeld();
+        $people = User::whereIn('id', array_keys($held))->get()->keyBy('id');
+        $rows = collect($held)->map(fn ($h, $id) => [
+            'id' => (string) $id, 'name' => $people[$id]->name ?? '', 'color' => $people[$id]->color ?? null,
+            'cashIQD' => $h['cashIQD'], 'cashUSD' => $h['cashUSD'], 'valueIQD' => $h['cashIQD'] + (int) round($h['cashUSD'] * $rate),
+            'days' => count($h['days']), 'oldestDay' => (string) array_key_first($h['days']),
+        ])->sortByDesc('valueIQD')->values();
+
+        return ['totalIQD' => (int) $rows->sum('valueIQD'), 'cashIQD' => (int) $rows->sum('cashIQD'), 'cashUSD' => round((float) $rows->sum('cashUSD'), 2), 'rate' => $rate, 'delegates' => $rows->all()];
     }
 
     private function debts(): array

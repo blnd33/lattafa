@@ -160,6 +160,14 @@ class DelegateController extends Controller
         return response()->json(['closing' => Present::closing($this->delegates->reviewClosing($r->user(), $id, true, $d['note'] ?? ''))]);
     }
 
+    /** The shop received a delegate's cash: every open day is handed over. */
+    public function receiveCash(Request $r, string $id): JsonResponse
+    {
+        $d = $r->validate(['note' => ['nullable', 'string', 'max:500']]);
+
+        return response()->json($this->delegates->receiveCash($r->user(), $id, $d['note'] ?? ''));
+    }
+
     public function rejectClosing(Request $r, string $id): JsonResponse
     {
         $d = $r->validate(['note' => ['required', 'string', 'max:500']]);

@@ -87,8 +87,8 @@ function debts(period: Debts['period']): Debts {
 function dashboard(period: Dashboard['period']): Dashboard {
   return {
     period, from: now - 3_600_000, to: now, financial: true,
-    totals: { count: 12, revenueIQD: 1_250_000, refundsIQD: 0, netIQD: 1_250_000, unitsSold: 19, avgBasketIQD: 104_167, profitIQD: 410_000, creditIQD: 230_000, paidIQD: 1_020_000, collectedIQD: 75_000 },
-    previous: { count: 8, revenueIQD: 1_000_000, netIQD: 1_000_000, profitIQD: 0, creditIQD: 115_000, paidIQD: 885_000, collectedIQD: 0 },
+    totals: { count: 12, revenueIQD: 1_250_000, refundsIQD: 0, netIQD: 1_250_000, unitsSold: 19, avgBasketIQD: 104_167, profitIQD: 410_000, creditIQD: 230_000, paidIQD: 1_020_000, collectedIQD: 75_000, receivedIQD: 1_095_000, creditProfitIQD: 80_000 },
+    previous: { count: 8, revenueIQD: 1_000_000, netIQD: 1_000_000, profitIQD: 0, creditIQD: 115_000, paidIQD: 885_000, collectedIQD: 0, receivedIQD: 876_000 },
     channels: { store: { count: 9, revenueIQD: 950_000 }, delegate: { count: 3, revenueIQD: 300_000 } },
     series: period === 'today'
       ? { unit: 'hour', points: Array.from({ length: 15 }, (_, h) => ({ key: String(h), storeIQD: h === 10 ? 950_000 : 0, delegateIQD: h === 12 ? 300_000 : 0, count: 0 })) }
@@ -97,6 +97,9 @@ function dashboard(period: Dashboard['period']): Dashboard {
     lowStock: { count: 1, items: [{ variantId: 'v1', name: { en: 'Asad', ar: 'أسد', ku: 'ئەسەد' }, label: '100 ml', sku: 'AS-100', qty: 0, minStock: 3 }] },
     delegates: [{ id: 'u-ahmed', name: 'Ahmed', color: '#7A9', salesIQD: 300_000, salesCount: 3, collectedIQD: 50_000, lastSeenAt: now - 60_000 }],
     debts: { totalIQD: 640_000, customers: 2, top: [{ id: 'c1', name: 'Noor Shop', phone: '0750 000 0000', balanceIQD: 500_000 }] },
+    withDelegates: cashReceived
+      ? { totalIQD: 0, cashIQD: 0, cashUSD: 0, rate: 1460, delegates: [] }
+      : { totalIQD: 193_000, cashIQD: 120_000, cashUSD: 50, rate: 1460, delegates: [{ id: 'u-ahmed', name: 'Ahmed', color: '#7A9', cashIQD: 120_000, cashUSD: 50, valueIQD: 193_000, days: 2, oldestDay: '2026-10-08' }] },
     expensesIQD: 150_000,
     expenses: {
       totalIQD: 135_000, count: 2, delegateIQD: 15_000,
@@ -110,6 +113,7 @@ function dashboard(period: Dashboard['period']): Dashboard {
 }
 
 let calls: { method: string; path: string; body: unknown; headers: Record<string, string> }[] = []
+let cashReceived = false
 let reviewed = false
 let assistantKey = false
 const flagged = {
@@ -127,6 +131,7 @@ beforeEach(async () => {
   setServerMode(true)
   window.location.hash = ''
   calls = []
+  cashReceived = false
   reviewed = false
   assistantKey = false
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
@@ -167,6 +172,7 @@ beforeEach(async () => {
       ]
       return new Response(lines.map((l) => JSON.stringify(l)).join('\n') + '\n', { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } })
     }
+    if (path === '/delegates/u-ahmed/receive-cash') { cashReceived = true; return json(200, { days: ['2026-10-08', '2026-10-09'], cashIQD: 120_000, cashUSD: 50 }) }
     const m = /^\/dashboard\?period=(\w+)$/.exec(path)
     if (m) return json(200, dashboard(m[1] as Dashboard['period']))
     if (path.startsWith('/expenses?')) {
@@ -201,7 +207,9 @@ describe('Admin panel', () => {
     expect(login.headers['X-Device-Id']).toBeUndefined()             // no till identity is sent
     expect(await db.creds.get(owner.id)).toMatchObject({ passwordHash: null, pinHash: null }) // nothing derived from the password stays here
 
-    expect(await screen.findByText('1,250,000', {}, wait)).toBeInTheDocument()   // sales
+    // the headline is money that came in: paid on the bills plus old debt paid back; what went on debt waits
+    expect(await screen.findByText('1,095,000', {}, wait)).toBeInTheDocument()
+    expect(screen.getByText('Sold 1,250,000 · 230,000 not paid yet · incl. 75,000 of old debt')).toBeInTheDocument()
     expect(screen.getByText('410,000')).toBeInTheDocument()                     // profit
     expect(screen.getByText('25%')).toBeInTheDocument()                         // +25% vs before
     expect(screen.getByText('Khamrah')).toBeInTheDocument()
@@ -213,18 +221,29 @@ describe('Admin panel', () => {
     expect(screen.getByText('0 left · alert at 3')).toBeInTheDocument()
     expect(screen.getByText('Noor Shop')).toBeInTheDocument()
     expect(screen.getByText('Dubai Perfume House')).toBeInTheDocument()                  // owed to suppliers
-    // debt is kept apart from the sales: what was paid, what went on the customer's account, and old debt paid back
-    expect(screen.getByText('1,020,000 paid')).toBeInTheDocument()
-    expect(screen.getByText('Sold on debt').closest('a')).toHaveAttribute('href', '#/debts')
-    expect(screen.getByText('230,000')).toBeInTheDocument()
-    expect(screen.getByText('75,000 of old debt collected')).toBeInTheDocument()
-    expect(screen.getByText('33% of sales · 260,000 after expenses')).toBeInTheDocument() // profit 410,000 − expenses 150,000
+    // everything still owed, opening the debts to collect it
+    expect(screen.getByText('Not collected yet').closest('a')).toHaveAttribute('href', '#/debts')
+    expect(screen.getByText('Not collected yet').closest('a')).toHaveTextContent('640,000')
+    expect(screen.getByText('+230,000 new · 75,000 of old debt collected')).toBeInTheDocument()
+    expect(screen.getByText('33% of sales · 80,000 of it not paid yet · 260,000 after expenses')).toBeInTheDocument() // profit 410,000 − expenses 150,000
+    // cash the delegates still hold, until the shop receives it
+    expect(screen.getByText('120,000 IQD + $50.00 · not handed over yet')).toBeInTheDocument()
+    await user.click(screen.getByText('With delegates'))
+    const cash = await screen.findByRole('dialog', {}, wait)
+    expect(within(cash).getByText(/^2 days not handed over · since /)).toBeInTheDocument()
+    await user.click(within(cash).getByRole('button', { name: 'Received' }))
+    const ask = await screen.findByRole('dialog', { name: 'Received from Ahmed?' }, wait)
+    await user.click(within(ask).getByRole('button', { name: 'Received' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/delegates/u-ahmed/receive-cash')).toBe(true), wait)
+    expect(await screen.findByText('No cash is waiting with the delegates.', {}, wait)).toBeInTheDocument()
+    expect(screen.getByText('Everything handed over')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
     expect(screen.getByText('Orders waiting to arrive').closest('a')).toHaveAttribute('href', '#/purchasing')
 
     // another period
     await user.click(screen.getByRole('button', { name: '7 days' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/dashboard?period=week')).toBe(true), wait)
-    expect(await screen.findAllByText('vs the 7 days before', {}, wait)).toHaveLength(3) // sales, debt and bills
+    expect(await screen.findAllByText('vs the 7 days before', {}, wait)).toHaveLength(2) // money received and bills
 
     // the POS's own screens, run against the server
     const nav = screen.getByRole('navigation', { name: 'Main' })

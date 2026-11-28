@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowDownLeft, ArrowUpRight, BarChart3, ClipboardList, HandCoins, RefreshCw, Scale, Users } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, BarChart3, Check, ClipboardList, HandCoins, RefreshCw, Scale, Users } from 'lucide-react'
 import { RequireAny } from '@/features/NoAccess'
-import { CustomerDetail, CustomerForm } from '@/features/customers/CustomersPage'
+import { CollectModal, CustomerDetail, CustomerForm } from '@/features/customers/CustomersPage'
 import { Amt, UsdAmt } from '@/components/ui/Amt'
-import { IconButton } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
 import { Badge, Card, EmptyState, PageHeader, Segmented, Spinner } from '@/components/ui/Controls'
 import { SearchInput } from '@/components/ui/Field'
 import { cn } from '@/components/ui/cn'
@@ -247,8 +247,11 @@ function Debtors({ rows }: { rows: NonNullable<Debts['receivable']>['rows'] }) {
   const [age, setAge] = useState<'all' | 'late'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState<Customer | null>(null)
+  const [collectId, setCollectId] = useState<string | null>(null)
+  const canCollect = useCan('customers.collect')
   const customers = useCustomers()
   const open = customers.data?.find((c) => c.id === openId) ?? null
+  const collecting = customers.data?.find((c) => c.id === collectId) ?? null
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     return rows.filter((r) => (age === 'all' || r.age61 + r.age91 > 0) && (!s || r.name.toLowerCase().includes(s) || r.phone.replace(/\s/g, '').includes(s.replace(/\s/g, ''))))
@@ -264,8 +267,8 @@ function Debtors({ rows }: { rows: NonNullable<Debts['receivable']>['rows'] }) {
           {list.map((r) => {
             const over = r.creditLimitIQD > 0 && r.balanceIQD > r.creditLimitIQD
             return (
-              <li key={r.id}>
-                <button type="button" onClick={() => setOpenId(r.id)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 text-start transition hover:bg-surface-2/60 active:bg-surface-2 sm:px-4">
+              <li key={r.id} className="flex items-center gap-2 pe-3 sm:pe-4">
+                <button type="button" onClick={() => setOpenId(r.id)} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 py-3 ps-3 text-start transition hover:bg-surface-2/60 active:bg-surface-2 sm:ps-4">
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-danger-bg text-danger-fg"><Users className="size-5" /></span>
                   <span className="min-w-0 flex-1 basis-40">
                     <span className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{r.name}</span>{over && <Badge tone="danger">{t('debt.over_limit')}</Badge>}</span>
@@ -280,6 +283,8 @@ function Debtors({ rows }: { rows: NonNullable<Debts['receivable']>['rows'] }) {
                   </span>
                   <AgeBar r={r} total={r.balanceIQD} />
                 </button>
+                {/* the money came in: record it, and it moves from "not collected" into the money received */}
+                {canCollect && <Button size="sm" variant="secondary" icon={<Check className="size-4" />} onClick={() => setCollectId(r.id)} disabled={customers.isLoading}>{t('debt.collected_btn')}</Button>}
               </li>
             )
           })}
@@ -287,6 +292,7 @@ function Debtors({ rows }: { rows: NonNullable<Debts['receivable']>['rows'] }) {
       )}
       <CustomerDetail customer={open} onClose={() => setOpenId(null)} onEdit={(c) => { setOpenId(null); setEditing(c) }} />
       <CustomerForm value={editing} onClose={() => setEditing(null)} />
+      <CollectModal customer={collecting} onClose={() => setCollectId(null)} />
     </Card>
   )
 }

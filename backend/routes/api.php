@@ -298,6 +298,7 @@ Route::middleware(['auth:sanctum', 'device'])->group(function () {
     Route::post('stock-requests/{id}/cancel', [DelegateController::class, 'cancelRequest']);
     Route::post('delegate-locations', [DelegateController::class, 'storeLocations'])->middleware('throttle:30,1');
     Route::get('delegates/{id}/locations', [DelegateController::class, 'locations']);
+    Route::post('delegates/{id}/receive-cash', [DelegateController::class, 'receiveCash']);
     Route::get('visits', [DelegateController::class, 'visits']);
     Route::post('visits', [DelegateController::class, 'createVisit']);
     Route::get('delegate-closings', [DelegateController::class, 'closings']);

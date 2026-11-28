@@ -116,6 +116,7 @@ export const core: Dict = {
   'err.invalid_day': 'التاريخ غير صالح.',
   'err.closing_already_approved': 'هذا اليوم مغلق ومعتمد مسبقاً.',
   'err.closing_not_pending': 'هذا الإغلاق ليس بانتظار الاعتماد.',
+  'err.nothing_to_receive': 'لا يوجد شيء لاستلامه من هذا المندوب.',
   'err.not_a_delegate': 'هذا الحساب لا يبيع من سيارة.',
   'err.offline_first_login': 'لا يوجد إنترنت، وهذا الشخص لم يسجّل الدخول على هذا الجهاز من قبل. سجّل الدخول مرة واحدة أثناء الاتصال.',
   'err.device_not_registered': 'تعذّر التعرّف على هذا الجهاز. أعد تحميل الصفحة وحاول مرة أخرى.',
