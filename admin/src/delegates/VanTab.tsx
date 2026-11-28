@@ -166,7 +166,8 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
   const units = lines.reduce((n, l) => n + (l.qty > 0 ? l.qty : 0), 0)
 
   return (
-    <Modal open onClose={onClose} size="lg" title={t(kind === 'load' ? 'dlg.load_title' : 'dlg.unload_title')} footer={<>
+    // wide, and tall enough that the search results open in full instead of being cut off after two or three
+    <Modal open onClose={onClose} size="xl" bodyClassName="min-h-[min(62dvh,560px)]" title={t(kind === 'load' ? 'dlg.load_title' : 'dlg.unload_title')} footer={<>
       <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
       <Button loading={busy} disabled={!units} onClick={() => void send()}>{t(kind === 'load' ? 'dlg.load_n' : 'dlg.unload_n', { n: units })}</Button>
     </>}>
@@ -176,9 +177,9 @@ function MoveStock({ delegateId, kind, inVan, onClose, onDone }: {
         {kind === 'load'
           // adding can reach for any perfume the shop sells, so it uses the same finder as a purchase order; the shop's
           // own count is not a limit, because his stock is his own
-          ? <VariantPicker onPick={(p: Picked) => add(p.variant.id, pick(p.product.name, lang), p.variant.label, null)} />
+          ? <VariantPicker tall onPick={(p: Picked) => add(p.variant.id, pick(p.product.name, lang), p.variant.label, null)} />
           : (
-            <ul className="max-h-48 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+            <ul className="max-h-[min(40dvh,360px)] divide-y divide-line overflow-y-auto rounded-xl border border-line">
               {inVan.map((r) => (
                 <li key={r.variantId}>
                   <button type="button" onClick={() => add(r.variantId, pick(r.name, lang), r.label, r.qty)}

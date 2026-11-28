@@ -1,1 +1,0 @@
-import{a as e}from"./middleware-BFybvEpn.js";import{k as t,s as n}from"./Controls-jWY1Ev16.js";import{t as r}from"./ActivityLog-SpyfiN9T.js";var i=e();function a(){let e=t();return(0,i.jsxs)(`div`,{className:`mx-auto max-w-6xl p-4 md:p-6`,children:[(0,i.jsx)(n,{title:e(`ap.nav_activity`),subtitle:e(`ap.activity_subtitle`)}),(0,i.jsx)(r,{})]})}export{a as ActivityPage};

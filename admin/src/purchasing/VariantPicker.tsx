@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ProductImage } from '@/components/ui/Brand'
 import { SearchInput } from '@/components/ui/Field'
+import { cn } from '@/components/ui/cn'
 import type { CatalogItem, CatalogVariant } from '@/services/catalog'
 import type { Product } from '@/data/types'
 import { useCatalog } from '@/hooks/queries'
@@ -9,8 +10,11 @@ import { useUI } from '@/store/ui'
 
 export interface Picked { product: Product; variant: CatalogVariant }
 
-/** Find a size by name (any language), brand, SKU or barcode. A scanned barcode adds it straight away. */
-export function VariantPicker({ onPick }: { onPick: (p: Picked) => void }) {
+/**
+ * Find a size by name (any language), brand, SKU or barcode. A scanned barcode adds it straight away.
+ * `tall`: the results may use more of the screen (a window with room under the search box).
+ */
+export function VariantPicker({ onPick, tall }: { onPick: (p: Picked) => void; tall?: boolean }) {
   const t = useT()
   const lang = useUI((s) => s.lang)
   const { data: catalog = [] } = useCatalog()
@@ -34,7 +38,7 @@ export function VariantPicker({ onPick }: { onPick: (p: Picked) => void }) {
           else if (hits.length === 1) take(hits[0])
         }} />
       {q.trim() && (
-        <ul role="listbox" aria-label={t('po.add_item')} className="absolute inset-x-0 top-full z-20 mt-1 max-h-80 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
+        <ul role="listbox" aria-label={t('po.add_item')} className={cn('absolute inset-x-0 top-full z-20 mt-1 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg', tall ? 'max-h-[min(48dvh,440px)]' : 'max-h-80')}>
           {!hits.length ? <li className="px-3 py-3 text-sm text-fg-2">{t('po.no_match')}</li> : hits.map((h) => (
             <li key={h.variant.id} role="option" aria-selected={false}>
               <button type="button" onClick={() => take(h)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-start hover:bg-surface-2">
